@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>籃球動力鏈聽覺回饋系統 (雛型)</title>
-    <!-- 引入 Tailwind CSS 進行快速排版 -->
+    <title>籃球動力鏈聽覺回饋系統 (濾波升級版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 MediaPipe Pose 相關函式庫 -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -21,6 +19,7 @@
             border-radius: 0.75rem;
             overflow: hidden;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: #000;
         }
         canvas {
             position: absolute;
@@ -30,7 +29,6 @@
             height: 100%;
             z-index: 10;
         }
-        /* 隱藏原始影片，只顯示畫了骨架的 Canvas */
         video {
             display: none;
         }
@@ -38,114 +36,94 @@
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
-    <div class="max-w-4xl mx-auto p-6">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-blue-800 mb-2">籃球動力鏈聽覺回饋系統</h1>
-            <p class="text-gray-600">專題實作 MVP：邊緣運算即時骨架偵測與聽覺映射</p>
+    <div class="max-w-4xl mx-auto p-4 md:p-6">
+        <header class="mb-6 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">籃球動力鏈聽覺回饋系統</h1>
+            <p class="text-sm md:text-base text-gray-600">MVP 3.0：導入數據緩衝區與移動平均濾波</p>
         </header>
 
-        <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- 視訊與骨架顯示區 -->
-            <div class="md:col-span-2">
-                <div class="video-container bg-black">
-                    <!-- 加上 muted 以符合 iOS 自動播放規範 -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2">
+                <div class="video-container">
                     <video id="input_video" autoplay playsinline muted></video>
                     <canvas id="output_canvas" width="640" height="480"></canvas>
+                    <div class="absolute top-2 left-2 bg-black bg-opacity-60 text-green-400 font-mono text-sm px-2 py-1 rounded z-20">
+                        <span id="fps_display">-- FPS</span>
+                    </div>
                 </div>
-                <div class="mt-4 flex flex-wrap justify-center gap-4">
-                    <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full transition shadow">
-                        啟動系統
-                    </button>
-                    <!-- 新增停止按鈕，預設隱藏 (hidden) -->
-                    <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full transition shadow">
-                        停止系統
-                    </button>
-                    
-                    <!-- 測試音效用的按鈕 -->
-                    <button id="test_ding_btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full transition shadow">
-                        測試 Ding (好球)
-                    </button>
-                    <button id="test_buzz_btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full transition shadow">
-                        測試 Buzz (修正)
-                    </button>
+
+                <div class="mt-4 flex flex-col items-center space-y-4">
+                    <div class="flex space-x-4">
+                        <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
+                            啟動系統 (後鏡頭)
+                        </button>
+                        <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
+                            停止系統
+                        </button>
+                    </div>
+
+                    <div class="bg-white px-4 py-3 rounded shadow w-full max-w-md flex flex-col space-y-2">
+                        <label class="flex justify-between items-center text-sm font-bold text-gray-700">
+                            <span>移動平均濾波強度 (Buffer Size)</span>
+                            <span id="buffer_value_display" class="text-blue-600">10 幀</span>
+                        </label>
+                        <input type="range" id="buffer_slider" min="1" max="30" value="10" class="w-full">
+                        <p class="text-xs text-gray-500 text-center">數值越大越平滑，但反應會稍微變慢。</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- 即時數據顯示區 -->
-            <div class="bg-white p-6 rounded-xl shadow-md flex flex-col">
-                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">即時運動學數據</h2>
+            <div class="bg-white p-5 rounded-xl shadow-md flex flex-col">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">濾波數據監控</h2>
                 
                 <div class="space-y-4 flex-grow">
-                    <div>
-                        <p class="text-sm text-gray-500 mb-1">系統狀態</p>
-                        <p id="status_display" class="font-bold text-yellow-600">等待啟動...</p>
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <p id="status_display" class="font-bold text-lg text-blue-600 text-center">等待啟動...</p>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <p class="text-sm text-gray-500">右手肘角度 (Elbow)</p>
-                        <p id="elbow_angle" class="text-2xl font-mono text-blue-600">0.0°</p>
+                    <div class="grid grid-cols-1 gap-3">
+                        <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                            <p class="text-sm font-bold text-gray-700 mb-1">右手肘 (Elbow)</p>
+                            <div class="flex justify-between items-baseline">
+                                <p class="text-xs text-gray-400">原始: <span id="raw_elbow">0.0°</span></p>
+                                <p class="text-xl font-mono text-blue-600">平滑: <span id="smooth_elbow">0.0°</span></p>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-green-400">
+                            <p class="text-sm font-bold text-gray-700 mb-1">右膝蓋 (Knee)</p>
+                            <div class="flex justify-between items-baseline">
+                                <p class="text-xs text-gray-400">原始: <span id="raw_knee">0.0°</span></p>
+                                <p class="text-xl font-mono text-green-600">平滑: <span id="smooth_knee">0.0°</span></p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <p class="text-sm text-gray-500">右膝蓋角度 (Knee)</p>
-                        <p id="knee_angle" class="text-2xl font-mono text-green-600">0.0°</p>
+                    <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 text-center">
+                        <p class="text-sm text-purple-600 font-bold mb-1">估計時序差 (Δt)</p>
+                        <p id="dt_display" class="text-3xl font-mono text-purple-700">-- ms</p>
                     </div>
-
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <p class="text-sm text-gray-500">估計時序差 (Δt)</p>
-                        <p id="dt_display" class="text-xl font-mono text-purple-600">-- ms</p>
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-4 border-t text-xs text-gray-400">
-                    * 此 MVP 採用簡易移動平均濾波，專題後期應替換為四階巴特沃斯濾波器與三次樣條插值。
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // --- 1. Web Audio API 聽覺回饋模組 ---
+        // --- 1. Web Audio API ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playDing() {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); 
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.5);
+        function playDing() { /* 簡化略，保持原邏輯 */
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+        function playBuzz() { /* 簡化略，保持原邏輯 */
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        function playBuzz() {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = 'sawtooth';
-            oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.3);
-        }
-
-        document.getElementById('test_ding_btn').addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            playDing();
-        });
-        document.getElementById('test_buzz_btn').addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            playBuzz();
-        });
-
-        // --- 2. 運動學計算函數 ---
         function calculateAngle(a, b, c) {
             const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
             let angle = Math.abs(radians * 180.0 / Math.PI);
@@ -153,32 +131,67 @@
             return angle;
         }
 
-        // --- 3. 系統狀態與數據緩衝區 ---
+        // --- 變數宣告 ---
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
+        
         const statusDisplay = document.getElementById('status_display');
-        const elbowDisplay = document.getElementById('elbow_angle');
-        const kneeDisplay = document.getElementById('knee_angle');
+        const rawElbowDisplay = document.getElementById('raw_elbow');
+        const smoothElbowDisplay = document.getElementById('smooth_elbow');
+        const rawKneeDisplay = document.getElementById('raw_knee');
+        const smoothKneeDisplay = document.getElementById('smooth_knee');
         const dtDisplay = document.getElementById('dt_display');
+        const fpsDisplay = document.getElementById('fps_display');
         
         const startBtn = document.getElementById('start_btn');
         const stopBtn = document.getElementById('stop_btn');
+        const bufferSlider = document.getElementById('buffer_slider');
+        const bufferDisplay = document.getElementById('buffer_value_display');
 
         let isAnalyzing = false;
         let shotState = 'IDLE'; 
-        let lastKneeAngle = 180;
-        let lastElbowAngle = 180;
+        let lastSmoothKnee = 180;
+        let lastSmoothElbow = 180;
         let timeKneePeak = 0;
         let timeElbowStart = 0;
-        let camera = null; // 將 camera 提昇至全域變數，方便啟動/停止
+        let camera = null;
 
-        // --- 4. MediaPipe Pose 核心處理邏輯 ---
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+
+        // 🌟 新增：數據緩衝區 (Data Buffer)
+        let kneeBuffer = [];
+        let elbowBuffer = [];
+        let currentBufferSize = parseInt(bufferSlider.value);
+
+        // 監聽滑桿改變緩衝區大小
+        bufferSlider.addEventListener('input', (e) => {
+            currentBufferSize = parseInt(e.target.value);
+            bufferDisplay.innerText = currentBufferSize + " 幀";
+        });
+
+        // 🌟 新增：計算陣列平均值的函數 (Moving Average)
+        function getAverage(arr) {
+            if (arr.length === 0) return 0;
+            const sum = arr.reduce((a, b) => a + b, 0);
+            return sum / arr.length;
+        }
+
+        // --- MediaPipe 核心處理邏輯 ---
         function onResults(results) {
             if (!isAnalyzing) return;
+
+            const now = performance.now();
+            frameCount++;
+            if (now - lastFpsTime >= 1000) {
+                fpsDisplay.innerText = `${frameCount} FPS`;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+
             if (!results.poseLandmarks) return;
 
-            // 繪製骨架
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -190,75 +203,83 @@
             const shoulder = landmarks[12], elbow = landmarks[14], wrist = landmarks[16];
             const hip = landmarks[24], knee = landmarks[26], ankle = landmarks[28];
 
-            if (shoulder.visibility < 0.5 || elbow.visibility < 0.5 || knee.visibility < 0.5) {
-                statusDisplay.innerText = "無法完整捕捉身體...";
-                statusDisplay.className = "font-bold text-red-500";
-                return;
-            }
+            if (shoulder.visibility < 0.5 || elbow.visibility < 0.5 || knee.visibility < 0.5) return;
 
-            const currentElbowAngle = calculateAngle(shoulder, elbow, wrist);
-            const currentKneeAngle = calculateAngle(hip, knee, ankle);
+            // 1. 取得原始角度 (Raw Data)
+            const rawElbowAngle = calculateAngle(shoulder, elbow, wrist);
+            const rawKneeAngle = calculateAngle(hip, knee, ankle);
 
-            elbowDisplay.innerText = currentElbowAngle.toFixed(1) + '°';
-            kneeDisplay.innerText = currentKneeAngle.toFixed(1) + '°';
+            // 2. 將原始數據推入緩衝區
+            elbowBuffer.push(rawElbowAngle);
+            kneeBuffer.push(rawKneeAngle);
 
-            const currentTime = performance.now();
+            // 3. 維持緩衝區大小 (把最舊的資料踢掉)
+            if (elbowBuffer.length > currentBufferSize) elbowBuffer.shift();
+            if (kneeBuffer.length > currentBufferSize) kneeBuffer.shift();
 
+            // 4. 計算濾波後的平滑角度 (Smoothed Data)
+            const smoothElbowAngle = getAverage(elbowBuffer);
+            const smoothKneeAngle = getAverage(kneeBuffer);
+
+            // 更新介面 (讓你看到原始跟平滑的差別)
+            rawElbowDisplay.innerText = rawElbowAngle.toFixed(1) + '°';
+            rawKneeDisplay.innerText = rawKneeAngle.toFixed(1) + '°';
+            smoothElbowDisplay.innerText = smoothElbowAngle.toFixed(1) + '°';
+            smoothKneeDisplay.innerText = smoothKneeAngle.toFixed(1) + '°';
+
+            // ⚠️ 接下來的邏輯判定，全部改用「平滑後的數據」來做，避免雜訊干擾
             if (shotState === 'IDLE') {
-                statusDisplay.innerText = "準備動作 (請微蹲)";
-                statusDisplay.className = "font-bold text-blue-500";
-                if (currentKneeAngle < 140) shotState = 'PREP';
+                statusDisplay.innerText = "請微蹲準備";
+                statusDisplay.className = "font-bold text-lg text-blue-600 text-center";
+                if (smoothKneeAngle < 140) shotState = 'PREP';
             } 
             else if (shotState === 'PREP') {
                 statusDisplay.innerText = "發力中...";
-                statusDisplay.className = "font-bold text-yellow-500";
+                statusDisplay.className = "font-bold text-lg text-yellow-600 text-center";
                 
-                if (currentKneeAngle > lastKneeAngle + 2 && currentKneeAngle > 150 && timeKneePeak === 0) {
-                    timeKneePeak = currentTime;
+                if (smoothKneeAngle > lastSmoothKnee + 2 && smoothKneeAngle > 150 && timeKneePeak === 0) {
+                    timeKneePeak = now;
                 }
 
-                if (currentElbowAngle > lastElbowAngle + 5 && timeElbowStart === 0) {
-                    timeElbowStart = currentTime;
+                if (smoothElbowAngle > lastSmoothElbow + 5 && timeElbowStart === 0) {
+                    timeElbowStart = now;
                 }
 
-                if (currentElbowAngle > 150 && timeKneePeak > 0 && timeElbowStart > 0) {
+                if (smoothElbowAngle > 150 && timeKneePeak > 0 && timeElbowStart > 0) {
                     shotState = 'ANALYZING';
-                    
                     const dt = Math.round(timeElbowStart - timeKneePeak);
                     dtDisplay.innerText = dt + " ms";
-                    statusDisplay.innerText = "動作完成，運算中...";
+                    statusDisplay.innerText = "運算中...";
+                    
+                    if (dt >= 50 && dt <= 150) {
+                        playDing();
+                        statusDisplay.innerText = "時序正確 (Ding!)";
+                        statusDisplay.className = "font-bold text-lg text-green-600 text-center";
+                    } else {
+                        playBuzz();
+                        statusDisplay.innerText = "時序失準 (Buzz!)";
+                        statusDisplay.className = "font-bold text-lg text-red-600 text-center";
+                    }
                     
                     setTimeout(() => {
-                        if (dt >= 50 && dt <= 150) {
-                            playDing();
-                            statusDisplay.innerText = "時序正確 (Ding!)";
-                            statusDisplay.className = "font-bold text-green-600";
-                        } else {
-                            playBuzz();
-                            statusDisplay.innerText = "時序失準 (Buzz!)";
-                            statusDisplay.className = "font-bold text-red-600";
-                        }
-                        
-                        setTimeout(() => {
-                            shotState = 'IDLE';
-                            timeKneePeak = 0;
-                            timeElbowStart = 0;
-                            dtDisplay.innerText = "-- ms";
-                        }, 2000);
-                    }, 1000);
+                        shotState = 'IDLE';
+                        timeKneePeak = 0;
+                        timeElbowStart = 0;
+                        dtDisplay.innerText = "-- ms";
+                    }, 1500); 
                 }
             }
 
-            lastKneeAngle = currentKneeAngle;
-            lastElbowAngle = currentElbowAngle;
+            // 更新歷史變數 (使用平滑數據)
+            lastSmoothKnee = smoothKneeAngle;
+            lastSmoothElbow = smoothElbowAngle;
         }
 
-        // --- 5. 初始化 MediaPipe ---
         const pose = new Pose({locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
         }});
         pose.setOptions({
-            modelComplexity: 1,
+            modelComplexity: 0, 
             smoothLandmarks: true,
             enableSegmentation: false,
             minDetectionConfidence: 0.5,
@@ -266,13 +287,13 @@
         });
         pose.onResults(onResults);
 
-        // 啟動按鈕事件
         startBtn.addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume(); 
-            }
+            if (audioCtx.state === 'suspended') audioCtx.resume(); 
             
-            // 初始化攝影機，每次啟動時重新建立實例 (加入 facingMode: 'environment' 強制使用後置鏡頭)
+            // 每次啟動前清空緩衝區，避免殘留上次的數據
+            kneeBuffer = [];
+            elbowBuffer = [];
+
             if (!camera) {
                  camera = new Camera(videoElement, {
                     onFrame: async () => {
@@ -280,40 +301,26 @@
                     },
                     width: 640,
                     height: 480,
-                    facingMode: 'environment' // <--- 強制使用後置鏡頭
+                    facingMode: 'environment'
                 });
             }
             
             camera.start();
             isAnalyzing = true;
-            
-            // 切換按鈕與狀態
             startBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
-            statusDisplay.innerText = "系統運作中，請站立至鏡頭前";
-            statusDisplay.className = "font-bold text-blue-500";
+            statusDisplay.innerText = "系統運作中...";
         });
 
-        // 停止按鈕事件
         stopBtn.addEventListener('click', () => {
-            if (camera) {
-                camera.stop();
-            }
+            if (camera) camera.stop();
             isAnalyzing = false;
-            
-            // 切換按鈕與狀態
             stopBtn.classList.add('hidden');
             startBtn.classList.remove('hidden');
             statusDisplay.innerText = "系統已停止";
-            statusDisplay.className = "font-bold text-gray-500";
-            
-            // 清空畫布與數據
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            elbowDisplay.innerText = "0.0°";
-            kneeDisplay.innerText = "0.0°";
-            dtDisplay.innerText = "-- ms";
+            fpsDisplay.innerText = "-- FPS";
         });
-
     </script>
 </body>
 </html>
