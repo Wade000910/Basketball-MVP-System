@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>籃球動力鏈聽覺回饋系統 (濾波升級版)</title>
+    <title>籃球動力鏈聽覺回饋系統 (角速度版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -39,7 +39,7 @@
     <div class="max-w-4xl mx-auto p-4 md:p-6">
         <header class="mb-6 text-center">
             <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">籃球動力鏈聽覺回饋系統</h1>
-            <p class="text-sm md:text-base text-gray-600">MVP 3.0：導入數據緩衝區與移動平均濾波</p>
+            <p class="text-sm md:text-base text-gray-600">MVP 4.0：導入微積分求導與角速度追蹤</p>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -68,34 +68,39 @@
                             <span id="buffer_value_display" class="text-blue-600">10 幀</span>
                         </label>
                         <input type="range" id="buffer_slider" min="1" max="30" value="10" class="w-full">
-                        <p class="text-xs text-gray-500 text-center">數值越大越平滑，但反應會稍微變慢。</p>
                     </div>
                 </div>
             </div>
 
             <div class="bg-white p-5 rounded-xl shadow-md flex flex-col">
-                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">濾波數據監控</h2>
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">即時運動學數據 (Kinematics)</h2>
                 
                 <div class="space-y-4 flex-grow">
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <p id="status_display" class="font-bold text-lg text-blue-600 text-center">等待啟動...</p>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-3">
-                        <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
-                            <p class="text-sm font-bold text-gray-700 mb-1">右手肘 (Elbow)</p>
-                            <div class="flex justify-between items-baseline">
-                                <p class="text-xs text-gray-400">原始: <span id="raw_elbow">0.0°</span></p>
-                                <p class="text-xl font-mono text-blue-600">平滑: <span id="smooth_elbow">0.0°</span></p>
-                            </div>
+                    <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                        <p class="text-sm font-bold text-gray-700 mb-2">右手肘 (Elbow)</p>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-gray-500">角度 ($\theta$)</span>
+                            <span id="smooth_elbow" class="font-mono text-blue-600 font-bold">0.0°</span>
                         </div>
+                        <div class="flex justify-between items-center border-t border-gray-200 pt-1">
+                            <span class="text-xs text-gray-500">角速度 ($\omega$)</span>
+                            <span id="vel_elbow" class="font-mono text-red-500 font-bold">0.0 °/s</span>
+                        </div>
+                    </div>
 
-                        <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-green-400">
-                            <p class="text-sm font-bold text-gray-700 mb-1">右膝蓋 (Knee)</p>
-                            <div class="flex justify-between items-baseline">
-                                <p class="text-xs text-gray-400">原始: <span id="raw_knee">0.0°</span></p>
-                                <p class="text-xl font-mono text-green-600">平滑: <span id="smooth_knee">0.0°</span></p>
-                            </div>
+                    <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-green-400">
+                        <p class="text-sm font-bold text-gray-700 mb-2">右膝蓋 (Knee)</p>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-gray-500">角度 ($\theta$)</span>
+                            <span id="smooth_knee" class="font-mono text-green-600 font-bold">0.0°</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-gray-200 pt-1">
+                            <span class="text-xs text-gray-500">角速度 ($\omega$)</span>
+                            <span id="vel_knee" class="font-mono text-red-500 font-bold">0.0 °/s</span>
                         </div>
                     </div>
 
@@ -109,15 +114,14 @@
     </div>
 
     <script>
-        // --- 1. Web Audio API ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playDing() { /* 簡化略，保持原邏輯 */
+        function playDing() { /* 省略詳細 Web Audio API 內容，保持原樣 */
             const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
             osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
             gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
             osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.5);
         }
-        function playBuzz() { /* 簡化略，保持原邏輯 */
+        function playBuzz() { 
             const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
             osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
             gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
@@ -131,16 +135,15 @@
             return angle;
         }
 
-        // --- 變數宣告 ---
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         
         const statusDisplay = document.getElementById('status_display');
-        const rawElbowDisplay = document.getElementById('raw_elbow');
         const smoothElbowDisplay = document.getElementById('smooth_elbow');
-        const rawKneeDisplay = document.getElementById('raw_knee');
+        const velElbowDisplay = document.getElementById('vel_elbow');
         const smoothKneeDisplay = document.getElementById('smooth_knee');
+        const velKneeDisplay = document.getElementById('vel_knee');
         const dtDisplay = document.getElementById('dt_display');
         const fpsDisplay = document.getElementById('fps_display');
         
@@ -151,38 +154,43 @@
 
         let isAnalyzing = false;
         let shotState = 'IDLE'; 
-        let lastSmoothKnee = 180;
-        let lastSmoothElbow = 180;
-        let timeKneePeak = 0;
-        let timeElbowStart = 0;
         let camera = null;
 
+        // FPS 與時間變數
         let frameCount = 0;
         let lastFpsTime = performance.now();
+        
+        // 角速度計算專用時間戳記
+        let lastFrameTime = 0; 
 
-        // 🌟 新增：數據緩衝區 (Data Buffer)
         let kneeBuffer = [];
         let elbowBuffer = [];
         let currentBufferSize = parseInt(bufferSlider.value);
 
-        // 監聽滑桿改變緩衝區大小
+        // 用來記錄「前一幀」的平滑角度，才能算出角度差
+        let prevSmoothKnee = 180;
+        let prevSmoothElbow = 180;
+
+        let timeKneePeak = 0;
+        let timeElbowStart = 0;
+
         bufferSlider.addEventListener('input', (e) => {
             currentBufferSize = parseInt(e.target.value);
             bufferDisplay.innerText = currentBufferSize + " 幀";
         });
 
-        // 🌟 新增：計算陣列平均值的函數 (Moving Average)
         function getAverage(arr) {
             if (arr.length === 0) return 0;
             const sum = arr.reduce((a, b) => a + b, 0);
             return sum / arr.length;
         }
 
-        // --- MediaPipe 核心處理邏輯 ---
         function onResults(results) {
             if (!isAnalyzing) return;
 
             const now = performance.now();
+            
+            // 計算 FPS
             frameCount++;
             if (now - lastFpsTime >= 1000) {
                 fpsDisplay.innerText = `${frameCount} FPS`;
@@ -190,7 +198,10 @@
                 lastFpsTime = now;
             }
 
-            if (!results.poseLandmarks) return;
+            if (!results.poseLandmarks) {
+                lastFrameTime = now; // 即使沒抓到人，也要更新時間
+                return;
+            }
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -203,76 +214,79 @@
             const shoulder = landmarks[12], elbow = landmarks[14], wrist = landmarks[16];
             const hip = landmarks[24], knee = landmarks[26], ankle = landmarks[28];
 
-            if (shoulder.visibility < 0.5 || elbow.visibility < 0.5 || knee.visibility < 0.5) return;
+            if (shoulder.visibility < 0.5 || elbow.visibility < 0.5 || knee.visibility < 0.5) {
+                lastFrameTime = now;
+                return;
+            }
 
-            // 1. 取得原始角度 (Raw Data)
-            const rawElbowAngle = calculateAngle(shoulder, elbow, wrist);
-            const rawKneeAngle = calculateAngle(hip, knee, ankle);
-
-            // 2. 將原始數據推入緩衝區
-            elbowBuffer.push(rawElbowAngle);
-            kneeBuffer.push(rawKneeAngle);
-
-            // 3. 維持緩衝區大小 (把最舊的資料踢掉)
+            // 1. 取得原始角度並放入緩衝區 (濾波)
+            elbowBuffer.push(calculateAngle(shoulder, elbow, wrist));
+            kneeBuffer.push(calculateAngle(hip, knee, ankle));
             if (elbowBuffer.length > currentBufferSize) elbowBuffer.shift();
             if (kneeBuffer.length > currentBufferSize) kneeBuffer.shift();
 
-            // 4. 計算濾波後的平滑角度 (Smoothed Data)
             const smoothElbowAngle = getAverage(elbowBuffer);
             const smoothKneeAngle = getAverage(kneeBuffer);
 
-            // 更新介面 (讓你看到原始跟平滑的差別)
-            rawElbowDisplay.innerText = rawElbowAngle.toFixed(1) + '°';
-            rawKneeDisplay.innerText = rawKneeAngle.toFixed(1) + '°';
             smoothElbowDisplay.innerText = smoothElbowAngle.toFixed(1) + '°';
             smoothKneeDisplay.innerText = smoothKneeAngle.toFixed(1) + '°';
 
-            // ⚠️ 接下來的邏輯判定，全部改用「平滑後的數據」來做，避免雜訊干擾
+            // 🌟 核心升級：計算角速度 (Velocity) 🌟
+            let elbowVelocity = 0;
+            let kneeVelocity = 0;
+
+            if (lastFrameTime > 0) {
+                // 將毫秒轉換為秒
+                const deltaTimeInSeconds = (now - lastFrameTime) / 1000.0; 
+                
+                // 速度 = (現在角度 - 上次角度) / 時間差
+                if (deltaTimeInSeconds > 0) {
+                    elbowVelocity = (smoothElbowAngle - prevSmoothElbow) / deltaTimeInSeconds;
+                    kneeVelocity = (smoothKneeAngle - prevSmoothKnee) / deltaTimeInSeconds;
+                }
+            }
+
+            // 顯示在畫面上，正數代表「伸展(變大)」，負數代表「彎曲(變小)」
+            velElbowDisplay.innerText = elbowVelocity.toFixed(0) + ' °/s';
+            velKneeDisplay.innerText = kneeVelocity.toFixed(0) + ' °/s';
+
+            // 這裡暫時維持原本的判斷邏輯，等你觀察完角速度後，我們再把這裡改掉！
             if (shotState === 'IDLE') {
                 statusDisplay.innerText = "請微蹲準備";
-                statusDisplay.className = "font-bold text-lg text-blue-600 text-center";
                 if (smoothKneeAngle < 140) shotState = 'PREP';
             } 
             else if (shotState === 'PREP') {
                 statusDisplay.innerText = "發力中...";
-                statusDisplay.className = "font-bold text-lg text-yellow-600 text-center";
                 
-                if (smoothKneeAngle > lastSmoothKnee + 2 && smoothKneeAngle > 150 && timeKneePeak === 0) {
+                if (smoothKneeAngle > prevSmoothKnee + 2 && smoothKneeAngle > 150 && timeKneePeak === 0) {
                     timeKneePeak = now;
                 }
-
-                if (smoothElbowAngle > lastSmoothElbow + 5 && timeElbowStart === 0) {
+                if (smoothElbowAngle > prevSmoothElbow + 5 && timeElbowStart === 0) {
                     timeElbowStart = now;
                 }
-
                 if (smoothElbowAngle > 150 && timeKneePeak > 0 && timeElbowStart > 0) {
                     shotState = 'ANALYZING';
                     const dt = Math.round(timeElbowStart - timeKneePeak);
                     dtDisplay.innerText = dt + " ms";
                     statusDisplay.innerText = "運算中...";
                     
-                    if (dt >= 50 && dt <= 150) {
-                        playDing();
-                        statusDisplay.innerText = "時序正確 (Ding!)";
-                        statusDisplay.className = "font-bold text-lg text-green-600 text-center";
-                    } else {
-                        playBuzz();
-                        statusDisplay.innerText = "時序失準 (Buzz!)";
-                        statusDisplay.className = "font-bold text-lg text-red-600 text-center";
-                    }
-                    
                     setTimeout(() => {
-                        shotState = 'IDLE';
-                        timeKneePeak = 0;
-                        timeElbowStart = 0;
-                        dtDisplay.innerText = "-- ms";
-                    }, 1500); 
+                        if (dt >= 50 && dt <= 150) {
+                            playDing(); statusDisplay.innerText = "時序正確 (Ding!)";
+                        } else {
+                            playBuzz(); statusDisplay.innerText = "時序失準 (Buzz!)";
+                        }
+                        setTimeout(() => {
+                            shotState = 'IDLE'; timeKneePeak = 0; timeElbowStart = 0; dtDisplay.innerText = "-- ms";
+                        }, 1500); 
+                    }, 500);
                 }
             }
 
-            // 更新歷史變數 (使用平滑數據)
-            lastSmoothKnee = smoothKneeAngle;
-            lastSmoothElbow = smoothElbowAngle;
+            // 記錄這次的數據，留給「下一幀」計算速度用
+            prevSmoothKnee = smoothKneeAngle;
+            prevSmoothElbow = smoothElbowAngle;
+            lastFrameTime = now;
         }
 
         const pose = new Pose({locateFile: (file) => {
@@ -289,37 +303,22 @@
 
         startBtn.addEventListener('click', () => {
             if (audioCtx.state === 'suspended') audioCtx.resume(); 
-            
-            // 每次啟動前清空緩衝區，避免殘留上次的數據
-            kneeBuffer = [];
-            elbowBuffer = [];
-
+            kneeBuffer = []; elbowBuffer = []; lastFrameTime = 0;
             if (!camera) {
                  camera = new Camera(videoElement, {
-                    onFrame: async () => {
-                        await pose.send({image: videoElement});
-                    },
-                    width: 640,
-                    height: 480,
-                    facingMode: 'environment'
+                    onFrame: async () => { await pose.send({image: videoElement}); },
+                    width: 640, height: 480, facingMode: 'environment'
                 });
             }
-            
-            camera.start();
-            isAnalyzing = true;
-            startBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            statusDisplay.innerText = "系統運作中...";
+            camera.start(); isAnalyzing = true;
+            startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         });
 
         stopBtn.addEventListener('click', () => {
             if (camera) camera.stop();
             isAnalyzing = false;
-            stopBtn.classList.add('hidden');
-            startBtn.classList.remove('hidden');
-            statusDisplay.innerText = "系統已停止";
+            stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden');
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            fpsDisplay.innerText = "-- FPS";
         });
     </script>
 </body>
