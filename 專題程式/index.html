@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>籃球動力鏈聽覺回饋系統 (角速度版)</title>
+    <title>籃球動力鏈聽覺回饋系統 (c802 實驗核心版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         .video-container {
             position: relative;
@@ -32,14 +34,40 @@
         video {
             display: none;
         }
+        .animate-pulse-fast {
+            animation: pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        #chart_container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 180px;
+            height: 100px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 8px;
+            z-index: 30;
+            padding: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
     <div class="max-w-4xl mx-auto p-4 md:p-6">
         <header class="mb-6 text-center">
-            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">籃球動力鏈聽覺回饋系統</h1>
-            <p class="text-sm md:text-base text-gray-600">MVP 4.0：導入微積分求導與角速度追蹤</p>
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 籃球動力鏈聽覺回饋系統</h1>
+            <div class="flex justify-center items-center space-x-4">
+                <p class="text-sm text-gray-600">國科會 c802 計畫實驗專用｜版本日期：2026-06-02</p>
+                <select id="exp_mode" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 font-bold text-blue-700 outline-none">
+                    <option value="auditory">聽覺介入模式 (實驗組)</option>
+                    <option value="visual">視覺回饋模式 (對照組)</option>
+                    <option value="baseline">基準模式 (無回饋)</option>
+                </select>
+            </div>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -47,6 +75,12 @@
                 <div class="video-container">
                     <video id="input_video" autoplay playsinline muted></video>
                     <canvas id="output_canvas" width="640" height="480"></canvas>
+                    <div id="chart_container">
+                        <canvas id="velocity_chart"></canvas>
+                    </div>
+                    <div class="absolute top-4 right-4 bg-black bg-opacity-80 text-white font-bold px-4 py-2 rounded-lg z-20 shadow-lg text-lg border-2 border-gray-600 transition-all" id="visual_state_badge">
+                        狀態：IDLE
+                    </div>
                     <div class="absolute top-2 left-2 bg-black bg-opacity-60 text-green-400 font-mono text-sm px-2 py-1 rounded z-20">
                         <span id="fps_display">-- FPS</span>
                     </div>
@@ -54,59 +88,78 @@
 
                 <div class="mt-4 flex flex-col items-center space-y-4">
                     <div class="flex space-x-4">
-                        <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
-                            啟動系統 (後鏡頭)
+                        <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg transition-transform transform hover:scale-105">
+                            啟動實驗系統
                         </button>
                         <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
                             停止系統
                         </button>
                     </div>
 
-                    <div class="bg-white px-4 py-3 rounded shadow w-full max-w-md flex flex-col space-y-2">
+                    <div class="w-full max-w-md bg-white px-4 py-3 rounded shadow border-l-4 border-orange-500">
                         <label class="flex justify-between items-center text-sm font-bold text-gray-700">
-                            <span>移動平均濾波強度 (Buffer Size)</span>
-                            <span id="buffer_value_display" class="text-blue-600">10 幀</span>
+                            <span>🔍 鏡頭縮放 (Zoom)</span>
+                            <span id="zoom_val" class="text-orange-600">1.0x</span>
                         </label>
-                        <input type="range" id="buffer_slider" min="1" max="30" value="10" class="w-full">
+                        <input type="range" id="zoom_slider" min="1" max="5" step="any" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 mt-2">
                     </div>
                 </div>
             </div>
 
             <div class="bg-white p-5 rounded-xl shadow-md flex flex-col">
-                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">即時運動學數據 (Kinematics)</h2>
-                
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">數據分析面板</h2>
+
                 <div class="space-y-4 flex-grow">
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <p id="status_display" class="font-bold text-lg text-blue-600 text-center">等待啟動...</p>
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 transition-all duration-300" id="status_box">
+                        <p id="status_display" class="font-bold text-lg text-gray-600 text-center">等待啟動...</p>
+                        <p id="sub_status_display" class="text-xs text-gray-500 text-center mt-1">請按下啟動按鈕</p>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
-                        <p class="text-sm font-bold text-gray-700 mb-2">右手肘 (Elbow)</p>
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-xs text-gray-500">角度 ($\theta$)</span>
-                            <span id="smooth_elbow" class="font-mono text-blue-600 font-bold">0.0°</span>
-                        </div>
-                        <div class="flex justify-between items-center border-t border-gray-200 pt-1">
-                            <span class="text-xs text-gray-500">角速度 ($\omega$)</span>
-                            <span id="vel_elbow" class="font-mono text-red-500 font-bold">0.0 °/s</span>
-                        </div>
+                    <!-- 核心指標顯示 -->
+                    <div class="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center relative overflow-hidden">
+                        <p class="text-xs text-purple-800 font-bold mb-1">動力鏈時序差 ($\Delta t$)</p>
+                        <p id="dt_display" class="text-4xl font-mono text-purple-700 font-extrabold">-- ms</p>
+                        <div id="visual_feedback_bar" class="absolute bottom-0 left-0 h-1 bg-green-500 transition-all" style="width: 0%"></div>
                     </div>
 
-                    <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-green-400">
-                        <p class="text-sm font-bold text-gray-700 mb-2">右膝蓋 (Knee)</p>
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-xs text-gray-500">角度 ($\theta$)</span>
-                            <span id="smooth_knee" class="font-mono text-green-600 font-bold">0.0°</span>
+                    <!-- 統計指標 SD / CV -->
+                    <div class="grid grid-cols-2 gap-2 text-center">
+                        <div class="bg-indigo-50 p-2 rounded border border-indigo-100">
+                            <p class="text-[10px] font-bold text-indigo-500">穩定度 SD</p>
+                            <p id="sd_display" class="font-mono text-indigo-700 font-bold text-sm">0.00</p>
                         </div>
-                        <div class="flex justify-between items-center border-t border-gray-200 pt-1">
-                            <span class="text-xs text-gray-500">角速度 ($\omega$)</span>
-                            <span id="vel_knee" class="font-mono text-red-500 font-bold">0.0 °/s</span>
+                        <div class="bg-teal-50 p-2 rounded border border-teal-100">
+                            <p class="text-[10px] font-bold text-teal-500">變異係數 CV</p>
+                            <p id="cv_display" class="font-mono text-teal-700 font-bold text-sm">0.00%</p>
                         </div>
                     </div>
 
-                    <div class="bg-purple-50 p-4 rounded-lg border border-purple-100 text-center">
-                        <p class="text-sm text-purple-600 font-bold mb-1">估計時序差 (Δt)</p>
-                        <p id="dt_display" class="text-3xl font-mono text-purple-700">-- ms</p>
+                    <div class="grid grid-cols-2 gap-2 text-center">
+                        <div class="bg-blue-50 p-2 rounded border-t-2 border-blue-400">
+                            <p class="text-[10px] font-bold text-gray-500">手肘 (deg)</p>
+                            <p id="smooth_elbow" class="font-mono text-blue-700 font-bold text-sm">0.0°</p>
+                        </div>
+                        <div class="bg-green-50 p-2 rounded border-t-2 border-green-400">
+                            <p class="text-[10px] font-bold text-gray-500">膝蓋 (deg)</p>
+                            <p id="smooth_knee" class="font-mono text-green-700 font-bold text-sm">0.0°</p>
+                        </div>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-xs font-bold text-gray-700">實驗紀錄匯出</h3>
+                            <button id="download_btn" class="text-[10px] bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded shadow transition-colors">
+                                CSV 匯出
+                            </button>
+                        </div>
+                        <div class="max-h-32 overflow-y-auto border rounded bg-gray-50 text-[9px] font-mono">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-200 sticky top-0">
+                                    <tr><th class="p-1">#</th><th class="p-1">Δt</th><th class="p-1">判定</th></tr>
+                                </thead>
+                                <tbody id="history_body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -114,212 +167,231 @@
     </div>
 
     <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playDing() { /* 省略詳細 Web Audio API 內容，保持原樣 */
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
-            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.05); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        class ButterworthFilter {
+            constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
+            update(fc, fs) {
+                if (fc >= fs / 2) fc = fs / 2 - 0.1;
+                const w = 2 * Math.PI * (fc / fs);
+                const K = Math.tan(w / 2);
+                const Q = 1 / Math.SQRT2;
+                const norm = 1 / (1 + K / Q + K * K);
+                this.b0 = K * K * norm; this.b1 = 2 * this.b0; this.b2 = this.b0;
+                this.a1 = 2 * (K * K - 1) * norm; this.a2 = (1 - K / Q + K * K) * norm;
+            }
+            init(v) { this.x1=this.x2=this.y1=this.y2=v; this.x1b=this.x2b=this.y1b=this.y2b=v; this.initialized=true; }
+            filter(v) {
+                if (!this.initialized) this.init(v);
+                let y1 = this.b0 * v + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+                this.x2 = this.x1; this.x1 = v; this.y2 = this.y1; this.y1 = y1;
+                let y2 = this.b0 * y1 + this.b1 * this.x1b + this.b2 * this.x2b - this.a1 * this.y1b - this.a2 * this.y2b;
+                this.x2b = this.x1b; this.x1b = y1; this.y2b = this.y1b; this.y1b = y2;
+                return y2;
+            }
         }
-        function playBuzz() { 
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); 
-            gain.gain.setValueAtTime(0, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
-            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+
+        function createSpline(x, y) {
+            let n = x.length; let a = y; let h = new Float64Array(n-1); let alpha = new Float64Array(n-1);
+            for(let i=0; i<n-1; i++) h[i] = x[i+1]-x[i];
+            for(let i=1; i<n-1; i++) alpha[i] = (3/h[i])*(a[i+1]-a[i])-(3/h[i-1])*(a[i]-a[i-1]);
+            let l=new Float64Array(n), mu=new Float64Array(n), z=new Float64Array(n), c=new Float64Array(n), b=new Float64Array(n), d=new Float64Array(n);
+            l[0]=1; mu[0]=0; z[0]=0;
+            for(let i=1; i<n-1; i++) { l[i]=2*(x[i+1]-x[i-1])-h[i-1]*mu[i-1]; mu[i]=h[i]/l[i]; z[i]=(alpha[i]-h[i-1]*z[i-1])/l[i]; }
+            l[n-1]=1; z[n-1]=0; c[n-1]=0;
+            for(let j=n-2; j>=0; j--) { c[j]=z[j]-mu[j]*c[j+1]; b[j]=(a[j+1]-a[j])/h[j]-h[j]*(c[j+1]+2*c[j])/3; d[j]=(c[j+1]-c[j])/(3*h[j]); }
+            return (xi) => {
+                if(xi<=x[0]) return a[0]; if(xi>=x[n-1]) return a[n-1];
+                let i=0, j=n-1; while(i<=j) { let k=Math.floor((i+j)/2); if(x[k]<xi) i=k+1; else j=k-1; }
+                let idx=j, dx=xi-x[idx]; return a[idx]+b[idx]*dx+c[idx]*dx*dx+d[idx]*dx*dx*dx;
+            };
+        }
+
+        function calculateSD(arr) {
+            if (arr.length < 2) return 0;
+            const mean = arr.reduce((a, b) => a + b) / arr.length;
+            const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (arr.length - 1);
+            return Math.sqrt(variance);
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function beep(freq, dur, type='sine') {
+            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(0, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime+0.05); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+dur);
+            osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime+dur);
+        }
+
+        const vEl = document.getElementById('input_video'), cEl = document.getElementById('output_canvas'), ctx = cEl.getContext('2d');
+        const badge = document.getElementById('visual_state_badge'), sBox = document.getElementById('status_box'), sDisp = document.getElementById('status_display'), subDisp = document.getElementById('sub_status_display');
+        const ebDisp = document.getElementById('smooth_elbow'), knDisp = document.getElementById('smooth_knee'), dtDisp = document.getElementById('dt_display'), fpsDisp = document.getElementById('fps_display');
+        const sdDisp = document.getElementById('sd_display'), cvDisp = document.getElementById('cv_display'), modeSel = document.getElementById('exp_mode');
+        const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
+        const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), vBar = document.getElementById('visual_feedback_bar');
+
+        const chartCtx = document.getElementById('velocity_chart').getContext('2d');
+        let velocityChart = new Chart(chartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Knee V', data: [], borderColor: '#10B981', borderWidth: 1, pointRadius: 0 },
+                { label: 'Elbow V', data: [], borderColor: '#3B82F6', borderWidth: 1, pointRadius: 0 }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { display: false } }, plugins: { legend: { display: false } } }
+        });
+
+        let isAnalyzing = false, camera = null, shotHistory = [], shotData = [], state = 'IDLE';
+        let lastT = 0, lastFpsT = performance.now(), frames = 0, currentSR = 30;
+        let knFilter = new ButterworthFilter(10, 30), ebFilter = new ButterworthFilter(10, 30);
+        let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, videoTrack = null;
+        let latestLandmarks = null;
+
+        function renderLoop() {
+            if(!isAnalyzing) return;
+            ctx.drawImage(vEl, 0, 0, cEl.width, cEl.height);
+            if(latestLandmarks && (state !== 'IDLE' && state !== 'COOLDOWN')) {
+                const bodyLandmarks = latestLandmarks.map((lm, i) => i < 11 ? { ...lm, visibility: 0 } : lm);
+                drawConnectors(ctx, bodyLandmarks, POSE_CONNECTIONS, {color:'#ffffff', lineWidth:2});
+                drawLandmarks(ctx, bodyLandmarks, {color:'#3B82F6', lineWidth:1, radius:3});
+            }
+            requestAnimationFrame(renderLoop);
+        }
+
+        function updateUI(st, color, main, sub) {
+            badge.innerText = `狀態：${st}`;
+            badge.className = `absolute top-4 right-4 text-white font-bold px-4 py-2 rounded-lg z-20 shadow-lg text-lg border-2 border-${color}-400 bg-${color}-600 transition-all ${st==='RECORDING'?'animate-pulse-fast':''}`;
+            if(st==='IDLE') badge.className = "absolute top-4 right-4 bg-gray-800 text-gray-300 font-bold px-4 py-2 rounded-lg z-20 shadow-lg text-lg border-2 border-gray-600";
+            sBox.className = `bg-${color}-50 p-3 rounded-lg border border-${color}-200 transition-all`;
+            sDisp.className = `font-bold text-lg text-${color}-700 text-center`; sDisp.innerText = main; subDisp.innerText = sub;
         }
 
         function calculateAngle(a, b, c) {
-            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-            let angle = Math.abs(radians * 180.0 / Math.PI);
-            if (angle > 180.0) angle = 360 - angle;
-            return angle;
+            const v1 = {x: a.x - b.x, y: a.y - b.y, z: a.z - b.z};
+            const v2 = {x: c.x - b.x, y: c.y - b.y, z: c.z - b.z};
+            const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+            const m1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
+            const m2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+            return Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) * 180 / Math.PI;
         }
 
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        
-        const statusDisplay = document.getElementById('status_display');
-        const smoothElbowDisplay = document.getElementById('smooth_elbow');
-        const velElbowDisplay = document.getElementById('vel_elbow');
-        const smoothKneeDisplay = document.getElementById('smooth_knee');
-        const velKneeDisplay = document.getElementById('vel_knee');
-        const dtDisplay = document.getElementById('dt_display');
-        const fpsDisplay = document.getElementById('fps_display');
-        
-        const startBtn = document.getElementById('start_btn');
-        const stopBtn = document.getElementById('stop_btn');
-        const bufferSlider = document.getElementById('buffer_slider');
-        const bufferDisplay = document.getElementById('buffer_value_display');
+        function processData() {
+            if(shotData.length < 10) return null;
+            const ts = shotData.map(d=>d.t), kns = shotData.map(d=>d.kn), ebs = shotData.map(d=>d.eb);
+            const sKn = createSpline(ts, kns), sEb = createSpline(ts, ebs);
+            let start = Math.ceil(ts[0]), end = Math.floor(ts[ts.length-1]);
+            let maxKv = -1e9, tK = -1, maxEv = -1e9, pE = -1;
 
-        let isAnalyzing = false;
-        let shotState = 'IDLE'; 
-        let camera = null;
+            let chartK = [], chartE = [], chartLabels = [];
+            for(let t=start; t<=end; t++) {
+                let kv = (sKn(t)-sKn(t-1))/0.001; if(kv>maxKv){ maxKv=kv; tK=t; }
+                let ev = (sEb(t)-sEb(t-1))/0.001; if(ev>maxEv){ maxEv=ev; pE=t; }
+                chartK.push(kv); chartE.push(ev); chartLabels.push(t);
+            }
 
-        // FPS 與時間變數
-        let frameCount = 0;
-        let lastFpsTime = performance.now();
-        
-        // 角速度計算專用時間戳記
-        let lastFrameTime = 0; 
+            let tE = pE; for(let t=pE; t>=start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
 
-        let kneeBuffer = [];
-        let elbowBuffer = [];
-        let currentBufferSize = parseInt(bufferSlider.value);
+            velocityChart.data.labels = chartLabels;
+            velocityChart.data.datasets[0].data = chartK;
+            velocityChart.data.datasets[1].data = chartE;
+            velocityChart.update('none');
 
-        // 用來記錄「前一幀」的平滑角度，才能算出角度差
-        let prevSmoothKnee = 180;
-        let prevSmoothElbow = 180;
-
-        let timeKneePeak = 0;
-        let timeElbowStart = 0;
-
-        bufferSlider.addEventListener('input', (e) => {
-            currentBufferSize = parseInt(e.target.value);
-            bufferDisplay.innerText = currentBufferSize + " 幀";
-        });
-
-        function getAverage(arr) {
-            if (arr.length === 0) return 0;
-            const sum = arr.reduce((a, b) => a + b, 0);
-            return sum / arr.length;
+            return tE - tK;
         }
 
-        function onResults(results) {
-            if (!isAnalyzing) return;
+        function onResults(res) {
+            if(!isAnalyzing) return;
+            const now = performance.now(); frames++;
+            if(now-lastFpsT >= 1000){ currentSR=frames; fpsDisp.innerText=`${frames} FPS`; knFilter.update(10, frames>0?frames:30); ebFilter.update(10, frames>0?frames:30); frames=0; lastFpsT=now; }
 
-            const now = performance.now();
-            
-            // 計算 FPS
-            frameCount++;
-            if (now - lastFpsTime >= 1000) {
-                fpsDisplay.innerText = `${frameCount} FPS`;
-                frameCount = 0;
-                lastFpsTime = now;
+            latestLandmarks = res.poseLandmarks;
+            if(!res.poseLandmarks){
+                if(state === 'RECORDING') { state = 'IDLE'; shotData = []; updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
+                lastT=now; return;
             }
 
-            if (!results.poseLandmarks) {
-                lastFrameTime = now; // 即使沒抓到人，也要更新時間
-                return;
-            }
+            const l = res.poseLandmarks;
+            const torsoVis = (l[11].visibility + l[12].visibility + l[23].visibility + l[24].visibility) / 4;
+            if(torsoVis < 0.6) { if(state === 'RECORDING') { state = 'IDLE'; shotData = []; updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
 
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-            drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#ffffff', lineWidth: 4});
-            drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#3B82F6', lineWidth: 2, radius: 4});
-            canvasCtx.restore();
+            const leftVis = (l[11].visibility + l[13].visibility + l[15].visibility + l[23].visibility + l[25].visibility + l[27].visibility) / 6;
+            const rightVis = (l[12].visibility + l[14].visibility + l[16].visibility + l[24].visibility + l[26].visibility + l[28].visibility) / 6;
+            const side = leftVis > rightVis ? 'left' : 'right';
+            const ebIdx = side === 'left' ? [11, 13, 15] : [12, 14, 16];
+            const knIdx = side === 'left' ? [23, 25, 27] : [24, 26, 28];
 
-            const landmarks = results.poseLandmarks;
-            const shoulder = landmarks[12], elbow = landmarks[14], wrist = landmarks[16];
-            const hip = landmarks[24], knee = landmarks[26], ankle = landmarks[28];
+            const rawEb = calculateAngle(l[ebIdx[0]], l[ebIdx[1]], l[ebIdx[2]]);
+            const rawKn = calculateAngle(l[knIdx[0]], l[knIdx[1]], l[knIdx[2]]);
+            const sEb = ebFilter.filter(rawEb), sKn = knFilter.filter(rawKn);
 
-            if (shoulder.visibility < 0.5 || elbow.visibility < 0.5 || knee.visibility < 0.5) {
-                lastFrameTime = now;
-                return;
-            }
+            ebDisp.innerText = sEb.toFixed(0)+'°'; knDisp.innerText = sKn.toFixed(0)+'°';
+            const dtSec = (now-lastT)/1000; const knV = (sKn-prevKn)/dtSec;
 
-            // 1. 取得原始角度並放入緩衝區 (濾波)
-            elbowBuffer.push(calculateAngle(shoulder, elbow, wrist));
-            kneeBuffer.push(calculateAngle(hip, knee, ankle));
-            if (elbowBuffer.length > currentBufferSize) elbowBuffer.shift();
-            if (kneeBuffer.length > currentBufferSize) kneeBuffer.shift();
+            switch(state) {
+                case 'IDLE':
+                    updateUI('IDLE','gray','準備投籃','請下蹲啟動');
+                    if(sKn < 155 && knV < -40 && torsoVis > 0.7){ state='RECORDING'; shotData=[]; document.getElementById('chart_container').style.display='none'; }
+                    break;
+                case 'RECORDING':
+                    updateUI('RECORDING','yellow','動作擷取中','紀錄軌跡...');
+                    shotData.push({t:now, kn:sKn, eb:sEb});
+                    if((sEb > 155 && (sEb-prevEb)/dtSec < 40) || (now - shotData[0].t > 1500)){ state='PROCESSING'; recEndT=now; }
+                    break;
+                case 'PROCESSING':
+                    updateUI('PROCESSING','purple','計算中','執行升頻演算法...');
+                    calcDt = processData(); state='DELAY';
+                    break;
+                case 'DELAY':
+                    updateUI('DELAY','indigo','本體感覺沉澱','感受肌肉記憶...');
+                    const progress = (now - recEndT) / 1000;
+                    vBar.style.width = `${Math.min(100, progress * 100)}%`;
+                    if(now-recEndT>1000) state='FEEDBACK';
+                    break;
+                case 'FEEDBACK':
+                    const mode = modeSel.value;
+                    if(calcDt!==null){
+                        dtDisp.innerText = calcDt+' ms'; const ok = calcDt>=50 && calcDt<=150;
 
-            const smoothElbowAngle = getAverage(elbowBuffer);
-            const smoothKneeAngle = getAverage(kneeBuffer);
-
-            smoothElbowDisplay.innerText = smoothElbowAngle.toFixed(1) + '°';
-            smoothKneeDisplay.innerText = smoothKneeAngle.toFixed(1) + '°';
-
-            // 🌟 核心升級：計算角速度 (Velocity) 🌟
-            let elbowVelocity = 0;
-            let kneeVelocity = 0;
-
-            if (lastFrameTime > 0) {
-                // 將毫秒轉換為秒
-                const deltaTimeInSeconds = (now - lastFrameTime) / 1000.0; 
-                
-                // 速度 = (現在角度 - 上次角度) / 時間差
-                if (deltaTimeInSeconds > 0) {
-                    elbowVelocity = (smoothElbowAngle - prevSmoothElbow) / deltaTimeInSeconds;
-                    kneeVelocity = (smoothKneeAngle - prevSmoothKnee) / deltaTimeInSeconds;
-                }
-            }
-
-            // 顯示在畫面上，正數代表「伸展(變大)」，負數代表「彎曲(變小)」
-            velElbowDisplay.innerText = elbowVelocity.toFixed(0) + ' °/s';
-            velKneeDisplay.innerText = kneeVelocity.toFixed(0) + ' °/s';
-
-            // 這裡暫時維持原本的判斷邏輯，等你觀察完角速度後，我們再把這裡改掉！
-            if (shotState === 'IDLE') {
-                statusDisplay.innerText = "請微蹲準備";
-                if (smoothKneeAngle < 140) shotState = 'PREP';
-            } 
-            else if (shotState === 'PREP') {
-                statusDisplay.innerText = "發力中...";
-                
-                if (smoothKneeAngle > prevSmoothKnee + 2 && smoothKneeAngle > 150 && timeKneePeak === 0) {
-                    timeKneePeak = now;
-                }
-                if (smoothElbowAngle > prevSmoothElbow + 5 && timeElbowStart === 0) {
-                    timeElbowStart = now;
-                }
-                if (smoothElbowAngle > 150 && timeKneePeak > 0 && timeElbowStart > 0) {
-                    shotState = 'ANALYZING';
-                    const dt = Math.round(timeElbowStart - timeKneePeak);
-                    dtDisplay.innerText = dt + " ms";
-                    statusDisplay.innerText = "運算中...";
-                    
-                    setTimeout(() => {
-                        if (dt >= 50 && dt <= 150) {
-                            playDing(); statusDisplay.innerText = "時序正確 (Ding!)";
+                        // 聽覺介入邏輯
+                        if(mode === 'auditory' || mode === 'visual'){
+                            if(ok){ if(mode==='auditory') beep(800,0.5); updateUI('正確','green','時序完美',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-green-500 transition-all"; }
+                            else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('失準','red','時序偏差',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
                         } else {
-                            playBuzz(); statusDisplay.innerText = "時序失準 (Buzz!)";
+                            updateUI('紀錄完成','blue','數據已存檔','請進行下一次投籃');
                         }
-                        setTimeout(() => {
-                            shotState = 'IDLE'; timeKneePeak = 0; timeElbowStart = 0; dtDisplay.innerText = "-- ms";
-                        }, 1500); 
-                    }, 500);
-                }
-            }
 
-            // 記錄這次的數據，留給「下一幀」計算速度用
-            prevSmoothKnee = smoothKneeAngle;
-            prevSmoothElbow = smoothElbowAngle;
-            lastFrameTime = now;
+                        // 視覺回饋模式額外顯示圖表
+                        if(mode === 'visual') document.getElementById('chart_container').style.display='block';
+
+                        // 統計計算
+                        const dts = shotHistory.map(h => h.dt).concat(calcDt);
+                        const sd = calculateSD(dts);
+                        const mean = dts.reduce((a,b)=>a+b)/dts.length;
+                        sdDisp.innerText = sd.toFixed(2);
+                        cvDisp.innerText = ((sd/mean)*100).toFixed(1) + '%';
+
+                        shotHistory.push({id:shotHistory.length+1, dt:calcDt, res:ok?'正確':'失準', ts:new Date().toLocaleTimeString()});
+                        const tr = document.createElement('tr'); tr.className = ok?'bg-green-50':'bg-red-50';
+                        tr.innerHTML = `<td class="p-1 border-b">${shotHistory.length}</td><td class="p-1 border-b font-bold">${calcDt}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${ok?'正確':'失準'}</td>`;
+                        hBody.insertBefore(tr, hBody.firstChild);
+                    }
+                    state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
+            }
+            prevEb=sEb; prevKn=sKn; lastT=now;
         }
 
-        const pose = new Pose({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        }});
-        pose.setOptions({
-            modelComplexity: 0, 
-            smoothLandmarks: true,
-            enableSegmentation: false,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        const pose = new Pose({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+        pose.setOptions({modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
         pose.onResults(onResults);
 
-        startBtn.addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume(); 
-            kneeBuffer = []; elbowBuffer = []; lastFrameTime = 0;
-            if (!camera) {
-                 camera = new Camera(videoElement, {
-                    onFrame: async () => { await pose.send({image: videoElement}); },
-                    width: 640, height: 480, facingMode: 'environment'
-                });
-            }
-            camera.start(); isAnalyzing = true;
+        startBtn.onclick = () => {
+            if(audioCtx.state==='suspended') audioCtx.resume();
+            state='IDLE'; shotData=[];
+            camera=new Camera(vEl, { onFrame:async()=>{ await pose.send({image:vEl}); }, width:640, height:480, facingMode:'environment' });
+            camera.start(); isAnalyzing=true; requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
-        });
-
-        stopBtn.addEventListener('click', () => {
-            if (camera) camera.stop();
-            isAnalyzing = false;
-            stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden');
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        });
+        };
+        stopBtn.onclick = () => { if(camera) camera.stop(); isAnalyzing=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); };
+        dlBtn.onclick = () => {
+            let csv = "data:text/csv;charset=utf-8,ID,Dt(ms),Result,Time\n" + shotHistory.map(r=>`${r.id},${r.dt},${r.res},${r.ts}`).join("\n");
+            const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `c802_data_${Date.now()}.csv`; link.click();
+        };
     </script>
 </body>
 </html>
