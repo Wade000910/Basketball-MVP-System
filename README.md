@@ -4,6 +4,13 @@
 
 > **計畫狀態澄清：** 本專案曾以國科會大專學生研究計畫申請案編號 `115CFD2200044` 提出申請，但未獲通過。本 repository 是後續獨立延續的研究軟體，不代表國科會核准、補助或背書。
 
+## Public test site
+
+- Stable test URL: <https://wade000910.github.io/Basketball-MVP-System/>
+- Device and privacy checklist: [`docs/testing-on-github-pages.md`](./docs/testing-on-github-pages.md)
+
+The test site follows the latest reviewed version merged to `main`. It demonstrates software operability only and is not a validated participant-data-collection system.
+
 ## Current snapshot
 
 - Snapshot date: **2026-06-02**
