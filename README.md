@@ -11,6 +11,12 @@
 
 The test site follows the latest reviewed version merged to `main`. It demonstrates software operability only and is not a validated participant-data-collection system.
 
+## Development roadmap
+
+- Ordered low-cost validation plan using the available TUF computer, iPhone 15 Pro, and OPPO phone: [`ROADMAP.md`](./ROADMAP.md)
+
+Development must follow the roadmap gates in order. The next implementation target is Phase 0 device diagnostics, followed by Phase 1A same-phone live analysis plus local source-video/data capture.
+
 ## Current snapshot
 
 - Snapshot date: **2026-06-02**
