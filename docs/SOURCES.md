@@ -2,6 +2,10 @@
 
 This file records why a design choice exists, where external ideas or libraries came from, and what remains unvalidated. A citation documents context; it does **not** prove that this implementation is valid.
 
+## Project status
+
+The related NSTC undergraduate research proposal, application `115CFD2200044`, was not approved. Continued development in this repository is independent and is not evidence of NSTC approval, funding, or endorsement. `c802` is retained only as the project's historical internal identifier.
+
 ## Traceability matrix
 
 | Implementation item | What changed here | Source or prior project | What the source supports | Validation still required |
