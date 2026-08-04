@@ -1,6 +1,8 @@
 # Basketball Kinetic Chain Auditory Feedback System
 
-國科會大專生研究計畫 c802 的籃球罰球動力鏈聽覺回饋原型。
+籃球罰球動力鏈聽覺回饋研究原型，內部名稱為 c802。
+
+> **計畫狀態澄清：** 本專案曾以國科會大專學生研究計畫申請案編號 `115CFD2200044` 提出申請，但未獲通過。本 repository 是後續獨立延續的研究軟體，不代表國科會核准、補助或背書。
 
 ## Current snapshot
 
