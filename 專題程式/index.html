@@ -68,6 +68,13 @@
                     <option value="baseline">基準模式 (無回饋)</option>
                 </select>
             </div>
+            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-left bg-white p-3 rounded-lg shadow-sm">
+                <label class="text-xs font-bold">Participant ID<input id="participant_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="P001"></label>
+                <label class="text-xs font-bold">Session ID<input id="session_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="S01"></label>
+                <label class="text-xs font-bold">Block ID<input id="block_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="B01"></label>
+                <label class="text-xs font-bold">Shooting side<select id="shooting_side" class="mt-1 w-full border rounded px-2 py-1 font-normal"><option value="right">Right</option><option value="left">Left</option></select></label>
+            </div>
+            <p class="mt-2 text-xs font-bold text-red-700">UNVALIDATED RESEARCH PROTOTYPE — NOT FOR PARTICIPANT DATA COLLECTION UNTIL GROUND-TRUTH VALIDATION IS COMPLETE.</p>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -166,6 +173,7 @@
         </main>
     </div>
 
+    <script src="./experiment-core.js"></script>
     <script>
         class ButterworthFilter {
             constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
@@ -205,12 +213,7 @@
             };
         }
 
-        function calculateSD(arr) {
-            if (arr.length < 2) return 0;
-            const mean = arr.reduce((a, b) => a + b) / arr.length;
-            const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (arr.length - 1);
-            return Math.sqrt(variance);
-        }
+        const {calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline} = ExperimentCore;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function beep(freq, dur, type='sine') {
@@ -224,6 +227,7 @@
         const badge = document.getElementById('visual_state_badge'), sBox = document.getElementById('status_box'), sDisp = document.getElementById('status_display'), subDisp = document.getElementById('sub_status_display');
         const ebDisp = document.getElementById('smooth_elbow'), knDisp = document.getElementById('smooth_knee'), dtDisp = document.getElementById('dt_display'), fpsDisp = document.getElementById('fps_display');
         const sdDisp = document.getElementById('sd_display'), cvDisp = document.getElementById('cv_display'), modeSel = document.getElementById('exp_mode');
+        const participantInput = document.getElementById('participant_id'), sessionInput = document.getElementById('session_id'), blockInput = document.getElementById('block_id'), sideSel = document.getElementById('shooting_side');
         const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
         const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), vBar = document.getElementById('visual_feedback_bar');
 
@@ -242,6 +246,22 @@
         let knFilter = new ButterworthFilter(10, 30), ebFilter = new ButterworthFilter(10, 30);
         let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, videoTrack = null;
         let latestLandmarks = null;
+        let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null;
+
+        function experimentContext() {
+            return {participantId:participantInput.value.trim(), sessionId:sessionInput.value.trim(), blockId:blockInput.value.trim(), condition:modeSel.value, shootingSide:sideSel.value};
+        }
+        function contextIsComplete(context) { return context.participantId && context.sessionId && context.blockId; }
+        function resetDisplayedStatistics() {
+            sdDisp.innerText='0.00'; cvDisp.innerText='0.00%'; hBody.innerHTML=''; dtDisp.innerText='-- ms';
+            document.getElementById('chart_container').style.display='none';
+        }
+        function setContextControlsDisabled(disabled) {
+            [participantInput,sessionInput,blockInput,sideSel,modeSel].forEach(control=>control.disabled=disabled);
+        }
+        modeSel.addEventListener('change', resetDisplayedStatistics);
+        blockInput.addEventListener('change', resetDisplayedStatistics);
+        sessionInput.addEventListener('change', resetDisplayedStatistics);
 
         function renderLoop() {
             if(!isAnalyzing) return;
@@ -302,35 +322,41 @@
 
             latestLandmarks = res.poseLandmarks;
             if(!res.poseLandmarks){
-                if(state === 'RECORDING') { state = 'IDLE'; shotData = []; updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
+                if(state === 'RECORDING') { state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
                 lastT=now; return;
             }
 
             const l = res.poseLandmarks;
             const torsoVis = (l[11].visibility + l[12].visibility + l[23].visibility + l[24].visibility) / 4;
-            if(torsoVis < 0.6) { if(state === 'RECORDING') { state = 'IDLE'; shotData = []; updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
+            if(torsoVis < 0.6) { if(state === 'RECORDING') { state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
 
-            const leftVis = (l[11].visibility + l[13].visibility + l[15].visibility + l[23].visibility + l[25].visibility + l[27].visibility) / 6;
-            const rightVis = (l[12].visibility + l[14].visibility + l[16].visibility + l[24].visibility + l[26].visibility + l[28].visibility) / 6;
-            const side = leftVis > rightVis ? 'left' : 'right';
+            const side = currentShotSide || sideSel.value;
             const ebIdx = side === 'left' ? [11, 13, 15] : [12, 14, 16];
             const knIdx = side === 'left' ? [23, 25, 27] : [24, 26, 28];
+            const sideVis = [...ebIdx, ...knIdx].reduce((sum, index) => sum + (l[index].visibility || 0), 0) / 6;
 
             const rawEb = calculateAngle(l[ebIdx[0]], l[ebIdx[1]], l[ebIdx[2]]);
             const rawKn = calculateAngle(l[knIdx[0]], l[knIdx[1]], l[knIdx[2]]);
             const sEb = ebFilter.filter(rawEb), sKn = knFilter.filter(rawKn);
 
-            ebDisp.innerText = sEb.toFixed(0)+'°'; knDisp.innerText = sKn.toFixed(0)+'°';
+            ebDisp.innerText = maskForBaseline(modeSel.value,sEb.toFixed(0)+'°');
+            knDisp.innerText = maskForBaseline(modeSel.value,sKn.toFixed(0)+'°');
             const dtSec = (now-lastT)/1000; const knV = (sKn-prevKn)/dtSec;
 
             switch(state) {
                 case 'IDLE':
                     updateUI('IDLE','gray','準備投籃','請下蹲啟動');
-                    if(sKn < 155 && knV < -40 && torsoVis > 0.7){ state='RECORDING'; shotData=[]; document.getElementById('chart_container').style.display='none'; }
+                    if(sKn < 155 && knV < -40 && torsoVis > 0.7){
+                        const context=experimentContext();
+                        if(!contextIsComplete(context)){ updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs'); break; }
+                        state='RECORDING'; shotData=[]; currentShotContext=Object.freeze({...context}); currentShotSide=currentShotContext.shootingSide; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; setContextControlsDisabled(true);
+                        document.getElementById('chart_container').style.display='none';
+                    }
                     break;
                 case 'RECORDING':
                     updateUI('RECORDING','yellow','動作擷取中','紀錄軌跡...');
-                    shotData.push({t:now, kn:sKn, eb:sEb});
+                    shotData.push({t:now, kn:sKn, eb:sEb}); shotVisibility.push(sideVis);
+                    if(lastShotFrameT!==null) shotFrameIntervals.push(now-lastShotFrameT); lastShotFrameT=now;
                     if((sEb > 155 && (sEb-prevEb)/dtSec < 40) || (now - shotData[0].t > 1500)){ state='PROCESSING'; recEndT=now; }
                     break;
                 case 'PROCESSING':
@@ -346,7 +372,8 @@
                 case 'FEEDBACK':
                     const mode = modeSel.value;
                     if(calcDt!==null){
-                        dtDisp.innerText = calcDt+' ms'; const ok = calcDt>=50 && calcDt<=150;
+                        const context=currentShotContext; const ok = calcDt>=50 && calcDt<=150;
+                        dtDisp.innerText = maskForBaseline(mode,calcDt+' ms','-- ms');
 
                         // 聽覺介入邏輯
                         if(mode === 'auditory' || mode === 'visual'){
@@ -354,24 +381,30 @@
                             else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('失準','red','時序偏差',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
                         } else {
                             updateUI('紀錄完成','blue','數據已存檔','請進行下一次投籃');
+                            dtDisp.innerText='-- ms'; vBar.style.width='0%';
                         }
 
                         // 視覺回饋模式額外顯示圖表
                         if(mode === 'visual') document.getElementById('chart_container').style.display='block';
 
                         // 統計計算
-                        const dts = shotHistory.map(h => h.dt).concat(calcDt);
+                        const blockRows=shotHistory.filter(row=>sameExperimentalBlock(row,context));
+                        const dts = blockRows.map(h => h.dt).concat(calcDt);
                         const sd = calculateSD(dts);
                         const mean = dts.reduce((a,b)=>a+b)/dts.length;
-                        sdDisp.innerText = sd.toFixed(2);
-                        cvDisp.innerText = ((sd/mean)*100).toFixed(1) + '%';
+                        sdDisp.innerText = maskForBaseline(mode,sd.toFixed(2));
+                        cvDisp.innerText = maskForBaseline(mode,((sd/mean)*100).toFixed(1)+'%');
 
-                        shotHistory.push({id:shotHistory.length+1, dt:calcDt, res:ok?'正確':'失準', ts:new Date().toLocaleTimeString()});
+                        const meanFrameInterval=shotFrameIntervals.length ? shotFrameIntervals.reduce((a,b)=>a+b,0)/shotFrameIntervals.length : null;
+                        const measuredFps=meanFrameInterval ? 1000/meanFrameInterval : null;
+                        const meanVisibility=shotVisibility.length ? shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length : null;
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:qualityFlags(measuredFps,meanVisibility),algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'};
+                        shotHistory.push(row);
                         const tr = document.createElement('tr'); tr.className = ok?'bg-green-50':'bg-red-50';
-                        tr.innerHTML = `<td class="p-1 border-b">${shotHistory.length}</td><td class="p-1 border-b font-bold">${calcDt}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${ok?'正確':'失準'}</td>`;
+                        tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,calcDt,'hidden')}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
                         hBody.insertBefore(tr, hBody.firstChild);
                     }
-                    state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
+                    currentShotSide=null; currentShotContext=null; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
             }
             prevEb=sEb; prevKn=sKn; lastT=now;
         }
@@ -387,10 +420,12 @@
             camera.start(); isAnalyzing=true; requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = () => { if(camera) camera.stop(); isAnalyzing=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); };
+        stopBtn.onclick = () => { if(camera) camera.stop(); isAnalyzing=false; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); };
         dlBtn.onclick = () => {
-            let csv = "data:text/csv;charset=utf-8,ID,Dt(ms),Result,Time\n" + shotHistory.map(r=>`${r.id},${r.dt},${r.res},${r.ts}`).join("\n");
-            const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `c802_data_${Date.now()}.csv`; link.click();
+            const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
+            const csvText=rowsToCsv(shotHistory,columns);
+            const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'}), url=URL.createObjectURL(blob);
+            const link=document.createElement('a'); link.href=url; link.download=`c802_trials_${Date.now()}.csv`; link.click(); URL.revokeObjectURL(url);
         };
     </script>
 </body>
