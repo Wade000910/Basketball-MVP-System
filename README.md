@@ -52,6 +52,7 @@ Development after the archived snapshot is tracked separately. The first data-in
 
 - Change record: [`docs/experiment-readiness-v1.md`](./docs/experiment-readiness-v1.md)
 - Literature and GitHub provenance: [`docs/SOURCES.md`](./docs/SOURCES.md)
+- Revised method responding to proposal reviews: [`docs/revised-method-after-review.md`](./docs/revised-method-after-review.md)
 - Archived historical snapshot: tag `archive/c802-prototype-20260602`
 
 The original timing events, filter configuration, one-second delay, and 50–150 ms band remain unvalidated research parameters. This development version is still **not approved for participant data collection**.
