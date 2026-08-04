@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Basketball MVP System — 公開測試入口</title>
+    <style>
+        :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #eef3f8; color: #182230; }
+        main { width: min(42rem, calc(100% - 2rem)); box-sizing: border-box; padding: 2rem; background: white; border-radius: 1rem; box-shadow: 0 1rem 3rem rgba(20, 40, 70, .12); }
+        h1 { margin-top: 0; color: #174ea6; }
+        .warning { padding: 1rem; border-left: .3rem solid #b42318; background: #fff3f2; color: #7a271a; }
+        .button { display: inline-block; margin-top: 1rem; padding: .85rem 1.2rem; border-radius: .7rem; background: #1769aa; color: white; font-weight: 700; text-decoration: none; }
+        li { margin: .55rem 0; }
+        footer { margin-top: 1.5rem; font-size: .85rem; color: #52606d; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>🏀 Basketball MVP System</h1>
+    <p>這是目前 <code>main</code> 分支的公開測試入口。每次通過檢查並合併的新版本，會自動更新到相同網址。</p>
+    <p class="warning"><strong>研究原型：</strong>系統尚未完成高速攝影或動作捕捉 ground-truth 驗證，不可將輸出的時序數值視為科學證據，也不可用於正式受試者資料收集。</p>
+    <ul>
+        <li>Android 建議使用最新版 Chrome。</li>
+        <li>iPhone 建議使用最新版 Safari。</li>
+        <li>需要 HTTPS 相機權限及網路連線，以載入 MediaPipe 等 CDN 資源。</li>
+        <li>測試時請勿輸入真實姓名；Participant ID 請使用研究代碼。</li>
+    </ul>
+    <a class="button" href="./專題程式/">開啟目前測試版</a>
+    <footer>
+        <a href="https://github.com/Wade000910/Basketball-MVP-System/blob/main/docs/revised-method-after-review.md">修訂研究方法</a> ·
+        <a href="https://github.com/Wade000910/Basketball-MVP-System/blob/main/docs/SOURCES.md">來源與研究界線</a> ·
+        <a href="https://github.com/Wade000910/Basketball-MVP-System">GitHub repository</a>
+    </footer>
+</main>
+</body>
+</html>
