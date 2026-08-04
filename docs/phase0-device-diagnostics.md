@@ -54,6 +54,8 @@ The application does not automatically upload the report. Download uses an in-br
 1. Open the public test site on the device and enter the application.
 2. Start the camera and allow permission.
 3. Keep the complete body in view and let diagnostics run for at least five minutes for the formal Phase 0 device check.
+   - Leave **Show diagnostic skeleton** enabled while positioning the phone and confirming pose detection. The overlay appears only while the system is idle or cooling down and is hidden during an active movement trial.
+   - Use the zoom slider only when the page reports a supported hardware range. Unsupported browser/camera combinations disable the control instead of applying a display-only crop.
 4. Note orientation, lighting, heating, permission issues, camera selection, and any visible slowdown separately without recording personal details.
 5. Stop the system.
 6. Select **下載診斷 JSON**.
@@ -80,6 +82,8 @@ Do not commit raw device JSON automatically. First scan it for identifiers and i
 ## Technical references
 
 - [MDN: MediaStreamTrack.getSettings()](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getSettings)
+- [MDN: MediaStreamTrack.getCapabilities()](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities)
+- [MDN: MediaStreamTrack.applyConstraints()](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/applyConstraints)
 - [MDN: MediaTrackSettings and identifier fields](https://developer.mozilla.org/en-US/docs/Web/API/MediaTrackSettings)
 - [MDN: HTMLVideoElement.requestVideoFrameCallback()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLVideoElement/requestVideoFrameCallback)
 - [MDN: High precision timing](https://developer.mozilla.org/en-US/docs/Web/API/Performance_API/High_precision_timing)
