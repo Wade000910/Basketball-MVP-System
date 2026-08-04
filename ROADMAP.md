@@ -4,9 +4,9 @@
 
 This roadmap defines the required order for continuing Basketball-MVP-System with the hardware currently available:
 
-- one ASUS TUF computer;
+- one ASUS TUF Gaming F15 FX507ZV4 computer;
 - one iPhone 15 Pro;
-- one OPPO phone, exact model to be recorded during device characterization;
+- one Samsung Galaxy A60;
 - no funded laboratory camera or optical motion-capture system.
 
 The project will use consumer devices for engineering and low-cost validation. iPhone slow-motion video may be described as **high-frame-rate consumer-phone reference video**, not motion-capture ground truth.
@@ -30,9 +30,9 @@ Complete the phases in order. A later phase cannot be treated as valid merely be
 
 | Device | Initial role | Alternative role | Important limitation |
 | --- | --- | --- | --- |
-| OPPO phone | GitHub Pages live analysis plus same-stream recording | Secondary reference camera if its camera is better suited | Exact model, FPS, codec, browser, and thermal behavior are unknown until Phase 0 |
-| iPhone 15 Pro | Independently synchronized slow-motion reference recording | Live-analysis device if OPPO browser performance is inadequate | Slow-motion reference is not optical motion capture; the camera cannot normally be shared by Safari analysis and the native Camera app at the same time |
-| ASUS TUF computer | Offline replay, manual annotation, comparison, reporting, and repository development | Desktop debugging with C922 only if that camera is available | Desktop results must not be pooled with the frozen smartphone capture pipeline |
+| Samsung Galaxy A60 | GitHub Pages live analysis plus same-stream recording | Secondary reference camera if its camera is better suited | Android/Chrome version, FPS, codec, and thermal behavior remain to be measured in Phase 0 |
+| iPhone 15 Pro | Independently synchronized slow-motion reference recording | Live-analysis device if Galaxy A60 browser performance is inadequate | Slow-motion reference is not optical motion capture; the camera cannot normally be shared by Safari analysis and the native Camera app at the same time |
+| ASUS TUF Gaming F15 FX507ZV4 | Offline replay, manual annotation, comparison, reporting, and repository development | Desktop debugging with an external camera only if one becomes available | Desktop results must not be pooled with the frozen smartphone capture pipeline |
 
 Device roles may be swapped after Phase 0 measurements. The reason must be recorded in the device profile and changelog.
 
@@ -54,8 +54,8 @@ Determine what the available devices can actually capture and process before des
 
 ### Hands-on work
 
-- [ ] Record the exact ASUS TUF model/specifications relevant to analysis.
-- [ ] Record the exact OPPO model, Android version, and Chrome version.
+- [x] Record the exact ASUS TUF model/specifications relevant to analysis.
+- [ ] Record the Samsung Galaxy A60 Android version and Chrome version.
 - [ ] Record the iPhone model, iOS version, Safari version, and supported slow-motion modes shown by the native Camera app.
 - [ ] Run a five-minute camera/pose diagnostic on each supported browser.
 - [ ] Note overheating, throttling, permission failures, orientation problems, and camera-selection behavior.
@@ -459,7 +459,7 @@ The active queue is:
 3. **Phase 1B:** deterministic offline replay on the TUF computer.
 4. **Phase 1C:** processing and physical audio-latency characterization.
 5. **Phase 2A:** camera-placement pilot.
-6. **Phase 2B:** synchronized OPPO/iPhone capture.
+6. **Phase 2B:** synchronized Galaxy A60/iPhone capture.
 7. **Phase 2C:** manual annotation and event validation.
 8. Continue to feedback and participant phases only after their gates pass.
 

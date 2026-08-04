@@ -6,6 +6,16 @@ The Phase 0 diagnostic engineering checklist is complete in the public applicati
 
 Public test entry: <https://wade000910.github.io/Basketball-MVP-System/>
 
+## Confirmed device inventory
+
+| Device | Confirmed non-identifying specification | Still required |
+| --- | --- | --- |
+| ASUS TUF Gaming F15 FX507ZV4 | Intel Core i7-12700H; 16 GB-class RAM; NVIDIA GeForce RTX 4060 Laptop GPU and Intel UHD Graphics; Windows 11 Home 64-bit, build 26200 | Offline-replay benchmark in Phase 1B |
+| Samsung Galaxy A60 | Model confirmed by the owner | Android version, Chrome version, five-minute diagnostic, and stability observations |
+| iPhone 15 Pro | Model confirmed by the owner | iOS version, Safari version, native Camera slow-motion modes, five-minute diagnostic, and stability observations |
+
+The previously documented OPPO phone was an incorrect assumption and has been replaced by the confirmed Samsung Galaxy A60. No serial number, device ID, local account, or other persistent identifier is recorded.
+
 ## What is measured
 
 - semantic public build ID;

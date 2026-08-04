@@ -13,7 +13,7 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 
 ## Development roadmap
 
-- Ordered low-cost validation plan using the available TUF computer, iPhone 15 Pro, and OPPO phone: [`ROADMAP.md`](./ROADMAP.md)
+- Ordered low-cost validation plan using the available ASUS TUF Gaming F15, iPhone 15 Pro, and Samsung Galaxy A60: [`ROADMAP.md`](./ROADMAP.md)
 
 Development must follow the roadmap gates in order. Phase 0 diagnostic engineering is complete, but its hands-on device tests and exit gate remain open. Phase 1A same-phone live analysis plus local source-video/data capture begins only after that gate is reviewed.
 
