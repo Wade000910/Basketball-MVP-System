@@ -108,7 +108,12 @@
                             <span>🔍 鏡頭縮放 (Zoom)</span>
                             <span id="zoom_val" class="text-orange-600">1.0x</span>
                         </label>
-                        <input type="range" id="zoom_slider" min="1" max="5" step="any" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 mt-2">
+                        <input type="range" id="zoom_slider" min="1" max="5" step="any" value="1" disabled class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 mt-2 disabled:opacity-50">
+                        <p id="zoom_status" class="text-xs text-gray-500 mt-2">啟動相機後偵測硬體縮放能力。</p>
+                        <label class="flex items-center gap-2 text-sm text-gray-700 mt-3">
+                            <input type="checkbox" id="diagnostic_overlay" checked class="accent-blue-600">
+                            <span>顯示診斷骨架（僅設定與待機時顯示）</span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -189,6 +194,7 @@
 
     <script src="./experiment-core.js"></script>
     <script src="./diagnostics.js"></script>
+    <script src="./camera-controls.js"></script>
     <script>
         class ButterworthFilter {
             constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
@@ -244,7 +250,7 @@
         const sdDisp = document.getElementById('sd_display'), cvDisp = document.getElementById('cv_display'), modeSel = document.getElementById('exp_mode');
         const participantInput = document.getElementById('participant_id'), sessionInput = document.getElementById('session_id'), blockInput = document.getElementById('block_id'), sideSel = document.getElementById('shooting_side');
         const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
-        const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), vBar = document.getElementById('visual_feedback_bar');
+        const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), zoomStatus = document.getElementById('zoom_status'), diagnosticOverlay = document.getElementById('diagnostic_overlay'), vBar = document.getElementById('visual_feedback_bar');
         const diagBuild = document.getElementById('diag_build'), diagCamera = document.getElementById('diag_camera'), diagFrame = document.getElementById('diag_frame'), diagInference = document.getElementById('diag_inference'), diagCounts = document.getElementById('diag_counts'), diagLongFrames = document.getElementById('diag_long_frames'), diagStatus = document.getElementById('diag_status'), diagDownload = document.getElementById('diag_download');
 
         const chartCtx = document.getElementById('velocity_chart').getContext('2d');
@@ -282,6 +288,39 @@
             const track=vEl.srcObject?.getVideoTracks?.()[0];
             return track?.getSettings ? track.getSettings() : {};
         }
+
+        function resetZoomControl(message='啟動相機後偵測硬體縮放能力。') {
+            videoTrack=null; zoomSlider.disabled=true; zoomVal.innerText='--'; zoomStatus.innerText=message;
+        }
+
+        function configureZoomControl() {
+            videoTrack=vEl.srcObject?.getVideoTracks?.()[0] || null;
+            if(!videoTrack || typeof videoTrack.getCapabilities!=='function') { resetZoomControl('此瀏覽器不提供相機縮放能力。'); return; }
+            const config=CameraControls.zoomConfiguration(videoTrack.getCapabilities(), videoTrack.getSettings?.() || {});
+            if(!config.supported || typeof videoTrack.applyConstraints!=='function') { resetZoomControl('目前鏡頭或瀏覽器不支援硬體縮放。'); return; }
+            zoomSlider.min=String(config.min); zoomSlider.max=String(config.max); zoomSlider.step=String(config.step); zoomSlider.value=String(config.value); zoomSlider.disabled=false;
+            zoomVal.innerText=`${config.value.toFixed(1)}x`; zoomStatus.innerText=`支援範圍 ${config.min.toFixed(1)}x–${config.max.toFixed(1)}x`;
+        }
+
+        function configureZoomWhenReady(attempt=0) {
+            if(!isAnalyzing) return;
+            if(vEl.srcObject?.getVideoTracks?.()[0]) { configureZoomControl(); return; }
+            if(attempt < 10) setTimeout(()=>configureZoomWhenReady(attempt+1), 250);
+            else resetZoomControl('無法取得相機縮放能力；請重新啟動相機。');
+        }
+
+        zoomSlider.addEventListener('input', async () => {
+            if(!videoTrack || zoomSlider.disabled) return;
+            const zoom=Number(zoomSlider.value); zoomVal.innerText=`${zoom.toFixed(1)}x`;
+            try {
+                await videoTrack.applyConstraints({advanced:[{zoom}]});
+                const actual=Number(videoTrack.getSettings?.().zoom);
+                if(Number.isFinite(actual)) { zoomSlider.value=String(actual); zoomVal.innerText=`${actual.toFixed(1)}x`; }
+                zoomStatus.innerText='已套用相機硬體縮放。';
+            } catch(error) {
+                zoomStatus.innerText='縮放設定失敗；請重新啟動相機。';
+            }
+        });
 
         function recordPresentedFrame(now) {
             if(!diagRaw || !isAnalyzing) return;
@@ -348,7 +387,7 @@
         function renderLoop() {
             if(!isAnalyzing) return;
             ctx.drawImage(vEl, 0, 0, cEl.width, cEl.height);
-            if(latestLandmarks && (state !== 'IDLE' && state !== 'COOLDOWN')) {
+            if(latestLandmarks && CameraControls.showDiagnosticSkeleton(diagnosticOverlay.checked, state)) {
                 const bodyLandmarks = latestLandmarks.map((lm, i) => i < 11 ? { ...lm, visibility: 0 } : lm);
                 drawConnectors(ctx, bodyLandmarks, POSE_CONNECTIONS, {color:'#ffffff', lineWidth:2});
                 drawLandmarks(ctx, bodyLandmarks, {color:'#3B82F6', lineWidth:1, radius:3});
@@ -500,10 +539,10 @@
             state='IDLE'; shotData=[];
             resetDiagnostics();
             camera=new Camera(vEl, { onFrame:async()=>{ const activeDiagnostics=diagRaw,started=performance.now(); await pose.send({image:vEl}); if(isAnalyzing&&diagRaw===activeDiagnostics) activeDiagnostics.inferenceDurationsMs.push(performance.now()-started); }, width:640, height:480, facingMode:'environment' });
-            camera.start(); isAnalyzing=true; setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},250); requestAnimationFrame(renderLoop);
+            resetZoomControl('正在偵測相機縮放能力…'); camera.start(); isAnalyzing=true; configureZoomWhenReady(); setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},500); requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = () => { stopVideoFrameDiagnostics(); if(camera) camera.stop(); isAnalyzing=false; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); updateDiagnosticPanel(); };
+        stopBtn.onclick = () => { stopVideoFrameDiagnostics(); if(camera) camera.stop(); isAnalyzing=false; resetZoomControl(); currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); updateDiagnosticPanel(); };
         dlBtn.onclick = () => {
             const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
             const csvText=rowsToCsv(shotHistory,columns);
