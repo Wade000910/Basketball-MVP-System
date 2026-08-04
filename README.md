@@ -43,3 +43,19 @@ This snapshot replaces the earlier April camera feasibility prototype. It is pre
 Open `專題程式/index.html` in a browser that permits camera access, allow camera permission, select an experiment mode, and start the system. An internet connection is currently required to load the CDN dependencies.
 
 Do not use the generated timing values as scientific evidence until the measurement pipeline and experiment data separation have been verified.
+
+## Experiment-readiness development
+
+Development after the archived snapshot is tracked separately. The first data-integrity pass adds experimental identifiers, per-block/per-condition statistics, shot-level side locking, baseline blinding, richer CSV metadata, quality flags, and deterministic tests.
+
+- Change record: [`docs/experiment-readiness-v1.md`](./docs/experiment-readiness-v1.md)
+- Literature and GitHub provenance: [`docs/SOURCES.md`](./docs/SOURCES.md)
+- Archived historical snapshot: tag `archive/c802-prototype-20260602`
+
+The original timing events, filter configuration, one-second delay, and 50–150 ms band remain unvalidated research parameters. This development version is still **not approved for participant data collection**.
+
+Run the zero-dependency checks with Node.js:
+
+```bash
+npm test
+```

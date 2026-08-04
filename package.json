@@ -1,0 +1,9 @@
+{
+  "name": "basketball-mvp-system",
+  "version": "0.1.0-experiment-readiness",
+  "private": true,
+  "description": "Research prototype checks for the c802 basketball feedback system",
+  "scripts": {
+    "test": "node --test tests/experiment-core.test.js && node tests/validate-html.js"
+  }
+}
