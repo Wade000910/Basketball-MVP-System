@@ -2,7 +2,7 @@
 
 ## Status
 
-The public application includes the first Phase 0 diagnostic collector. It measures browser-visible camera and processing behavior locally and exports a sanitized JSON profile. This implementation does not complete the Phase 0 exit gate by itself; the OPPO, iPhone 15 Pro, and TUF device runs still need to be performed and reviewed.
+The Phase 0 diagnostic engineering checklist is complete in the public application. It measures browser-visible camera and processing behavior locally and exports a sanitized JSON profile. This implementation does not complete the Phase 0 exit gate by itself; the device inventory, five-minute phone runs, observations, and device-role decision still need to be performed and reviewed.
 
 Public test entry: <https://wade000910.github.io/Basketball-MVP-System/>
 

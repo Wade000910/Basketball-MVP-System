@@ -46,11 +46,11 @@ Determine what the available devices can actually capture and process before des
 
 ### Engineering work
 
-- [ ] Add a device-diagnostics view to the GitHub Pages application.
-- [ ] Record browser user agent, OS/browser version where exposed, viewport, screen orientation, requested camera constraints, actual video width/height, measured FPS, and audio context sample rate.
-- [ ] Record MediaPipe inference duration and long-frame counts during a short diagnostic run.
-- [ ] Add a downloadable, non-identifying device profile.
-- [ ] Display the current Git commit or public build identifier.
+- [x] Add a device-diagnostics view to the GitHub Pages application.
+- [x] Record browser user agent, OS/browser version where exposed, viewport, screen orientation, requested camera constraints, actual video width/height, measured FPS, and audio context sample rate.
+- [x] Record MediaPipe inference duration and long-frame counts during a short diagnostic run.
+- [x] Add a downloadable, non-identifying device profile.
+- [x] Display the current Git commit or public build identifier.
 
 ### Hands-on work
 
