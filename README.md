@@ -17,6 +17,8 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 
 Development must follow the roadmap gates in order. The next implementation target is Phase 0 device diagnostics, followed by Phase 1A same-phone live analysis plus local source-video/data capture.
 
+Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
+
 ## Current snapshot
 
 - Snapshot date: **2026-06-02**

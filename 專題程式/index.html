@@ -152,6 +152,20 @@
                         </div>
                     </div>
 
+                    <details class="border rounded bg-slate-50 p-3" open>
+                        <summary class="text-xs font-bold text-slate-700 cursor-pointer">Phase 0 裝置診斷</summary>
+                        <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono">
+                            <div>Build<br><strong id="diag_build">--</strong></div>
+                            <div>Camera<br><strong id="diag_camera">--</strong></div>
+                            <div>Frame median<br><strong id="diag_frame">--</strong></div>
+                            <div>Inference P95<br><strong id="diag_inference">--</strong></div>
+                            <div>Frames / results<br><strong id="diag_counts">0 / 0</strong></div>
+                            <div>Long frames<br><strong id="diag_long_frames">0</strong></div>
+                        </div>
+                        <p id="diag_status" class="mt-2 text-[10px] text-slate-600">啟動相機後開始本機診斷；資料不會自動上傳。</p>
+                        <button id="diag_download" type="button" class="mt-2 text-[10px] bg-slate-700 hover:bg-slate-800 text-white py-1 px-2 rounded">下載診斷 JSON</button>
+                    </details>
+
                     <div class="border-t pt-4">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-xs font-bold text-gray-700">實驗紀錄匯出</h3>
@@ -174,6 +188,7 @@
     </div>
 
     <script src="./experiment-core.js"></script>
+    <script src="./diagnostics.js"></script>
     <script>
         class ButterworthFilter {
             constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
@@ -230,6 +245,7 @@
         const participantInput = document.getElementById('participant_id'), sessionInput = document.getElementById('session_id'), blockInput = document.getElementById('block_id'), sideSel = document.getElementById('shooting_side');
         const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
         const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), vBar = document.getElementById('visual_feedback_bar');
+        const diagBuild = document.getElementById('diag_build'), diagCamera = document.getElementById('diag_camera'), diagFrame = document.getElementById('diag_frame'), diagInference = document.getElementById('diag_inference'), diagCounts = document.getElementById('diag_counts'), diagLongFrames = document.getElementById('diag_long_frames'), diagStatus = document.getElementById('diag_status'), diagDownload = document.getElementById('diag_download');
 
         const chartCtx = document.getElementById('velocity_chart').getContext('2d');
         let velocityChart = new Chart(chartCtx, {
@@ -247,6 +263,72 @@
         let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, videoTrack = null;
         let latestLandmarks = null;
         let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null;
+        const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
+        let diagRaw = null, videoFrameCallbackId = null, animationFrameId = null, lastVideoFrameTime = null, lastVideoCurrentTime = null;
+
+        function orientationName() {
+            return screen.orientation?.type || (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape');
+        }
+
+        function resetDiagnostics() {
+            diagRaw = {startedAt:new Date().toISOString(),startPerf:performance.now(),durationMs:0,userAgent:navigator.userAgent,
+                viewport:{width:window.innerWidth,height:window.innerHeight},orientation:orientationName(),devicePixelRatio:window.devicePixelRatio,
+                audioSampleRate:audioCtx.sampleRate,requestedCameraSettings,actualCameraSettings:{},frameCallbackMode:'unknown',
+                frameIntervalsMs:[],inferenceDurationsMs:[],presentedFrameCount:0,poseResultCount:0};
+            diagBuild.innerText=DeviceDiagnostics.BUILD_ID; updateDiagnosticPanel();
+        }
+
+        function currentTrackSettings() {
+            const track=vEl.srcObject?.getVideoTracks?.()[0];
+            return track?.getSettings ? track.getSettings() : {};
+        }
+
+        function recordPresentedFrame(now) {
+            if(!diagRaw || !isAnalyzing) return;
+            if(lastVideoFrameTime!==null) diagRaw.frameIntervalsMs.push(now-lastVideoFrameTime);
+            lastVideoFrameTime=now; diagRaw.presentedFrameCount++;
+        }
+
+        function scheduleVideoFrameDiagnostics() {
+            lastVideoFrameTime=null; lastVideoCurrentTime=null;
+            if(typeof vEl.requestVideoFrameCallback==='function') {
+                diagRaw.frameCallbackMode='requestVideoFrameCallback';
+                const callback=(now)=>{recordPresentedFrame(now);if(isAnalyzing) videoFrameCallbackId=vEl.requestVideoFrameCallback(callback);};
+                videoFrameCallbackId=vEl.requestVideoFrameCallback(callback);
+            } else {
+                diagRaw.frameCallbackMode='requestAnimationFrame-currentTime-fallback';
+                const callback=(now)=>{if(vEl.currentTime!==lastVideoCurrentTime){recordPresentedFrame(now);lastVideoCurrentTime=vEl.currentTime;}if(isAnalyzing) animationFrameId=requestAnimationFrame(callback);};
+                animationFrameId=requestAnimationFrame(callback);
+            }
+        }
+
+        function stopVideoFrameDiagnostics() {
+            if(videoFrameCallbackId!==null && typeof vEl.cancelVideoFrameCallback==='function') vEl.cancelVideoFrameCallback(videoFrameCallbackId);
+            if(animationFrameId!==null) cancelAnimationFrame(animationFrameId);
+            videoFrameCallbackId=null; animationFrameId=null;
+            if(diagRaw) {diagRaw.durationMs=performance.now()-diagRaw.startPerf;diagRaw.actualCameraSettings=currentTrackSettings();}
+        }
+
+        function diagnosticExport() {
+            if(!diagRaw) resetDiagnostics();
+            diagRaw.durationMs=performance.now()-diagRaw.startPerf; diagRaw.actualCameraSettings=currentTrackSettings();
+            diagRaw.viewport={width:window.innerWidth,height:window.innerHeight};diagRaw.orientation=orientationName();
+            return DeviceDiagnostics.buildExport(diagRaw);
+        }
+
+        function updateDiagnosticPanel() {
+            const report=diagnosticExport(), camera=report.camera.actual, perf=report.performance;
+            diagCamera.innerText=camera.width&&camera.height?`${camera.width}×${camera.height} @ ${camera.frameRate||'?'} reported`:'waiting';
+            diagFrame.innerText=perf.frameIntervalMs.median===null?'--':`${perf.frameIntervalMs.median} ms (${perf.calculatedMeanFps||'?'} FPS)`;
+            diagInference.innerText=perf.inferenceDurationMs.p95===null?'--':`${perf.inferenceDurationMs.p95} ms`;
+            diagCounts.innerText=`${perf.presentedFrameCount} / ${perf.poseResultCount}`;diagLongFrames.innerText=`${perf.longFrameCount} (${perf.longFrameRatePercent}%)`;
+            diagStatus.innerText=isAnalyzing?`診斷進行中：${report.diagnosticDurationSec}s；僅保存在記憶體。`:`診斷已停止：${report.diagnosticDurationSec}s；請下載 JSON 保存。`;
+        }
+
+        diagDownload.onclick=()=>{
+            const report=diagnosticExport(),blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);
+            const link=document.createElement('a');link.href=url;link.download=`device-diagnostics_${Date.now()}.json`;link.click();URL.revokeObjectURL(url);
+        };
 
         function experimentContext() {
             return {participantId:participantInput.value.trim(), sessionId:sessionInput.value.trim(), blockId:blockInput.value.trim(), condition:modeSel.value, shootingSide:sideSel.value};
@@ -317,8 +399,8 @@
 
         function onResults(res) {
             if(!isAnalyzing) return;
-            const now = performance.now(); frames++;
-            if(now-lastFpsT >= 1000){ currentSR=frames; fpsDisp.innerText=`${frames} FPS`; knFilter.update(10, frames>0?frames:30); ebFilter.update(10, frames>0?frames:30); frames=0; lastFpsT=now; }
+            const now = performance.now(); frames++; if(diagRaw) diagRaw.poseResultCount++;
+            if(now-lastFpsT >= 1000){ currentSR=frames; fpsDisp.innerText=`${frames} FPS`; knFilter.update(10, frames>0?frames:30); ebFilter.update(10, frames>0?frames:30); frames=0; lastFpsT=now; updateDiagnosticPanel(); }
 
             latestLandmarks = res.poseLandmarks;
             if(!res.poseLandmarks){
@@ -416,11 +498,12 @@
         startBtn.onclick = () => {
             if(audioCtx.state==='suspended') audioCtx.resume();
             state='IDLE'; shotData=[];
-            camera=new Camera(vEl, { onFrame:async()=>{ await pose.send({image:vEl}); }, width:640, height:480, facingMode:'environment' });
-            camera.start(); isAnalyzing=true; requestAnimationFrame(renderLoop);
+            resetDiagnostics();
+            camera=new Camera(vEl, { onFrame:async()=>{ const activeDiagnostics=diagRaw,started=performance.now(); await pose.send({image:vEl}); if(isAnalyzing&&diagRaw===activeDiagnostics) activeDiagnostics.inferenceDurationsMs.push(performance.now()-started); }, width:640, height:480, facingMode:'environment' });
+            camera.start(); isAnalyzing=true; setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},250); requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = () => { if(camera) camera.stop(); isAnalyzing=false; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); };
+        stopBtn.onclick = () => { stopVideoFrameDiagnostics(); if(camera) camera.stop(); isAnalyzing=false; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); updateDiagnosticPanel(); };
         dlBtn.onclick = () => {
             const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
             const csvText=rowsToCsv(shotHistory,columns);

@@ -4,6 +4,6 @@
   "private": true,
   "description": "Research prototype checks for the c802 basketball feedback system",
   "scripts": {
-    "test": "node --test tests/experiment-core.test.js && node tests/validate-html.js && node tests/validate-pages.js"
+    "test": "node --test tests/experiment-core.test.js tests/diagnostics.test.js && node tests/validate-html.js && node tests/validate-pages.js"
   }
 }
