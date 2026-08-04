@@ -15,7 +15,7 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 
 - Ordered low-cost validation plan using the available TUF computer, iPhone 15 Pro, and OPPO phone: [`ROADMAP.md`](./ROADMAP.md)
 
-Development must follow the roadmap gates in order. The next implementation target is Phase 0 device diagnostics, followed by Phase 1A same-phone live analysis plus local source-video/data capture.
+Development must follow the roadmap gates in order. Phase 0 diagnostic engineering is complete, but its hands-on device tests and exit gate remain open. Phase 1A same-phone live analysis plus local source-video/data capture begins only after that gate is reviewed.
 
 Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
 
