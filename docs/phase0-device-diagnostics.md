@@ -2,7 +2,7 @@
 
 ## Status
 
-The Phase 0 diagnostic engineering checklist is complete in the public application. It measures browser-visible camera and processing behavior locally and exports a sanitized JSON profile. This implementation does not complete the Phase 0 exit gate by itself; the device inventory, five-minute phone runs, observations, and device-role decision still need to be performed and reviewed.
+The Phase 0 diagnostic engineering checklist and first five-minute runs are complete. The iPhone is provisionally selected for the October live-analysis path. Phase 0 remains open for later participant validation because the independent high-frame-rate reference arrangement is unresolved.
 
 Public test entry: <https://wade000910.github.io/Basketball-MVP-System/>
 
@@ -11,8 +11,8 @@ Public test entry: <https://wade000910.github.io/Basketball-MVP-System/>
 | Device | Confirmed non-identifying specification | Still required |
 | --- | --- | --- |
 | ASUS TUF Gaming F15 FX507ZV4 | Intel Core i7-12700H; 16 GB-class RAM; NVIDIA GeForce RTX 4060 Laptop GPU and Intel UHD Graphics; Windows 11 Home 64-bit, build 26200 | Offline-replay benchmark in Phase 1B |
-| Samsung Galaxy A60 | Model confirmed by the owner | Android version, Chrome version, five-minute diagnostic, and stability observations |
-| iPhone 15 Pro | Model confirmed by the owner | iOS version, Safari version, native Camera slow-motion modes, five-minute diagnostic, and stability observations |
+| Samsung Galaxy A60 | Android 10; Chrome 127; first portrait five-minute diagnostic complete | Investigate the interruption, empty camera settings, diagnostic/trial FPS disagreement, and whether any non-live role is useful |
+| iPhone 15 Pro | iOS 18; Safari 26; first portrait five-minute diagnostic complete; Apple specifies 1080p slow motion at 120 or 240 fps | Confirm the later independent-reference architecture and investigate the single extreme inference-duration outlier |
 
 The previously documented OPPO phone was an incorrect assumption and has been replaced by the confirmed Samsung Galaxy A60. No serial number, device ID, local account, or other persistent identifier is recorded.
 
@@ -76,6 +76,39 @@ The diagnostic JSON records technical behavior only. It does not establish pose 
 
 ## Device decision record
 
+### First phone runs — 2026-08-06
+
+Only sanitized aggregates are recorded here. Raw JSON and CSV files remain local and are not committed.
+
+| Item | Samsung Galaxy A60 | iPhone 15 Pro |
+| --- | --- | --- |
+| Diagnostic duration | 329.86 s | 341.48 s |
+| Orientation | Portrait | Portrait |
+| Browser / OS | Chrome 127 / Android 10 | Safari 26 / iOS 18 |
+| Actual camera settings | Not returned | 480×640 at reported 30 fps |
+| Diagnostic calculated mean FPS | 2.82 | 26.04 |
+| Trial-level observed FPS | Approximately 7–9; all rows flagged `LOW_FPS` | Approximately 24–30; mixed `OK` and threshold-edge `LOW_FPS` flags |
+| Inference median / P95 | 113.2 / 134.56 ms | 29 / 31 ms |
+| Long frames | 0 under a fallback threshold derived without reported camera FPS | 2 (0.02%) |
+| Thermal observation | No noticeable heat | Slight heat |
+| Visible behavior | Obvious lag, occasional skeleton loss, eventual interruption | No visible lag, occasional skeleton loss, no crash or camera interruption |
+
+Interpretation boundaries:
+
+- The A60 CSV includes rows timestamped before the exported diagnostic start, so its trial count is not treated as a matched five-minute session count.
+- The A60 diagnostic FPS and trial-level FPS disagree and its actual camera settings are empty. Preserve these discrepancies; do not average them into one performance value.
+- The iPhone recorded one 4422 ms maximum inference duration despite a 29 ms median and 31 ms P95. Preserve the outlier and investigate lifecycle, startup, or scheduling causes.
+- Trial `deltaT` values and in-range labels are not accuracy evidence. The scripted movements triggered more trials than intended, confirming that event validation remains necessary.
+
+Decision:
+
+- Use the iPhone 15 Pro as the provisional October live-analysis phone.
+- Do not use the Galaxy A60 as the current live-analysis phone.
+- Apple confirms that the iPhone 15 Pro supports 1080p slow motion at 120 or 240 fps, so it can serve as a high-frame-rate consumer-phone reference camera in a separate capture role [1]. It cannot simultaneously run the Safari camera pipeline and native slow-motion capture.
+- Keep the later dual-phone reference architecture unresolved rather than assigning unsupported capability to the A60.
+
+The decision above establishes an October engineering role, not pose accuracy, event validity, participant readiness, or intervention efficacy.
+
 After the three available devices are tested, add a reviewed decision record containing:
 
 - exact device model and OS/browser versions supplied manually by the owner;
@@ -90,6 +123,8 @@ After the three available devices are tested, add a reviewed decision record con
 Do not commit raw device JSON automatically. First scan it for identifiers and include only the minimum technical evidence required.
 
 ## Technical references
+
+1. Apple Support. iPhone 15 Pro — Technical Specifications. Slow-motion video support: 1080p at 120 fps or 240 fps. <https://support.apple.com/zh-tw/111829>
 
 - [MDN: MediaStreamTrack.getSettings()](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getSettings)
 - [MDN: MediaStreamTrack.getCapabilities()](https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/getCapabilities)

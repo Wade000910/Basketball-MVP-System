@@ -32,8 +32,8 @@ Complete the phases in order. A later phase cannot be treated as valid merely be
 
 | Device | Initial role | Alternative role | Important limitation |
 | --- | --- | --- | --- |
-| Samsung Galaxy A60 | GitHub Pages live analysis plus same-stream recording | Secondary reference camera if its camera is better suited | Android/Chrome version, FPS, codec, and thermal behavior remain to be measured in Phase 0 |
-| iPhone 15 Pro | Independently synchronized slow-motion reference recording | Live-analysis device if Galaxy A60 browser performance is inadequate | Slow-motion reference is not optical motion capture; the camera cannot normally be shared by Safari analysis and the native Camera app at the same time |
+| Samsung Galaxy A60 | Secondary engineering device after the first Phase 0 run failed the live stability/performance gate | Possible ordinary-rate secondary recording after separate camera testing | Android 10 / Chrome 127 showed obvious lag, eventual interruption, and roughly 7–9 trial FPS; it is not the October live device |
+| iPhone 15 Pro | Provisional October live-analysis device | Independently synchronized 1080p/120 or 240 fps consumer-phone reference recording in a separate run | It cannot normally share its camera between Safari analysis and native slow-motion recording; the later independent-reference architecture remains unresolved |
 | ASUS TUF Gaming F15 FX507ZV4 | Offline replay, manual annotation, comparison, reporting, and repository development | Desktop debugging with an external camera only if one becomes available | Desktop results must not be pooled with the frozen smartphone capture pipeline |
 | Phone speaker | Primary auditory-output path for engineering characterization | Presentation fallback output | Physical onset latency and outdoor audibility remain to be measured |
 | AirPods Pro 2 | Separate Bluetooth comparison path | Possible later study output only if justified | Not bone conduction; latency, jitter, connection reliability, and usability must be measured on the selected phone |
@@ -61,10 +61,10 @@ Determine what the available devices can actually capture and process before des
 ### Hands-on work
 
 - [x] Record the exact ASUS TUF model/specifications relevant to analysis.
-- [ ] Record the Samsung Galaxy A60 Android version and Chrome version.
-- [ ] Record the iPhone model, iOS version, Safari version, and supported slow-motion modes shown by the native Camera app.
-- [ ] Run a five-minute camera/pose diagnostic on each supported browser.
-- [ ] Note overheating, throttling, permission failures, orientation problems, and camera-selection behavior.
+- [x] Record the Samsung Galaxy A60 Android version and Chrome version.
+- [x] Record the iPhone model, iOS version, Safari version, and supported slow-motion modes from the device or Apple specification.
+- [x] Run a five-minute camera/pose diagnostic on each supported browser.
+- [x] Note overheating, throttling, permission failures, orientation problems, and camera-selection behavior.
 
 ### Outputs
 
@@ -78,6 +78,13 @@ Determine what the available devices can actually capture and process before des
 - Actual resolution, FPS distribution, inference duration, browser, and OS are recorded.
 - The high-frame-rate reference mode is confirmed on the selected second phone.
 - Device roles are frozen for the next phases.
+
+### Current gate decision
+
+- The iPhone passes the five-minute stability gate for the October live-analysis path.
+- The Galaxy A60 does not pass the current live-analysis gate because of obvious lag and eventual interruption.
+- The October device role is provisionally frozen, but the complete Phase 2B architecture is not: using the iPhone for live Safari analysis prevents it from simultaneously serving as the independent native slow-motion reference camera.
+- Do not represent Phase 0 as fully closed for participant validation until an acceptable independent-reference arrangement is demonstrated.
 
 ### Not established by this phase
 
