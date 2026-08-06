@@ -8,6 +8,8 @@ assert.match(landing, /href="\.\/專題程式\/"/);
 assert.match(landing, /研究原型/);
 assert.match(landing, /請勿輸入真實姓名/);
 assert.equal(fs.existsSync('專題程式/index.html'), true);
+assert.equal(fs.existsSync('專題程式/session-capture.js'), true);
+assert.match(fs.readFileSync('專題程式/index.html','utf8'), /Phase 1A 本機 Session 套件/);
 assert.equal(fs.existsSync('.nojekyll'), true);
 
 console.log('GitHub Pages landing-page validation passed.');

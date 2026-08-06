@@ -96,10 +96,10 @@
                 <div class="mt-4 flex flex-col items-center space-y-4">
                     <div class="flex space-x-4">
                         <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg transition-transform transform hover:scale-105">
-                            啟動實驗系統
+                            開始 Session
                         </button>
                         <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
-                            停止系統
+                            停止 Session
                         </button>
                     </div>
 
@@ -171,6 +171,14 @@
                         <button id="diag_download" type="button" class="mt-2 text-[10px] bg-slate-700 hover:bg-slate-800 text-white py-1 px-2 rounded">下載診斷 JSON</button>
                     </details>
 
+                    <details class="border rounded bg-emerald-50 p-3" open>
+                        <summary class="text-xs font-bold text-emerald-800 cursor-pointer">Phase 1A 本機 Session 套件</summary>
+                        <p id="capture_status" class="mt-2 text-[10px] text-emerald-800">填完 ID 後按啟動；同一相機串流會同時分析與錄影。</p>
+                        <p id="capture_mime" class="mt-1 text-[10px] font-mono text-emerald-700">Video: --</p>
+                        <div id="capture_downloads" class="mt-2 grid grid-cols-1 gap-1"></div>
+                        <p class="mt-2 text-[10px] text-red-700">停止後請逐一下載全部檔案。資料只保存在此瀏覽器記憶體，不會自動上傳。</p>
+                    </details>
+
                     <div class="border-t pt-4">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-xs font-bold text-gray-700">實驗紀錄匯出</h3>
@@ -195,6 +203,7 @@
     <script src="./experiment-core.js"></script>
     <script src="./diagnostics.js"></script>
     <script src="./camera-controls.js"></script>
+    <script src="./session-capture.js"></script>
     <script>
         class ButterworthFilter {
             constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
@@ -252,6 +261,7 @@
         const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
         const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), zoomStatus = document.getElementById('zoom_status'), diagnosticOverlay = document.getElementById('diagnostic_overlay'), vBar = document.getElementById('visual_feedback_bar');
         const diagBuild = document.getElementById('diag_build'), diagCamera = document.getElementById('diag_camera'), diagFrame = document.getElementById('diag_frame'), diagInference = document.getElementById('diag_inference'), diagCounts = document.getElementById('diag_counts'), diagLongFrames = document.getElementById('diag_long_frames'), diagStatus = document.getElementById('diag_status'), diagDownload = document.getElementById('diag_download');
+        const captureStatus = document.getElementById('capture_status'), captureMime = document.getElementById('capture_mime'), captureDownloads = document.getElementById('capture_downloads');
 
         const chartCtx = document.getElementById('velocity_chart').getContext('2d');
         let velocityChart = new Chart(chartCtx, {
@@ -271,6 +281,8 @@
         let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null;
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
         let diagRaw = null, videoFrameCallbackId = null, animationFrameId = null, lastVideoFrameTime = null, lastVideoCurrentTime = null;
+        const localCapture = new SessionCapture.LocalSessionCapture();
+        let latestPresentedFrameIndex = null, activeInference = null;
 
         function orientationName() {
             return screen.orientation?.type || (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape');
@@ -322,17 +334,18 @@
             }
         });
 
-        function recordPresentedFrame(now) {
+        function recordPresentedFrame(now, metadata={}) {
             if(!diagRaw || !isAnalyzing) return;
             if(lastVideoFrameTime!==null) diagRaw.frameIntervalsMs.push(now-lastVideoFrameTime);
             lastVideoFrameTime=now; diagRaw.presentedFrameCount++;
+            latestPresentedFrameIndex=localCapture.recordPresentedFrame({sourceTimestampMs:Number.isFinite(metadata.mediaTime)?metadata.mediaTime*1000:vEl.currentTime*1000,callbackPerfMs:now,expectedDisplayPerfMs:metadata.expectedDisplayTime??null,width:metadata.width??vEl.videoWidth,height:metadata.height??vEl.videoHeight});
         }
 
         function scheduleVideoFrameDiagnostics() {
             lastVideoFrameTime=null; lastVideoCurrentTime=null;
             if(typeof vEl.requestVideoFrameCallback==='function') {
                 diagRaw.frameCallbackMode='requestVideoFrameCallback';
-                const callback=(now)=>{recordPresentedFrame(now);if(isAnalyzing) videoFrameCallbackId=vEl.requestVideoFrameCallback(callback);};
+                const callback=(now,metadata)=>{recordPresentedFrame(now,metadata);if(isAnalyzing) videoFrameCallbackId=vEl.requestVideoFrameCallback(callback);};
                 videoFrameCallbackId=vEl.requestVideoFrameCallback(callback);
             } else {
                 diagRaw.frameCallbackMode='requestAnimationFrame-currentTime-fallback';
@@ -369,6 +382,17 @@
             const link=document.createElement('a');link.href=url;link.download=`device-diagnostics_${Date.now()}.json`;link.click();URL.revokeObjectURL(url);
         };
 
+        function renderCaptureDownloads(files) {
+            captureDownloads.innerHTML='';
+            Object.entries(files).forEach(([name,blob])=>{
+                const button=document.createElement('button'); button.type='button'; button.className='text-left text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white py-1 px-2 rounded'; button.textContent=`下載 ${name}`;
+                button.onclick=()=>{const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);localCapture.markDownloaded(name);button.disabled=true;button.classList.add('opacity-50');captureStatus.innerText=localCapture.hasUnsavedData()?'尚有檔案未下載。':'全部 Session 檔案已下載。';};
+                captureDownloads.appendChild(button);
+            });
+        }
+
+        window.addEventListener('beforeunload',event=>{if(localCapture.hasUnsavedData()){event.preventDefault();event.returnValue='';}});
+
         function experimentContext() {
             return {participantId:participantInput.value.trim(), sessionId:sessionInput.value.trim(), blockId:blockInput.value.trim(), condition:modeSel.value, shootingSide:sideSel.value};
         }
@@ -379,6 +403,10 @@
         }
         function setContextControlsDisabled(disabled) {
             [participantInput,sessionInput,blockInput,sideSel,modeSel].forEach(control=>control.disabled=disabled);
+        }
+        function recordAbortedTrial(reasonCode) {
+            if(!currentShotContext || localCapture.status!=='recording') return;
+            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'});
         }
         modeSel.addEventListener('change', resetDisplayedStatistics);
         blockInput.addEventListener('change', resetDisplayedStatistics);
@@ -442,14 +470,15 @@
             if(now-lastFpsT >= 1000){ currentSR=frames; fpsDisp.innerText=`${frames} FPS`; knFilter.update(10, frames>0?frames:30); ebFilter.update(10, frames>0?frames:30); frames=0; lastFpsT=now; updateDiagnosticPanel(); }
 
             latestLandmarks = res.poseLandmarks;
+            localCapture.recordLandmarks(activeInference,res.poseLandmarks || []);
             if(!res.poseLandmarks){
-                if(state === 'RECORDING') { state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
+                if(state === 'RECORDING') { recordAbortedTrial('POSE_LANDMARKS_MISSING'); state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
                 lastT=now; return;
             }
 
             const l = res.poseLandmarks;
             const torsoVis = (l[11].visibility + l[12].visibility + l[23].visibility + l[24].visibility) / 4;
-            if(torsoVis < 0.6) { if(state === 'RECORDING') { state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
+            if(torsoVis < 0.6) { if(state === 'RECORDING') { recordAbortedTrial('TORSO_VISIBILITY_LOW'); state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
 
             const side = currentShotSide || sideSel.value;
             const ebIdx = side === 'left' ? [11, 13, 15] : [12, 14, 16];
@@ -459,6 +488,7 @@
             const rawEb = calculateAngle(l[ebIdx[0]], l[ebIdx[1]], l[ebIdx[2]]);
             const rawKn = calculateAngle(l[knIdx[0]], l[knIdx[1]], l[knIdx[2]]);
             const sEb = ebFilter.filter(rawEb), sKn = knFilter.filter(rawKn);
+            localCapture.recordSignal(activeInference,{shootingSide:side,rawElbowDeg:rawEb,rawKneeDeg:rawKn,filteredElbowDeg:sEb,filteredKneeDeg:sKn,sideVisibility:sideVis,state});
 
             ebDisp.innerText = maskForBaseline(modeSel.value,sEb.toFixed(0)+'°');
             knDisp.innerText = maskForBaseline(modeSel.value,sKn.toFixed(0)+'°');
@@ -519,13 +549,15 @@
                         const meanFrameInterval=shotFrameIntervals.length ? shotFrameIntervals.reduce((a,b)=>a+b,0)/shotFrameIntervals.length : null;
                         const measuredFps=meanFrameInterval ? 1000/meanFrameInterval : null;
                         const meanVisibility=shotVisibility.length ? shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length : null;
-                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:qualityFlags(measuredFps,meanVisibility),algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'};
+                        const flags=qualityFlags(measuredFps,meanVisibility);
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:flags==='OK'?'accepted':'low_quality',reasonCode:flags==='OK'?'':flags,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'};
                         shotHistory.push(row);
+                        localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         const tr = document.createElement('tr'); tr.className = ok?'bg-green-50':'bg-red-50';
                         tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,calcDt,'hidden')}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
                         hBody.insertBefore(tr, hBody.firstChild);
                     }
-                    currentShotSide=null; currentShotContext=null; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
+                    currentShotSide=null; currentShotContext=null; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(localCapture.status!=='recording') setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
             }
             prevEb=sEb; prevKn=sKn; lastT=now;
         }
@@ -534,17 +566,26 @@
         pose.setOptions({modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
         pose.onResults(onResults);
 
-        startBtn.onclick = () => {
+        startBtn.onclick = async () => {
+            const context=experimentContext();
+            if(!contextIsComplete(context)){updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs');return;}
             if(audioCtx.state==='suspended') audioCtx.resume();
-            state='IDLE'; shotData=[];
+            state='IDLE'; shotData=[]; shotHistory=[]; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
             resetDiagnostics();
-            camera=new Camera(vEl, { onFrame:async()=>{ const activeDiagnostics=diagRaw,started=performance.now(); await pose.send({image:vEl}); if(isAnalyzing&&diagRaw===activeDiagnostics) activeDiagnostics.inferenceDurationsMs.push(performance.now()-started); }, width:640, height:480, facingMode:'environment' });
-            resetZoomControl('正在偵測相機縮放能力…'); camera.start(); isAnalyzing=true; configureZoomWhenReady(); setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},500); requestAnimationFrame(renderLoop);
+            camera=new Camera(vEl, { onFrame:async()=>{ const activeDiagnostics=diagRaw,started=performance.now(); activeInference=localCapture.beginInference({sourceTimestampMs:vEl.currentTime*1000,presentedFrameIndex:latestPresentedFrameIndex}); await pose.send({image:vEl}); const ended=performance.now(); localCapture.completeInference(activeInference,ended); if(isAnalyzing&&diagRaw===activeDiagnostics) activeDiagnostics.inferenceDurationsMs.push(ended-started); activeInference=null; }, width:640, height:480, facingMode:'environment' });
+            try {
+                resetZoomControl('正在偵測相機縮放能力…'); await camera.start(); isAnalyzing=true;
+                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'experiment-readiness-v1',requestedCameraSettings});
+                captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
+            } catch(error) {
+                if(camera) camera.stop(); isAnalyzing=false; captureStatus.innerText=`無法開始 Session：${error.message}`; return;
+            }
+            setContextControlsDisabled(true); configureZoomWhenReady(); setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},500); requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = () => { stopVideoFrameDiagnostics(); if(camera) camera.stop(); isAnalyzing=false; resetZoomControl(); currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請按啟動'); updateDiagnosticPanel(); };
+        stopBtn.onclick = async () => { stopVideoFrameDiagnostics(); const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings(); if(camera) camera.stop(); isAnalyzing=false; resetZoomControl(); currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.disabled=true; captureStatus.innerText='正在完成影片與 Session 檔案…'; try{const files=await localCapture.stop({diagnostics,actualCameraSettings});renderCaptureDownloads(files);captureStatus.innerText='Session 已停止；請逐一下載全部檔案。';}catch(error){captureStatus.innerText=`Session 停止失敗：${error.message}`;} stopBtn.disabled=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請下載全部 Session 檔案'); updateDiagnosticPanel(); };
         dlBtn.onclick = () => {
-            const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
+            const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
             const csvText=rowsToCsv(shotHistory,columns);
             const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'}), url=URL.createObjectURL(blob);
             const link=document.createElement('a'); link.href=url; link.download=`c802_trials_${Date.now()}.csv`; link.click(); URL.revokeObjectURL(url);

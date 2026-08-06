@@ -20,6 +20,8 @@ The October deliverable is a working prototype with preliminary engineering and 
 
 Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
 
+Phase 1A same-stream local recording, output files, privacy boundaries, and iPhone test procedure: [`docs/phase1a-local-capture.md`](./docs/phase1a-local-capture.md)
+
 ## Current snapshot
 
 - Snapshot date: **2026-06-02**

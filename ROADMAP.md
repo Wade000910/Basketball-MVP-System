@@ -100,15 +100,15 @@ Use one camera stream simultaneously for live MediaPipe analysis and local sourc
 
 ### Engineering work
 
-- [ ] Feed the same `MediaStream` to the live pose pipeline and `MediaRecorder`.
-- [ ] Record the actual MIME type and codec selected by the browser.
-- [ ] Implement explicit Start Session and Stop Session controls.
-- [ ] Freeze participant code, session, block, condition, shooting side, and build version while recording.
-- [ ] Save per-frame source timestamps and pose-inference completion timestamps.
-- [ ] Save all required MediaPipe landmarks and visibility values per processed frame.
-- [ ] Save raw joint angles separately from filtered/reconstructed signals.
-- [ ] Preserve accepted, rejected, aborted, and low-quality shots with reason codes.
-- [ ] Prevent accidental navigation or refresh while an unsaved recording exists.
+- [x] Feed the same `MediaStream` to the live pose pipeline and `MediaRecorder`.
+- [x] Record the actual MIME type and codec selected by the browser.
+- [x] Implement explicit Start Session and Stop Session controls.
+- [x] Freeze participant code, session, block, condition, shooting side, and build version while recording.
+- [x] Save per-frame source timestamps and pose-inference completion timestamps.
+- [x] Save all required MediaPipe landmarks and visibility values per processed frame.
+- [x] Save raw joint angles separately from filtered/reconstructed signals.
+- [x] Preserve accepted, aborted, and low-quality shots with reason codes; explicit operator rejection remains later workflow work.
+- [x] Prevent accidental navigation or refresh while an unsaved recording exists.
 
 ### Local session package
 
@@ -116,6 +116,7 @@ Use one camera stream simultaneously for live MediaPipe analysis and local sourc
 session-<participant>-<session>/
 ├── source-video.<browser-format>
 ├── frame-timestamps.csv
+├── inference-timestamps.csv
 ├── landmarks.csv
 ├── live-signals.csv
 ├── live-trials.csv
@@ -124,6 +125,8 @@ session-<participant>-<session>/
 ```
 
 The initial browser implementation may download these files individually if reliable archive generation would require an unreviewed dependency. The manifest must still bind them to one session.
+
+Engineering implementation is complete in build `phase1a-local-capture-v1`; the Phase 1A exit gate remains open until the iPhone short capture and five-minute comparison runs are completed and reviewed.
 
 ### Performance comparison
 
@@ -496,6 +499,7 @@ October materials must not make effectiveness, motor-learning, cognitive-load, o
 - [Sources and provenance](./docs/SOURCES.md)
 - [GitHub Pages testing checklist](./docs/testing-on-github-pages.md)
 - [October 2026 presentation-first plan and references](./docs/october-2026-presentation-plan.md)
+- [Phase 1A local capture implementation and test procedure](./docs/phase1a-local-capture.md)
 
 ## References
 

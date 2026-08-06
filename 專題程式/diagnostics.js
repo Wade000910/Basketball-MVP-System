@@ -3,7 +3,7 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.DeviceDiagnostics = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-    const BUILD_ID = 'phase0-diagnostics-v2';
+    const BUILD_ID = 'phase1a-local-capture-v1';
 
     function round(value, digits = 2) {
         return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
