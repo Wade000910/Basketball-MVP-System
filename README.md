@@ -14,8 +14,9 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 ## Development roadmap
 
 - Ordered low-cost validation plan using the available ASUS TUF Gaming F15, iPhone 15 Pro, and Samsung Galaxy A60: [`ROADMAP.md`](./ROADMAP.md)
+- October 2026 presentation-first scope, reordered execution queue, current audio hardware, claim limits, and references: [`docs/october-2026-presentation-plan.md`](./docs/october-2026-presentation-plan.md)
 
-Development must follow the roadmap gates in order. Phase 0 diagnostic engineering is complete, but its hands-on device tests and exit gate remain open. Phase 1A same-phone live analysis plus local source-video/data capture begins only after that gate is reviewed.
+The October deliverable is a working prototype with preliminary engineering and measurement evidence, not a completed participant efficacy study. Before the presentation, prioritize hands-on device diagnostics, a stable demonstration build, same-stream recording/data export, a minimal TUF replay comparison, a small camera-placement pilot, and preliminary phone-speaker/AirPods Pro 2 latency characterization. Full tuning and participant testing follow the validation and ethics gates after the presentation.
 
 Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
 
