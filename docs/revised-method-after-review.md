@@ -31,11 +31,11 @@ This is supportive expert feedback, not empirical proof that bone conduction is 
 
 | Equipment | Revised role | Included in efficacy data? |
 | --- | --- | --- |
-| Android smartphone and its built-in camera | Target deployment platform and primary measurement pipeline | Yes, after technical validation |
-| Logitech C922 | Desktop development and debugging only | No |
-| iPhone 240 fps or a validated high-frame-rate camera | Synchronized reference recording for manual event annotation | Validation phase only |
-| Bone-conduction headset | Candidate terminal-auditory output device | Only after measured latency and reliability are acceptable |
-| Phone speaker or wired audio | Comparison and fallback audio paths | During latency pilot; final choice is data-dependent |
+| Samsung Galaxy A60 | Candidate target browser platform and primary measurement pipeline | Yes, only after technical validation and role freeze |
+| iPhone 15 Pro | Candidate synchronized high-frame-rate consumer-phone reference recording; alternative live device if browser diagnostics justify a role swap | Validation phase only when used as the reference camera |
+| ASUS TUF Gaming F15 FX507ZV4 | Offline replay, annotation, comparison, reporting, and development | No camera data pooled with the smartphone pipeline |
+| Phone speaker | Primary available terminal-auditory engineering path | Final inclusion is data-dependent |
+| AirPods Pro 2 | Available Bluetooth comparison path | Only after measured latency, jitter, reliability, and usability are acceptable |
 
 The formal experiment must use one frozen primary capture pipeline. Development-camera results must not be pooled with smartphone trial data.
 
@@ -51,7 +51,7 @@ The exported data must retain both `sourceFrameCount` and measured FPS so that r
 
 ### 3. Treat cognitive load as an outcome
 
-The revised hypothesis does not assume that visual feedback is more demanding than auditory feedback. Reviews of augmented feedback show that modality, timing, information content, and task characteristics can all affect performance and learning ([Sigrist et al., 2013](https://doi.org/10.3758/s13423-012-0333-8); [Subramanian et al., 2022](https://pmc.ncbi.nlm.nih.gov/articles/PMC8681883/)).
+The revised hypothesis does not assume that visual feedback is more demanding than auditory feedback. Reviews of augmented feedback show that modality, timing, information content, and task characteristics can all affect performance and learning ([Sigrist et al., 2013](https://doi.org/10.3758/s13423-012-0333-8); [Moinuddin et al., 2021](https://doi.org/10.7759/cureus.19695)).
 
 Both feedback conditions will therefore be terminal:
 
@@ -89,7 +89,7 @@ Objective: determine whether one specified phone, camera mode, processing path, 
    - shot-event decision;
    - feedback scheduling;
    - expected audio start.
-4. Externally measure actual sound onset for the phone speaker, wired output if supported, and the candidate Bluetooth bone-conduction headset.
+4. Externally measure actual sound onset for the phone speaker first and AirPods Pro 2 separately. There is no bone-conduction headset in the current inventory, and no purchase is required for the October presentation.
 5. Report latency distributions, including median, percentile range, maximum, missing output, and trial-to-trial jitter. Do not rely only on a manufacturer's codec claim.
 
 The total path is:
@@ -106,6 +106,8 @@ camera exposure
 ```
 
 No universal acceptable latency threshold is assumed in advance. The threshold and final output device will be chosen from pilot measurements and the intended terminal-feedback protocol.
+
+AirPods Pro 2 must not be described as bone-conduction output. Any prior environmental-awareness rationale attached to an open-ear bone-conduction concept remains historical reviewer context, not a property established for the available earbuds.
 
 ### Phase 2 — Camera geometry and event-time validation
 
@@ -195,7 +197,19 @@ Each value must be justified by literature, technical measurements, pilot data, 
 
 ## Engineering consequences for this repository
 
-The next software milestones should be:
+For the October 2026 presentation, the immediate milestones are reordered as follows:
+
+1. complete hands-on phone diagnostics and freeze provisional device roles;
+2. freeze a stable demonstration build;
+3. implement same-stream local recording and traceable data export;
+4. produce at least one deterministic TUF replay comparison;
+5. select one repeatable non-participant camera geometry;
+6. obtain preliminary phone-speaker and AirPods Pro 2 latency distributions;
+7. freeze presentation evidence and claim boundaries by late September.
+
+Same-stream capture and replay do not independently validate measurement accuracy. Full dual-phone reference capture, annotation, parameter tuning, and participant work therefore remain after the presentation. See the [October 2026 presentation-first plan](./october-2026-presentation-plan.md) for the evidence gates and references.
+
+The subsequent software milestones should be:
 
 1. export monotonic timestamps for each processing stage;
 2. add a latency calibration mode and audio-onset test protocol;
@@ -212,4 +226,14 @@ No participant data should be collected under the label of a validated experimen
 - [Source and provenance matrix](./SOURCES.md)
 - [2026-06-02 archived prototype status](./status-2026-06-02.md)
 - [Experiment-readiness v1 changes](./experiment-readiness-v1.md)
+- [October 2026 presentation-first plan and references](./october-2026-presentation-plan.md)
 - Historical snapshot tag: `archive/c802-prototype-20260602`
+
+## References
+
+1. Sigrist R, Rauter G, Riener R, Wolf P. Augmented visual, auditory, haptic, and multimodal feedback in motor learning: a review. *Psychonomic Bulletin & Review*. 2013;20:21–53. <https://doi.org/10.3758/s13423-012-0333-8>
+2. Moinuddin A, Goel A, Sethi Y. The role of augmented feedback on motor learning: a systematic review. *Cureus*. 2021;13(11):e19695. <https://doi.org/10.7759/cureus.19695>. Applicability to basketball remains unproven.
+3. Bazarevsky V, Grishchenko I, Raveendran K, Zhu T, Zhang F, Grundmann M. BlazePose: On-device real-time body pose tracking. 2020. <https://arxiv.org/abs/2006.10204>
+4. Bland JM, Altman DG. Statistical methods for assessing agreement between two methods of clinical measurement. *The Lancet*. 1986;1(8476):307–310. <https://pubmed.ncbi.nlm.nih.gov/2868172/>
+5. Dwan K, Li T, Altman DG, Elbourne D. CONSORT 2010 statement: extension to randomised crossover trials. *BMJ*. 2019;366:l4378. <https://doi.org/10.1136/bmj.l4378>
+6. Hart SG, Staveland LE. Development of NASA-TLX (Task Load Index): results of empirical and theoretical research. In: Hancock PA, Meshkati N, eds. *Human Mental Workload*. 1988:139–183. <https://human-factors.arc.nasa.gov/groups/TLX/downloads/Hart_Staveland_ORIGINAL_1.pdf>

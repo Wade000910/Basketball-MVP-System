@@ -7,6 +7,8 @@ This roadmap defines the required order for continuing Basketball-MVP-System wit
 - one ASUS TUF Gaming F15 FX507ZV4 computer;
 - one iPhone 15 Pro;
 - one Samsung Galaxy A60;
+- phone speakers and one pair of AirPods Pro 2;
+- one stable phone tripod to be acquired for repeatable placement;
 - no funded laboratory camera or optical motion-capture system.
 
 The project will use consumer devices for engineering and low-cost validation. iPhone slow-motion video may be described as **high-frame-rate consumer-phone reference video**, not motion-capture ground truth.
@@ -33,8 +35,12 @@ Complete the phases in order. A later phase cannot be treated as valid merely be
 | Samsung Galaxy A60 | GitHub Pages live analysis plus same-stream recording | Secondary reference camera if its camera is better suited | Android/Chrome version, FPS, codec, and thermal behavior remain to be measured in Phase 0 |
 | iPhone 15 Pro | Independently synchronized slow-motion reference recording | Live-analysis device if Galaxy A60 browser performance is inadequate | Slow-motion reference is not optical motion capture; the camera cannot normally be shared by Safari analysis and the native Camera app at the same time |
 | ASUS TUF Gaming F15 FX507ZV4 | Offline replay, manual annotation, comparison, reporting, and repository development | Desktop debugging with an external camera only if one becomes available | Desktop results must not be pooled with the frozen smartphone capture pipeline |
+| Phone speaker | Primary auditory-output path for engineering characterization | Presentation fallback output | Physical onset latency and outdoor audibility remain to be measured |
+| AirPods Pro 2 | Separate Bluetooth comparison path | Possible later study output only if justified | Not bone conduction; latency, jitter, connection reliability, and usability must be measured on the selected phone |
 
 Device roles may be swapped after Phase 0 measurements. The reason must be recorded in the device profile and changelog.
+
+There is no bone-conduction headset in the available inventory. No near-term milestone requires purchasing one.
 
 ---
 
@@ -192,7 +198,7 @@ Measure where time is spent from frame processing through scheduled feedback and
 
 - [ ] Use the second phone's high-frame-rate video to record the calibration flash and physical sound where feasible.
 - [ ] Test phone speaker first.
-- [ ] Test the bone-conduction Bluetooth headset separately.
+- [ ] Test AirPods Pro 2 separately as the available Bluetooth path; do not describe them as bone conduction.
 - [ ] Test wired audio only if the available devices support it without buying additional research equipment.
 - [ ] Record median, range/percentiles, maximum, missing output, and jitter for each path.
 
@@ -452,18 +458,29 @@ No clinical, injury-prevention, or guaranteed-performance claim may be made with
 
 ## Immediate execution order
 
-The active queue is:
+The active queue is reorganized around the October 2026 presentation. Detailed scope and cited rationale are in [`docs/october-2026-presentation-plan.md`](./docs/october-2026-presentation-plan.md).
+
+### Before the October 2026 presentation
 
 1. **Phase 0:** device diagnostics and role freeze.
-2. **Phase 1A:** same-phone live analysis plus source-video/data capture.
-3. **Phase 1B:** deterministic offline replay on the TUF computer.
-4. **Phase 1C:** processing and physical audio-latency characterization.
-5. **Phase 2A:** camera-placement pilot.
-6. **Phase 2B:** synchronized Galaxy A60/iPhone capture.
-7. **Phase 2C:** manual annotation and event validation.
-8. Continue to feedback and participant phases only after their gates pass.
+2. Freeze a stable presentation build; repair demonstration-blocking defects before adding analysis features.
+3. **Phase 1A:** same-phone live analysis plus source-video/data capture.
+4. **Phase 1B minimum:** one deterministic TUF replay and live-versus-replay comparison.
+5. **Phase 2A minimum:** select one reproducible non-participant presentation geometry using one tripod.
+6. **Phase 1C preliminary:** characterize the phone speaker first and AirPods Pro 2 separately.
+7. Freeze the late-September build, evidence tables, claim boundaries, and fallback demonstration.
 
-The next implementation PR must start with Phase 0 and must not silently include later-phase efficacy claims.
+### After the presentation
+
+1. **Phase 2B:** synchronized dual-phone reference capture.
+2. **Phase 2C:** blinded manual annotation and event validation.
+3. Complete **Phase 1C/2A** characterization and tune parameters against validation evidence.
+4. Freeze the algorithm and device profile.
+5. Complete **Phase 3A/3B** usability, protocol, ethics, and data-management gates.
+6. Conduct **Phase 4** feasibility work, then **Phase 5** participant efficacy work.
+7. Make the **Phase 6** product decision.
+
+October materials must not make effectiveness, motor-learning, cognitive-load, or participant-readiness claims. Same-stream recording and replay demonstrate traceability and reproducibility, not independent measurement validity; the dual-phone reference phase remains mandatory before participant enrollment.
 
 ## Related documents
 
@@ -471,3 +488,13 @@ The next implementation PR must start with Phase 0 and must not silently include
 - [Experiment-readiness v1](./docs/experiment-readiness-v1.md)
 - [Sources and provenance](./docs/SOURCES.md)
 - [GitHub Pages testing checklist](./docs/testing-on-github-pages.md)
+- [October 2026 presentation-first plan and references](./docs/october-2026-presentation-plan.md)
+
+## References
+
+1. Bazarevsky V, Grishchenko I, Raveendran K, Zhu T, Zhang F, Grundmann M. BlazePose: On-device real-time body pose tracking. 2020. <https://arxiv.org/abs/2006.10204>
+2. Bland JM, Altman DG. Statistical methods for assessing agreement between two methods of clinical measurement. *The Lancet*. 1986;1(8476):307–310. <https://pubmed.ncbi.nlm.nih.gov/2868172/>
+3. Dwan K, Li T, Altman DG, Elbourne D. CONSORT 2010 statement: extension to randomised crossover trials. *BMJ*. 2019;366:l4378. <https://doi.org/10.1136/bmj.l4378>
+4. Oliosi E, Ferreira S, Giordano AP, Viveiros G, Parraca J, Pereira P, Guede-Fernández F, Azevedo S. Evaluation of smartphone camera positioning on artificial intelligence pose estimation accuracy for exercise detection: observational study. *JMIR mHealth and uHealth*. 2026;14:e82412. <https://doi.org/10.2196/82412>
+5. Salmoni AW, Schmidt RA, Walter CB. Knowledge of results and motor learning: a review and critical reappraisal. *Psychological Bulletin*. 1984;95(3):355–386. <https://doi.org/10.1037/0033-2909.95.3.355>
+6. Sigrist R, Rauter G, Riener R, Wolf P. Augmented visual, auditory, haptic, and multimodal feedback in motor learning: a review. *Psychonomic Bulletin & Review*. 2013;20:21–53. <https://doi.org/10.3758/s13423-012-0333-8>
