@@ -19,13 +19,16 @@ test('export uses coarse environment and privacy allowlist', () => {
         viewport:{width:400,height:800}, orientation:'portrait-primary', devicePixelRatio:3,
         audioSampleRate:48000, requestedCameraSettings:{width:640,height:480,facingMode:'environment'},
         actualCameraSettings:{width:640,height:480,frameRate:30,deviceId:'do-not-export'},
-        frameIntervalsMs:[33,34,100], inferenceDurationsMs:[10,12,14], presentedFrameCount:4, poseResultCount:3
+        frameIntervalsMs:[33,34,100], inferenceDurationsMs:[10,12,14], presentedFrameCount:4, poseResultCount:3,
+        analysisErrorCount:2, lastAnalysisError:'Pose send failed'
     });
     const json = JSON.stringify(result);
     assert.equal(result.environment.browser.name, 'Chrome');
     assert.equal(result.environment.os.name, 'Android');
     for (const forbidden of ['do-not-export','deviceId":"','groupId":"','label":"','fullUserAgent":"']) assert.equal(json.includes(forbidden), false);
     assert.equal(result.performance.longFrameCount, 1);
+    assert.equal(result.performance.analysisErrorCount, 2);
+    assert.equal(result.performance.lastAnalysisError, 'Pose send failed');
     assert.equal(result.privacy.localExportOnly, true);
 });
 
