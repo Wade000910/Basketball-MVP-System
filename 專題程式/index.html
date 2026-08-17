@@ -282,7 +282,7 @@
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
         let diagRaw = null, videoFrameCallbackId = null, animationFrameId = null, lastVideoFrameTime = null, lastVideoCurrentTime = null;
         const localCapture = new SessionCapture.LocalSessionCapture();
-        let latestPresentedFrameIndex = null, activeInference = null, poseRequestInFlight = false, poseAnalysisFailed = false, poseWatchdogId = null, frameTimestampSource = null;
+        let latestPresentedFrameIndex = null, lastAnalyzedPresentedFrameIndex = null, activeInference = null, poseRequestInFlight = false, poseAnalysisFailed = false, poseWatchdogId = null, frameTimestampSource = null;
 
         function orientationName() {
             return screen.orientation?.type || (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape');
@@ -575,11 +575,12 @@
             const context=experimentContext();
             if(!contextIsComplete(context)){updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs');return;}
             if(audioCtx.state==='suspended') audioCtx.resume();
-            state='IDLE'; shotData=[]; shotHistory=[]; poseAnalysisFailed=false; frameTimestampSource=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
+            state='IDLE'; shotData=[]; shotHistory=[]; poseAnalysisFailed=false; frameTimestampSource=null; latestPresentedFrameIndex=null; lastAnalyzedPresentedFrameIndex=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
             resetDiagnostics();
             camera=new Camera(vEl, { onFrame:async()=>{
-                if(!isAnalyzing || poseAnalysisFailed || poseRequestInFlight || vEl.readyState<2 || !vEl.videoWidth) return;
+                if(!isAnalyzing || poseAnalysisFailed || poseRequestInFlight || vEl.readyState<2 || !vEl.videoWidth || latestPresentedFrameIndex===null || latestPresentedFrameIndex===lastAnalyzedPresentedFrameIndex) return;
                 poseRequestInFlight=true;
+                lastAnalyzedPresentedFrameIndex=latestPresentedFrameIndex;
                 const activeDiagnostics=diagRaw,started=performance.now();
                 activeInference=localCapture.beginInference({sourceTimestampMs:vEl.currentTime*1000,presentedFrameIndex:latestPresentedFrameIndex});
                 try {
