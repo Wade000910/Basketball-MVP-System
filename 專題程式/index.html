@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+    <script src="./vendor/mediapipe-pose/pose.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -567,7 +567,7 @@
             prevEb=sEb; prevKn=sKn; lastT=now;
         }
 
-        const pose = new Pose({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`});
+        const pose = new Pose({locateFile:(f)=>`./vendor/mediapipe-pose/${f}`});
         pose.setOptions({modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
         pose.onResults(onResults);
 
