@@ -6,6 +6,8 @@ Build `phase1a-local-capture-v1` implements the engineering portion of Phase 1A.
 
 The first iPhone short run on 2026-08-17 recorded 1,610 presented frames over 55.31 seconds but received zero pose results. The resulting header-only trial data is retained as a failed engineering observation, not a participant result. Build `phase1a-ios-pose-startup-v2` enables analysis before camera startup, records the pose-analysis error count and a truncated last error message, and warns after five seconds when video frames arrive without pose results. This change remains unverified until the repeat short run succeeds.
 
+The repeat B002 run preserved all eight files and recorded 1,829 presented frames over 62.284 seconds, but every one of 2,853 pose attempts failed with `Load failed`. It also exposed two data-integrity defects: Safari supplied a non-progressing zero `mediaTime` for presented-frame rows, and failed attempts were left open while being labeled as processed frames. Build `phase1a-pinned-pose-assets-v3` pins the legacy MediaPipe package and asset versions, stops retrying after the first pose error, locks each session to either `mediaTime` or advancing `video.currentTime` while retaining both raw values, closes failed inference rows with status/error fields, and separates attempts, successes, and failures in the manifest. This build also remains unverified until an iPhone repeat succeeds.
+
 The browser uses the camera stream already opened for MediaPipe as the input to `MediaRecorder`; it does not request a second camera stream. This supports traceable replay of the source seen by the live pipeline, but it is not an independent accuracy reference.
 
 ## Session controls

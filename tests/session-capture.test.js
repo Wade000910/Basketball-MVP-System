@@ -39,9 +39,30 @@ test('builds a bound local session package and tracks downloads', async () => {
     assert.equal(names.length,8);
     assert.ok(names.some(name=>name.endsWith('_source-video.mp4')));
     assert.ok(names.some(name=>name.endsWith('_manifest.json')));
+    const manifestName=names.find(name=>name.endsWith('_manifest.json'));
+    const manifest=JSON.parse(await files[manifestName].text());
+    assert.equal(manifest.counts.inferenceAttempts,1);
+    assert.equal(manifest.counts.processedFrames,1);
+    assert.equal(manifest.counts.failedInferences,0);
     assert.equal(capture.hasUnsavedData(),true);
     names.forEach(name=>capture.markDownloaded(name));
     assert.equal(capture.hasUnsavedData(),false);
+});
+
+test('failed inference is closed and counted separately', async () => {
+    let perf=100;
+    const capture=new LocalSessionCapture({MediaRecorderClass:FakeRecorder,nowIso:()=> '2026-08-17T00:00:00.000Z',nowPerf:()=> perf+=10});
+    capture.start({stream,context,buildId:'build',algorithmVersion:'algo',requestedCameraSettings:{width:640}});
+    const inference=capture.beginInference({sourceTimestampMs:20,presentedFrameIndex:1});
+    capture.failInference(inference,new Error('Load failed'),150);
+    const files=await capture.stop({});
+    const manifestName=Object.keys(files).find(name=>name.endsWith('_manifest.json'));
+    const manifest=JSON.parse(await files[manifestName].text());
+    assert.equal(manifest.counts.inferenceAttempts,1);
+    assert.equal(manifest.counts.processedFrames,0);
+    assert.equal(manifest.counts.failedInferences,1);
+    const inferenceName=Object.keys(files).find(name=>name.endsWith('_inference-timestamps.csv'));
+    assert.match(await files[inferenceName].text(),/"failed","Load failed"/);
 });
 
 test('requires complete metadata and a live stream', () => {
