@@ -29,6 +29,7 @@ The current audio inventory is limited to phone speakers and AirPods Pro 2. Ther
 The project loads these libraries from public CDNs. No source code was copied from the repositories into the project in this change.
 
 - [Google MediaPipe](https://github.com/google-ai-edge/mediapipe), Apache-2.0. Used for camera utilities, pose inference, and landmark drawing.
+- Self-hosted Pose runtime: official npm package `@mediapipe/pose@0.5.1675469404`, npm integrity `sha512-DFZsNWTsSphRIZppnUCuunzBiHP2FdJXR9ehc7mMi4KG+oPaOH0Em3d6kr7Py+TSyTXC1doH88KcF28k2sBxsQ==`. Required runtime files and the full-complexity model are stored under `專題程式/vendor/mediapipe-pose/`; the unused lite and heavy models are excluded. See the colocated license and third-party notice.
 - [Chart.js](https://github.com/chartjs/Chart.js), MIT. Used to render the velocity chart.
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss), MIT. Used through the browser CDN for interface styling.
 
