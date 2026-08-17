@@ -4,6 +4,8 @@
 
 Build `phase1a-local-capture-v1` implements the engineering portion of Phase 1A. It has not yet passed the iPhone hands-on exit gate and is not approved for participant collection.
 
+The first iPhone short run on 2026-08-17 recorded 1,610 presented frames over 55.31 seconds but received zero pose results. The resulting header-only trial data is retained as a failed engineering observation, not a participant result. Build `phase1a-ios-pose-startup-v2` enables analysis before camera startup, records the pose-analysis error count and a truncated last error message, and warns after five seconds when video frames arrive without pose results. This change remains unverified until the repeat short run succeeds.
+
 The browser uses the camera stream already opened for MediaPipe as the input to `MediaRecorder`; it does not request a second camera stream. This supports traceable replay of the source seen by the live pipeline, but it is not an independent accuracy reference.
 
 ## Session controls

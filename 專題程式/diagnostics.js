@@ -3,7 +3,7 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.DeviceDiagnostics = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-    const BUILD_ID = 'phase1a-local-capture-v1';
+    const BUILD_ID = 'phase1a-ios-pose-startup-v2';
 
     function round(value, digits = 2) {
         return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
@@ -73,7 +73,9 @@
                 poseResultCount:raw.poseResultCount || 0, frameIntervalMs:frameStats,
                 calculatedMeanFps:frameStats.mean ? round(1000 / frameStats.mean) : null,
                 inferenceDurationMs:inferenceStats, longFrameThresholdMs:round(longFrameThreshold),
-                longFrameCount, longFrameRatePercent:frameStats.count ? round(longFrameCount / frameStats.count * 100) : 0
+                longFrameCount, longFrameRatePercent:frameStats.count ? round(longFrameCount / frameStats.count * 100) : 0,
+                analysisErrorCount:raw.analysisErrorCount || 0,
+                lastAnalysisError:raw.lastAnalysisError || null
             },
             privacy:{localExportOnly:true, excludedFields:['deviceId','groupId','label','ip','fullUserAgent','persistentIdentifier']}
         };
