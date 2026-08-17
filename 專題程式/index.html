@@ -95,6 +95,9 @@
 
                 <div class="mt-4 flex flex-col items-center space-y-4">
                     <div class="flex space-x-4">
+                        <button id="audio_test_btn" type="button" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-5 rounded-full shadow-lg">
+                            測試音效
+                        </button>
                         <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg transition-transform transform hover:scale-105">
                             開始 Session
                         </button>
@@ -102,6 +105,7 @@
                             停止 Session
                         </button>
                     </div>
+                    <p id="audio_status" class="text-xs font-bold text-gray-600">音訊：尚未測試</p>
 
                     <div class="w-full max-w-md bg-white px-4 py-3 rounded shadow border-l-4 border-orange-500">
                         <label class="flex justify-between items-center text-sm font-bold text-gray-700">
@@ -246,6 +250,10 @@
         const {calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline} = ExperimentCore;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        async function ensureAudioReady() {
+            if(audioCtx.state !== 'running') await audioCtx.resume();
+            return audioCtx.state === 'running';
+        }
         function beep(freq, dur, type='sine') {
             const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
             osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
@@ -258,7 +266,7 @@
         const ebDisp = document.getElementById('smooth_elbow'), knDisp = document.getElementById('smooth_knee'), dtDisp = document.getElementById('dt_display'), fpsDisp = document.getElementById('fps_display');
         const sdDisp = document.getElementById('sd_display'), cvDisp = document.getElementById('cv_display'), modeSel = document.getElementById('exp_mode');
         const participantInput = document.getElementById('participant_id'), sessionInput = document.getElementById('session_id'), blockInput = document.getElementById('block_id'), sideSel = document.getElementById('shooting_side');
-        const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
+        const startBtn = document.getElementById('start_btn'), stopBtn = document.getElementById('stop_btn'), audioTestBtn = document.getElementById('audio_test_btn'), audioStatus = document.getElementById('audio_status'), dlBtn = document.getElementById('download_btn'), hBody = document.getElementById('history_body');
         const zoomSlider = document.getElementById('zoom_slider'), zoomVal = document.getElementById('zoom_val'), zoomStatus = document.getElementById('zoom_status'), diagnosticOverlay = document.getElementById('diagnostic_overlay'), vBar = document.getElementById('visual_feedback_bar');
         const diagBuild = document.getElementById('diag_build'), diagCamera = document.getElementById('diag_camera'), diagFrame = document.getElementById('diag_frame'), diagInference = document.getElementById('diag_inference'), diagCounts = document.getElementById('diag_counts'), diagLongFrames = document.getElementById('diag_long_frames'), diagStatus = document.getElementById('diag_status'), diagDownload = document.getElementById('diag_download');
         const captureStatus = document.getElementById('capture_status'), captureMime = document.getElementById('capture_mime'), captureDownloads = document.getElementById('capture_downloads');
@@ -571,10 +579,30 @@
         pose.setOptions({modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
         pose.onResults(onResults);
 
+        audioTestBtn.onclick = async () => {
+            try {
+                const ready=await ensureAudioReady();
+                if(!ready) throw new Error(`AudioContext ${audioCtx.state}`);
+                beep(800,0.5);
+                audioStatus.innerText=`音訊：已觸發測試音（${audioCtx.state}）`;
+                audioStatus.className='text-xs font-bold text-green-700';
+            } catch(error) {
+                audioStatus.innerText=`音訊啟動失敗：${error.message}`;
+                audioStatus.className='text-xs font-bold text-red-700';
+            }
+        };
+
         startBtn.onclick = async () => {
             const context=experimentContext();
             if(!contextIsComplete(context)){updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs');return;}
-            if(audioCtx.state==='suspended') audioCtx.resume();
+            try {
+                const ready=await ensureAudioReady();
+                audioStatus.innerText=ready?`音訊：${audioCtx.state}`:`音訊：未啟動（${audioCtx.state}）`;
+                audioStatus.className=ready?'text-xs font-bold text-green-700':'text-xs font-bold text-red-700';
+            } catch(error) {
+                audioStatus.innerText=`音訊啟動失敗：${error.message}`;
+                audioStatus.className='text-xs font-bold text-red-700';
+            }
             state='IDLE'; shotData=[]; shotHistory=[]; poseAnalysisFailed=false; frameTimestampSource=null; latestPresentedFrameIndex=null; lastAnalyzedPresentedFrameIndex=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
             resetDiagnostics();
             camera=new Camera(vEl, { onFrame:async()=>{
