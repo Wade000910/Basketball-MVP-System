@@ -2,7 +2,7 @@
 
 ## Status and purpose
 
-The related NSTC undergraduate research proposal, application `115CFD2200044`, was not approved. This document converts the reviewers' comments into a revised, independently continued research method. It is a design specification, not evidence that the system is scientifically valid or ready for participant enrollment.
+The related NSTC undergraduate research proposal was not approved. This document converts the reviewers' comments into a revised, independently continued research method. It is a design specification, not evidence that the system is scientifically valid or ready for participant enrollment. The public repository does not retain the original application or its identifier.
 
 The historical project identifier `c802` is retained only for traceability.
 
@@ -31,13 +31,13 @@ This is supportive expert feedback, not empirical proof that bone conduction is 
 
 | Equipment | Revised role | Included in efficacy data? |
 | --- | --- | --- |
-| Samsung Galaxy A60 | Candidate target browser platform and primary measurement pipeline | Yes, only after technical validation and role freeze |
-| iPhone 15 Pro | Candidate synchronized high-frame-rate consumer-phone reference recording; alternative live device if browser diagnostics justify a role swap | Validation phase only when used as the reference camera |
+| Samsung Galaxy A60 | Secondary engineering device and coarse external observer for flash/audio calibration | No; its first diagnostic failed the live-analysis performance gate |
+| iPhone 15 Pro | Safari live analysis and, in a different session, native 120/240 fps consumer-phone reference recording | Yes for the frozen live pipeline; separate high-frame-rate sessions are validation data only |
 | ASUS TUF Gaming F15 FX507ZV4 | Offline replay, annotation, comparison, reporting, and development | No camera data pooled with the smartphone pipeline |
 | Phone speaker | Primary available terminal-auditory engineering path | Final inclusion is data-dependent |
 | AirPods Pro 2 | Available Bluetooth comparison path | Only after measured latency, jitter, reliability, and usability are acceptable |
 
-The formal experiment must use one frozen primary capture pipeline. Development-camera results must not be pooled with smartphone trial data.
+The formal experiment must use one frozen primary capture pipeline. Development-camera results must not be pooled with smartphone trial data. No additional purchased or borrowed device is assumed. Because the iPhone cannot run Safari camera analysis and native slow-motion capture simultaneously, live engineering tests and high-frame-rate offline validation are intentionally separate sessions.
 
 ### 2. Correct the 1000 Hz terminology
 
@@ -81,7 +81,7 @@ SD and CV are summaries computed within a single participant, session, block, an
 
 Objective: determine whether one specified phone, camera mode, processing path, and audio path can produce stable terminal feedback.
 
-1. Select the target Android device class and record OS, browser or native runtime, camera mode, requested resolution, and measured FPS.
+1. Use the provisionally selected iPhone Safari pipeline and record iOS/Safari version, camera mode, requested resolution, actual settings where exposed, and measured FPS. Preserve the Galaxy A60 diagnostic as a failed live-device result rather than hiding it.
 2. Freeze a candidate camera and audio pipeline for the pilot.
 3. Timestamp the following stages using a monotonic clock where possible:
    - source frame arrival;
@@ -89,7 +89,7 @@ Objective: determine whether one specified phone, camera mode, processing path, 
    - shot-event decision;
    - feedback scheduling;
    - expected audio start.
-4. Externally measure actual sound onset for the phone speaker first and AirPods Pro 2 separately. There is no bone-conduction headset in the current inventory, and no purchase is required for the October presentation.
+4. Estimate physical sound onset for the phone speaker first and AirPods Pro 2 separately using an iPhone flash/short-onset-sound calibration trial recorded by the Galaxy A60, with the AirPod placed near its microphone. Disable automatic ear detection during this bench test, verify the selected route, use a fixed detectable volume without clipping, and restore the setting afterward. Inspect the visible flash frame and recorded audio waveform on the TUF.
 5. Report latency distributions, including median, percentile range, maximum, missing output, and trial-to-trial jitter. Do not rely only on a manufacturer's codec claim.
 
 The total path is:
@@ -105,7 +105,7 @@ camera exposure
 → physical sound onset
 ```
 
-No universal acceptable latency threshold is assumed in advance. The threshold and final output device will be chosen from pilot measurements and the intended terminal-feedback protocol.
+No universal acceptable latency threshold is assumed in advance. The threshold and final output device will be chosen from pilot measurements and the intended terminal-feedback protocol. Galaxy A60 video frame duration and unknown audio/video capture bias limit the flash-onset estimate, so absolute results are labeled uncalibrated proxy latency. The repeated AirPods-minus-speaker difference under the same observer setup is emphasized without assuming perfect bias cancellation. Original media timestamps are preserved; a converted constant-frame-rate viewing copy cannot replace them.
 
 AirPods Pro 2 must not be described as bone-conduction output. Any prior environmental-awareness rationale attached to an open-ear bone-conduction concept remains historical reviewer context, not a property established for the available earbuds.
 
@@ -113,12 +113,14 @@ AirPods Pro 2 must not be described as bone-conduction output. Any prior environ
 
 Objective: establish whether the primary smartphone pipeline measures the intended events with sufficient accuracy and reliability.
 
-#### Synchronized reference
+#### Separated iPhone high-frame-rate reference sessions
 
-- Record the same shot with the target Android pipeline and an independently synchronized high-frame-rate reference camera.
-- Use a visible and audible synchronization event where practical.
-- Have at least two trained annotators independently mark the knee and elbow reference events while blinded to the MediaPipe result.
-- Quantify inter-rater agreement before treating the annotation as reference data.
+- Fix the iPhone at a selected geometry and record non-participant pilot shots in its native 120 or 240 fps mode.
+- Transfer the original files to the TUF without transcoding the archive copy; inspect video metadata, frame timestamps, duration, and decodable frame count before running offline pose/event analysis with versioned parameters.
+- Mark knee and elbow reference events while blinded to the algorithm result, and repeat a randomized, relabeled subset after a documented washout interval to estimate within-rater reliability without displaying earlier marks.
+- If a second trained annotator becomes available without adding equipment, estimate inter-rater agreement; otherwise report the single-annotator limitation.
+- Never match a live-session shot to a different high-frame-rate-session shot or describe the design as synchronized live validation.
+- Keep live, same-stream replay, audio-proxy, and high-frame-rate offline-validation data in separate files with distinct ID namespaces; do not manufacture cross-session paired accuracy.
 
 #### Camera-placement pilot
 
@@ -207,7 +209,7 @@ For the October 2026 presentation, the immediate milestones are reordered as fol
 6. obtain preliminary phone-speaker and AirPods Pro 2 latency distributions;
 7. freeze presentation evidence and claim boundaries by late September.
 
-Same-stream capture and replay do not independently validate measurement accuracy. Full dual-phone reference capture, annotation, parameter tuning, and participant work therefore remain after the presentation. See the [October 2026 presentation-first plan](./october-2026-presentation-plan.md) for the evidence gates and references.
+Same-stream capture and replay do not independently validate measurement accuracy. Separate iPhone high-frame-rate sessions, annotation, parameter sensitivity analysis, and participant work therefore remain after the presentation. This fixed-equipment method can validate offline event detection on those sessions, but cannot claim simultaneous live-versus-reference accuracy. See the [October 2026 presentation-first plan](./october-2026-presentation-plan.md) for the evidence gates and references.
 
 The subsequent software milestones should be:
 

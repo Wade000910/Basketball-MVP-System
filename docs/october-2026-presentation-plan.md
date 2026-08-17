@@ -10,23 +10,23 @@ This separation matters because temporary practice performance is not sufficient
 
 | Equipment | Current role | October requirement |
 | --- | --- | --- |
-| Samsung Galaxy A60 | Candidate live browser analysis and same-stream recording | Complete the five-minute diagnostic before freezing its role |
-| iPhone 15 Pro | Candidate high-frame-rate consumer-phone reference camera | Confirm available native slow-motion modes |
+| Samsung Galaxy A60 | Secondary engineering device and coarse external observer for flash/audio calibration | Preserve its failed live diagnostic and test whether it can record the calibration setup |
+| iPhone 15 Pro | Provisional Safari live-analysis device; separate-session native high-frame-rate reference camera | Complete Phase 1A hands-on testing and retain its confirmed slow-motion modes |
 | ASUS TUF Gaming F15 FX507ZV4 | Offline replay, comparison, reporting, and development | Produce at least one live-versus-replay case |
 | Phone speaker | Primary low-complexity auditory-output path | Measure repeated physical onset observations |
 | AirPods Pro 2 | Optional Bluetooth comparison path | Measure separately; do not infer latency from product or codec claims |
-| One stable phone tripod | Repeatable camera placement | Required for the camera-position pilot |
+| Existing stable phone support | Repeatable camera placement | Use consistently for the camera-position pilot |
 
-There is no bone-conduction headset and no funded laboratory motion-capture system. The repository must not describe bone conduction as current equipment or as a required October deliverable. AirPods Pro 2 are conventional wireless earbuds, so any future environmental-awareness or bone-conduction rationale does not apply to them.
+There is no bone-conduction headset, second high-performance phone, funded laboratory motion-capture system, or plan to buy or borrow additional equipment. The repository must not describe bone conduction as current equipment or as a required October deliverable. AirPods Pro 2 are conventional wireless earbuds, so any future environmental-awareness or bone-conduction rationale does not apply to them.
 
 ## Work required before the presentation
 
 ### O1 — Device diagnostics and provisional role freeze
 
-1. Complete five-minute diagnostics on the Galaxy A60 and iPhone 15 Pro.
+1. Preserve the completed five-minute diagnostics on the Galaxy A60 and iPhone 15 Pro.
 2. Record OS/browser versions, actual video dimensions, FPS distribution, inference duration, long frames, camera behavior, and thermal observations.
 3. Confirm the iPhone native slow-motion modes.
-4. Assign the live-analysis and reference-camera roles from observations rather than assumed specifications.
+4. Keep the iPhone as the provisional live device and separate-session high-frame-rate camera; keep the A60 out of the live pipeline after its failed performance test.
 
 BlazePose was designed for real-time on-device inference and outputs 33 body landmarks, but its published benchmarks do not validate this basketball event detector, these phones, or this camera geometry [3].
 
@@ -56,9 +56,10 @@ Select one presentation geometry without optimizing against later efficacy outco
 
 1. Test the phone speaker first.
 2. Test AirPods Pro 2 as a separate Bluetooth path.
-3. Record repeated software-stage timestamps and externally observed physical sound onset.
+3. Generate an iPhone flash/short-onset-sound calibration trial and use the Galaxy A60 to record the display plus phone-speaker or AirPods physical output; disable automatic ear detection for the AirPods bench test, verify routing, use a fixed non-clipping volume, and inspect the recording on the TUF.
 4. Report the median, spread, maximum, missing output, and jitter for each device/path.
 5. Keep the configured one-second terminal-feedback delay separate from processing and output latency.
+6. Preserve original media timestamps and report the A60 frame-period plus unknown A/V capture bias. Label absolute values as uncalibrated proxy latency and describe the result as a low-cost estimate, not precision instrumentation.
 
 The choice between auditory paths remains empirical. The augmented-feedback literature does not establish one universally superior modality or timing schedule for this basketball task [1].
 
@@ -77,7 +78,7 @@ By late September 2026:
 
 Proceed in this order:
 
-1. synchronized dual-phone high-frame-rate reference capture;
+1. separate iPhone native 120/240 fps reference sessions at the selected camera geometry;
 2. blinded manual event annotation and within-rater reliability;
 3. event-time error and agreement analysis;
 4. camera, filter, interpolation, and event-definition tuning using validation data rather than efficacy outcomes;
@@ -105,6 +106,7 @@ Not permitted without later evidence:
 - AirPods Pro 2 or any unavailable bone-conduction device is safer or preserves environmental awareness;
 - the current one-second delay, target band, filter, or camera position is optimal;
 - same-stream replay proves event accuracy;
+- separate high-frame-rate sessions prove the accuracy of an individual live trial;
 - iPhone slow-motion video is optical motion-capture ground truth;
 - the project is NSTC-approved, funded, or endorsed.
 

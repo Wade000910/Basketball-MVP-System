@@ -4,7 +4,7 @@ This file records why a design choice exists, where external ideas or libraries 
 
 ## Project status
 
-The related NSTC undergraduate research proposal, application `115CFD2200044`, was not approved. Continued development in this repository is independent and is not evidence of NSTC approval, funding, or endorsement. `c802` is retained only as the project's historical internal identifier.
+The related NSTC undergraduate research proposal was not approved. Continued development in this repository is independent and is not evidence of NSTC approval, funding, or endorsement. The public record omits the application identifier, and `c802` is retained only as the project's historical internal identifier.
 
 The current audio inventory is limited to phone speakers and AirPods Pro 2. There is no bone-conduction headset. AirPods Pro 2 are treated only as a Bluetooth output path whose end-to-end latency and jitter must be measured on the selected phone; no paper or product claim substitutes for that measurement.
 

@@ -12,7 +12,7 @@ Public test entry: <https://wade000910.github.io/Basketball-MVP-System/>
 | --- | --- | --- |
 | ASUS TUF Gaming F15 FX507ZV4 | Intel Core i7-12700H; 16 GB-class RAM; NVIDIA GeForce RTX 4060 Laptop GPU and Intel UHD Graphics; Windows 11 Home 64-bit, build 26200 | Offline-replay benchmark in Phase 1B |
 | Samsung Galaxy A60 | Android 10; Chrome 127; first portrait five-minute diagnostic complete | Investigate the interruption, empty camera settings, diagnostic/trial FPS disagreement, and whether any non-live role is useful |
-| iPhone 15 Pro | iOS 18; Safari 26; first portrait five-minute diagnostic complete; Apple specifies 1080p slow motion at 120 or 240 fps | Confirm the later independent-reference architecture and investigate the single extreme inference-duration outlier |
+| iPhone 15 Pro | iOS 18; Safari 26; first portrait five-minute diagnostic complete; Apple specifies 1080p slow motion at 120 or 240 fps | Run separate native high-frame-rate offline-validation sessions and investigate the single extreme inference-duration outlier |
 
 The previously documented OPPO phone was an incorrect assumption and has been replaced by the confirmed Samsung Galaxy A60. No serial number, device ID, local account, or other persistent identifier is recorded.
 
@@ -105,7 +105,7 @@ Decision:
 - Use the iPhone 15 Pro as the provisional October live-analysis phone.
 - Do not use the Galaxy A60 as the current live-analysis phone.
 - Apple confirms that the iPhone 15 Pro supports 1080p slow motion at 120 or 240 fps, so it can serve as a high-frame-rate consumer-phone reference camera in a separate capture role [1]. It cannot simultaneously run the Safari camera pipeline and native slow-motion capture.
-- Keep the later dual-phone reference architecture unresolved rather than assigning unsupported capability to the A60.
+- Use native high-frame-rate recording only in separate iPhone reference sessions. Do not describe it as simultaneous validation of Safari live output, and do not assign unsupported high-frame-rate capability to the A60.
 
 The decision above establishes an October engineering role, not pose accuracy, event validity, participant readiness, or intervention efficacy.
 
