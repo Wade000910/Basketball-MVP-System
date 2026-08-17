@@ -136,7 +136,7 @@ session-<participant>-<session>/
 
 The initial browser implementation may download these files individually if reliable archive generation would require an unreviewed dependency. The manifest must still bind them to one session.
 
-Engineering implementation is complete in build `phase1a-local-capture-v1`; the Phase 1A exit gate remains open until the iPhone short capture and five-minute comparison runs are completed and reviewed.
+Engineering implementation has progressed through self-hosted pose build `phase1a-self-hosted-pose-v5`. The 2026-08-17 visual short run completed 1,176/1,176 successful inferences with no analysis error, while the auditory run completed 1,178/1,178 and exposed a physical-output verification gap. Build `phase1a-audio-unlock-v6` adds an explicit iOS audio-unlock test. The Phase 1A exit gate remains open until a complete eight-file short capture and the five-minute comparison runs are completed and reviewed. See [`docs/test-log-2026-08-17.md`](./docs/test-log-2026-08-17.md).
 
 ### Performance comparison
 
@@ -378,6 +378,8 @@ Confirm that baseline, terminal visual, and terminal auditory conditions operate
 - [ ] Visual and auditory conditions use matched binary information and nominal delay.
 - [ ] Auditory feedback occurs after the movement, not during execution.
 - [ ] Exactly one feedback event occurs per accepted trial.
+- [ ] Confirm audible phone-speaker output with `phase1a-audio-unlock-v6`, then repeat separately with AirPods Pro 2.
+- [ ] Prevent low-quality trials from receiving a normal binary auditory cue.
 - [ ] Condition order, block reset, and CSV labels remain correct.
 - [ ] Add operator-visible quality warnings without revealing prohibited information to the shooter.
 - [ ] Add a short post-block workload/effort rating only after choosing a licensed or properly cited instrument.

@@ -22,14 +22,16 @@ Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagno
 
 Phase 1A same-stream local recording, output files, privacy boundaries, and iPhone test procedure: [`docs/phase1a-local-capture.md`](./docs/phase1a-local-capture.md)
 
-## Current snapshot
+Sanitized iPhone engineering results and unresolved gates from 2026-08-17: [`docs/test-log-2026-08-17.md`](./docs/test-log-2026-08-17.md)
 
-- Snapshot date: **2026-06-02**
+## Current state
+
+- Current engineering date: **2026-08-17**
 - Status: research prototype; not yet validated for training or clinical use
 - Main application: [`專題程式/index.html`](./專題程式/index.html)
-- Detailed status: [`docs/status-2026-06-02.md`](./docs/status-2026-06-02.md)
+- Archived 2026-06-02 status: [`docs/status-2026-06-02.md`](./docs/status-2026-06-02.md)
 
-This snapshot replaces the earlier April camera feasibility prototype. It is preserved with an explicit date so later experimental changes can be compared against a known baseline.
+The June snapshot is preserved for comparison. The active implementation now adds frozen experiment context, per-condition statistics, local same-stream recording, frame/inference timestamps, landmarks and signals, quality flags, baseline masking, self-hosted MediaPipe Pose assets, deterministic tests, and an iOS audio-unlock diagnostic control.
 
 ## Implemented in the 2026-06-02 snapshot
 
@@ -50,13 +52,12 @@ This snapshot replaces the earlier April camera feasibility prototype. It is pre
 
 - The timing algorithm has not yet been validated on separately recorded iPhone 120/240 fps sessions or against motion-capture ground truth; the available equipment cannot produce simultaneous live analysis and native slow-motion recording of the same shot.
 - Interpolation increases computational resolution; it does not create measurements that were absent from the source video.
-- Session statistics are currently shared across experiment modes and must be separated before formal data collection.
-- CSV rows do not yet include participant, session, condition, trial order, or camera metadata.
-- The selected body side is recalculated per frame rather than locked for the full shot.
-- Baseline mode may still expose timing information in the interface.
-- Camera frame rate is observed but not guaranteed or recorded per trial.
-- Dependencies are loaded from CDNs, so the prototype is not fully offline.
-- There are no automated tests and no declared open-source license yet.
+- The browser audio branch can reach its feedback state, but physical phone-speaker and AirPods output still requires hands-on verification with build `phase1a-audio-unlock-v6`.
+- A low-quality trial may currently reach the auditory feedback path before its quality flag is finalized.
+- CV is not yet guarded against a zero or negative signed mean delta-t.
+- Camera frame rate is observed rather than guaranteed; long stalls and low-FPS trials must remain visible in the evidence.
+- MediaPipe Pose assets are self-hosted, but presentation libraries still use CDNs, so the prototype is not fully offline.
+- Deterministic software tests exist, but there is no declared open-source license yet.
 
 ## Run locally
 
