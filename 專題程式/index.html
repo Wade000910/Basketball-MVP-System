@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>籃球動力鏈聽覺回饋系統 (c802 實驗核心版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -282,7 +282,7 @@
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
         let diagRaw = null, videoFrameCallbackId = null, animationFrameId = null, lastVideoFrameTime = null, lastVideoCurrentTime = null;
         const localCapture = new SessionCapture.LocalSessionCapture();
-        let latestPresentedFrameIndex = null, activeInference = null, poseRequestInFlight = false, poseWatchdogId = null;
+        let latestPresentedFrameIndex = null, activeInference = null, poseRequestInFlight = false, poseAnalysisFailed = false, poseWatchdogId = null, frameTimestampSource = null;
 
         function orientationName() {
             return screen.orientation?.type || (window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape');
@@ -338,7 +338,10 @@
             if(!diagRaw || !isAnalyzing) return;
             if(lastVideoFrameTime!==null) diagRaw.frameIntervalsMs.push(now-lastVideoFrameTime);
             lastVideoFrameTime=now; diagRaw.presentedFrameCount++;
-            latestPresentedFrameIndex=localCapture.recordPresentedFrame({sourceTimestampMs:Number.isFinite(metadata.mediaTime)?metadata.mediaTime*1000:vEl.currentTime*1000,callbackPerfMs:now,expectedDisplayPerfMs:metadata.expectedDisplayTime??null,width:metadata.width??vEl.videoWidth,height:metadata.height??vEl.videoHeight});
+            const mediaTime=Number(metadata.mediaTime),rawMediaTimeMs=Number.isFinite(mediaTime)?mediaTime*1000:null,videoCurrentTimeMs=vEl.currentTime*1000;
+            if(frameTimestampSource===null) frameTimestampSource=Number.isFinite(mediaTime)&&mediaTime>0?'mediaTime':'videoCurrentTime';
+            const sourceTimestampMs=frameTimestampSource==='mediaTime'?rawMediaTimeMs:videoCurrentTimeMs;
+            latestPresentedFrameIndex=localCapture.recordPresentedFrame({sourceTimestampMs,timestampSource:frameTimestampSource,rawMediaTimeMs,videoCurrentTimeMs,callbackPerfMs:now,expectedDisplayPerfMs:metadata.expectedDisplayTime??null,width:metadata.width??vEl.videoWidth,height:metadata.height??vEl.videoHeight});
         }
 
         function scheduleVideoFrameDiagnostics() {
@@ -564,7 +567,7 @@
             prevEb=sEb; prevKn=sKn; lastT=now;
         }
 
-        const pose = new Pose({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+        const pose = new Pose({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`});
         pose.setOptions({modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.7, minTrackingConfidence:0.7});
         pose.onResults(onResults);
 
@@ -572,10 +575,10 @@
             const context=experimentContext();
             if(!contextIsComplete(context)){updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs');return;}
             if(audioCtx.state==='suspended') audioCtx.resume();
-            state='IDLE'; shotData=[]; shotHistory=[]; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
+            state='IDLE'; shotData=[]; shotHistory=[]; poseAnalysisFailed=false; frameTimestampSource=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
             resetDiagnostics();
             camera=new Camera(vEl, { onFrame:async()=>{
-                if(!isAnalyzing || poseRequestInFlight || vEl.readyState<2 || !vEl.videoWidth) return;
+                if(!isAnalyzing || poseAnalysisFailed || poseRequestInFlight || vEl.readyState<2 || !vEl.videoWidth) return;
                 poseRequestInFlight=true;
                 const activeDiagnostics=diagRaw,started=performance.now();
                 activeInference=localCapture.beginInference({sourceTimestampMs:vEl.currentTime*1000,presentedFrameIndex:latestPresentedFrameIndex});
@@ -585,10 +588,14 @@
                     localCapture.completeInference(activeInference,ended);
                     if(isAnalyzing&&diagRaw===activeDiagnostics) activeDiagnostics.inferenceDurationsMs.push(ended-started);
                 } catch(error) {
+                    const ended=performance.now();
+                    localCapture.failInference(activeInference,error,ended);
                     if(diagRaw===activeDiagnostics) {
                         activeDiagnostics.analysisErrorCount++;
                         activeDiagnostics.lastAnalysisError=String(error?.message || error || 'Unknown pose analysis error').slice(0,200);
                     }
+                    poseAnalysisFailed=true;
+                    captureStatus.innerText=`姿勢分析已停止：${activeDiagnostics.lastAnalysisError}。影片仍在本機錄製；請停止 Session 並下載診斷檔。`;
                     updateDiagnosticPanel();
                 } finally {
                     activeInference=null;

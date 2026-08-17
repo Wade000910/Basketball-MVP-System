@@ -109,7 +109,7 @@
 
         beginInference(row) {
             if (this.status !== 'recording') return null;
-            const item = {processedFrameIndex:this.inferences.length + 1, inferenceStartPerfMs:this.nowPerf(), inferenceEndPerfMs:null, inferenceDurationMs:null, ...row};
+            const item = {processedFrameIndex:this.inferences.length + 1, inferenceStartPerfMs:this.nowPerf(), inferenceEndPerfMs:null, inferenceDurationMs:null, status:'pending', errorMessage:null, ...row};
             this.inferences.push(item);
             return item;
         }
@@ -118,6 +118,15 @@
             if (!item) return;
             item.inferenceEndPerfMs = endPerfMs;
             item.inferenceDurationMs = endPerfMs - item.inferenceStartPerfMs;
+            item.status = 'succeeded';
+        }
+
+        failInference(item, error, endPerfMs = this.nowPerf()) {
+            if (!item) return;
+            item.inferenceEndPerfMs = endPerfMs;
+            item.inferenceDurationMs = endPerfMs - item.inferenceStartPerfMs;
+            item.status = 'failed';
+            item.errorMessage = String(error?.message || error || 'Unknown analysis error').slice(0, 200);
         }
 
         recordLandmarks(inference, landmarks) {
@@ -159,8 +168,8 @@
             const videoType = this.recorder.mimeType || this.videoChunks[0]?.type || 'video/webm';
             const files = {};
             files[`${base}_source-video.${extensionForMime(videoType)}`] = new Blob(this.videoChunks, {type:videoType});
-            files[`${base}_frame-timestamps.csv`] = textBlob(rowsToCsv(this.presentedFrames, ['frameIndex','sourceTimestampMs','callbackPerfMs','expectedDisplayPerfMs','width','height']), 'text/csv;charset=utf-8');
-            files[`${base}_inference-timestamps.csv`] = textBlob(rowsToCsv(this.inferences, ['processedFrameIndex','sourceTimestampMs','presentedFrameIndex','inferenceStartPerfMs','inferenceEndPerfMs','inferenceDurationMs']), 'text/csv;charset=utf-8');
+            files[`${base}_frame-timestamps.csv`] = textBlob(rowsToCsv(this.presentedFrames, ['frameIndex','sourceTimestampMs','timestampSource','rawMediaTimeMs','videoCurrentTimeMs','callbackPerfMs','expectedDisplayPerfMs','width','height']), 'text/csv;charset=utf-8');
+            files[`${base}_inference-timestamps.csv`] = textBlob(rowsToCsv(this.inferences, ['processedFrameIndex','sourceTimestampMs','presentedFrameIndex','inferenceStartPerfMs','inferenceEndPerfMs','inferenceDurationMs','status','errorMessage']), 'text/csv;charset=utf-8');
             files[`${base}_landmarks.csv`] = textBlob(rowsToCsv(this.landmarks, ['processedFrameIndex','sourceTimestampMs','landmarkIndex','x','y','z','visibility']), 'text/csv;charset=utf-8');
             files[`${base}_live-signals.csv`] = textBlob(rowsToCsv(this.signals, ['processedFrameIndex','sourceTimestampMs','shootingSide','rawElbowDeg','rawKneeDeg','filteredElbowDeg','filteredKneeDeg','sideVisibility','state']), 'text/csv;charset=utf-8');
             files[`${base}_live-trials.csv`] = textBlob(rowsToCsv(this.trials, ['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs']), 'text/csv;charset=utf-8');
@@ -179,7 +188,15 @@
                 actualCameraSettings:sanitizeCameraSettings(actualCameraSettings),
                 videoMimeType:videoType,
                 recordingError:this.recordingError,
-                counts:{presentedFrames:this.presentedFrames.length,processedFrames:this.inferences.length,landmarkRows:this.landmarks.length,signalRows:this.signals.length,trials:this.trials.length},
+                counts:{
+                    presentedFrames:this.presentedFrames.length,
+                    inferenceAttempts:this.inferences.length,
+                    processedFrames:this.inferences.filter(row => row.status === 'succeeded').length,
+                    failedInferences:this.inferences.filter(row => row.status === 'failed').length,
+                    landmarkRows:this.landmarks.length,
+                    signalRows:this.signals.length,
+                    trials:this.trials.length
+                },
                 files:Object.entries(files).map(([name, blob]) => ({name,sizeBytes:blob.size,type:blob.type})).concat({name:manifestName,type:'application/json'})
             };
             files[manifestName] = textBlob(JSON.stringify(manifest, null, 2), 'application/json');
