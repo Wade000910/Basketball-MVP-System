@@ -8,8 +8,8 @@ This roadmap defines the required order for continuing Basketball-MVP-System wit
 - one iPhone 15 Pro;
 - one Samsung Galaxy A60;
 - phone speakers and one pair of AirPods Pro 2;
-- one stable phone tripod to be acquired for repeatable placement;
-- no funded laboratory camera or optical motion-capture system.
+- the existing phone support used for repeatable placement;
+- no additional purchased or borrowed camera, sensor, audio analyzer, or optical motion-capture system.
 
 The project will use consumer devices for engineering and low-cost validation. iPhone slow-motion video may be described as **high-frame-rate consumer-phone reference video**, not motion-capture ground truth.
 
@@ -28,19 +28,29 @@ Complete the phases in order. A later phase cannot be treated as valid merely be
 - Record the Git commit and algorithm version with every exported session.
 - Do not start formal participant collection until the measurement and protocol gates are complete.
 
+## Evidence retention and publication layers
+
+Completed measurements are append-only research records: later interpretations may correct or qualify them, but the original values, anomalies, device context, and failure observations must not be silently replaced or deleted.
+
+| Layer | Contents | Storage rule |
+| --- | --- | --- |
+| Private raw | Source videos, exported CSV/JSON, manifests, consent records, and any identity-code key | Store locally or in access-controlled private storage; never commit to the public repository |
+| Controlled derived | Landmarks, annotations, replay outputs, processed signals, and shot-level comparisons | Keep private by default; release only after de-identification, provenance review, and a specific publication decision |
+| Public summary | Sanitized aggregate measurements, methods, device roles, uncertainty, failures, limitations, and analysis code | May be committed after privacy, license, and claim review |
+
+The existing Phase 0 aggregate observations remain part of the public technical record. Their discrepancies and outliers must remain visible, including the Galaxy A60 FPS disagreement and interruption and the iPhone inference-duration outlier.
+
 ## Hardware roles
 
 | Device | Initial role | Alternative role | Important limitation |
 | --- | --- | --- | --- |
-| Samsung Galaxy A60 | Secondary engineering device after the first Phase 0 run failed the live stability/performance gate | Possible ordinary-rate secondary recording after separate camera testing | Android 10 / Chrome 127 showed obvious lag, eventual interruption, and roughly 7–9 trial FPS; it is not the October live device |
-| iPhone 15 Pro | Provisional October live-analysis device | Independently synchronized 1080p/120 or 240 fps consumer-phone reference recording in a separate run | It cannot normally share its camera between Safari analysis and native slow-motion recording; the later independent-reference architecture remains unresolved |
-| ASUS TUF Gaming F15 FX507ZV4 | Offline replay, manual annotation, comparison, reporting, and repository development | Desktop debugging with an external camera only if one becomes available | Desktop results must not be pooled with the frozen smartphone capture pipeline |
+| Samsung Galaxy A60 | Secondary engineering device and coarse external observer for the flash/audio calibration setup | Ordinary-rate setup recording only after a separate check | Android 10 / Chrome 127 showed obvious lag, eventual interruption, and roughly 7–9 trial FPS; it is not the live-analysis or high-frame-rate reference device |
+| iPhone 15 Pro | Provisional live-analysis device in Safari | Native 1080p/120 or 240 fps consumer-phone reference recording in a separate session | Safari live analysis and native slow-motion capture cannot use the camera simultaneously; the two validation paths are intentionally separated |
+| ASUS TUF Gaming F15 FX507ZV4 | Offline replay, manual annotation, comparison, reporting, and repository development | Local inspection of Galaxy A60 calibration recordings | Results must remain linked to their source session and must not be represented as a simultaneous independent live reference |
 | Phone speaker | Primary auditory-output path for engineering characterization | Presentation fallback output | Physical onset latency and outdoor audibility remain to be measured |
 | AirPods Pro 2 | Separate Bluetooth comparison path | Possible later study output only if justified | Not bone conduction; latency, jitter, connection reliability, and usability must be measured on the selected phone |
 
-Device roles may be swapped after Phase 0 measurements. The reason must be recorded in the device profile and changelog.
-
-There is no bone-conduction headset in the available inventory. No near-term milestone requires purchasing one.
+These roles are frozen around the available equipment. There is no bone-conduction headset, second high-performance phone, laboratory camera, or requirement to purchase or borrow one.
 
 ---
 
@@ -69,22 +79,22 @@ Determine what the available devices can actually capture and process before des
 ### Outputs
 
 - `device-profile-<device-code>.json`
-- A short device decision record that assigns the live device and reference device.
+- A short device decision record that assigns the live-analysis, separate high-frame-rate, replay, and coarse calibration-observer roles.
 - Baseline FPS, inference-duration, and thermal observations.
 
 ### Exit gate
 
 - The live-analysis phone can run the current pose pipeline for five minutes without a crash.
 - Actual resolution, FPS distribution, inference duration, browser, and OS are recorded.
-- The high-frame-rate reference mode is confirmed on the selected second phone.
+- The iPhone native high-frame-rate mode is confirmed for a separate offline-validation session.
 - Device roles are frozen for the next phases.
 
 ### Current gate decision
 
 - The iPhone passes the five-minute stability gate for the October live-analysis path.
 - The Galaxy A60 does not pass the current live-analysis gate because of obvious lag and eventual interruption.
-- The October device role is provisionally frozen, but the complete Phase 2B architecture is not: using the iPhone for live Safari analysis prevents it from simultaneously serving as the independent native slow-motion reference camera.
-- Do not represent Phase 0 as fully closed for participant validation until an acceptable independent-reference arrangement is demonstrated.
+- The iPhone is also the only available high-frame-rate camera. Live Safari analysis and native slow-motion validation are therefore separate experiments, not synchronized views of the same shot.
+- This fixed-equipment design cannot establish simultaneous live-versus-independent-reference accuracy. That limitation remains explicit through all later phases.
 
 ### Not established by this phase
 
@@ -206,11 +216,18 @@ Measure where time is spent from frame processing through scheduled feedback and
 
 ### Physical measurement
 
-- [ ] Use the second phone's high-frame-rate video to record the calibration flash and physical sound where feasible.
+- [ ] On the iPhone calibration page, generate a visible flash and sound command from the same trial while the selected output path is active.
+- [ ] Place one AirPod near the Galaxy A60 microphone and record the iPhone display plus physical output; use the same geometry for the phone-speaker path.
+- [ ] Disable AirPods automatic ear detection for the bench test, confirm that iOS remains routed to AirPods, and restore the user's setting afterward.
+- [ ] Use a fixed, documented, clearly detectable volume that does not clip the A60 recording; do not require maximum listening volume.
+- [ ] Use the same short, sharp-onset calibration sound for both output paths.
+- [ ] Inspect the recording on the TUF and estimate the interval between the first visible flash frame and physical sound onset in the audio waveform.
 - [ ] Test phone speaker first.
 - [ ] Test AirPods Pro 2 separately as the available Bluetooth path; do not describe them as bone conduction.
-- [ ] Test wired audio only if the available devices support it without buying additional research equipment.
 - [ ] Record median, range/percentiles, maximum, missing output, and jitter for each path.
+- [ ] Report the Galaxy A60 frame-period uncertainty and call the result a low-cost end-to-end estimate rather than millisecond-precision instrumentation.
+- [ ] Preserve original A60 media timestamps. If a constant-frame-rate viewing copy is generated, never use its synthesized frame numbers as original capture timestamps.
+- [ ] Treat absolute values as uncalibrated proxy latency and emphasize the repeated AirPods-minus-speaker difference obtained with the same observer setup; the shared A/V capture bias is not assumed to cancel perfectly.
 
 ### Exit gate
 
@@ -218,6 +235,7 @@ Measure where time is spent from frame processing through scheduled feedback and
 - Physical output latency has repeated observations for every candidate audio path.
 - The selected test output and any exclusion threshold are justified by measured results, not codec marketing.
 - The one-second configured delay is not confused with total end-to-end delay.
+- The report includes the observer-device resolution, FPS, audio format where available, and the resulting timing uncertainty.
 
 ---
 
@@ -255,41 +273,42 @@ Use a small predefined grid that is feasible in the available court or practice 
 
 ---
 
-## Phase 2B — Dual-phone synchronized reference capture
+## Phase 2B — Separated iPhone high-frame-rate reference capture
 
 ### Goal
 
-Record the same trial with the live-analysis phone and independently synchronized iPhone high-frame-rate reference video.
+Use the iPhone native 120/240 fps mode to create consumer-phone reference videos for offline event validation. This is a separate session from Safari live analysis and does not provide a synchronized ground-truth view of a live trial.
 
 ### Setup
 
 ```text
-live phone
-├── GitHub Pages analysis
-└── same-stream source recording
+iPhone live session
+└── Safari analysis plus same-stream ordinary-rate recording
 
-iPhone 15 Pro
-└── native high-frame-rate reference recording
+iPhone reference session
+└── native 1080p/120 or 240 fps recording
 
-TUF computer or visible cue
-└── synchronization flash plus short sound
+ASUS TUF
+├── local replay and frame-by-frame annotation
+└── comparison of algorithm events with annotations within the reference session
 ```
 
 ### Procedure
 
-- [ ] Fix both phones; do not hand-hold during validation trials.
-- [ ] Record device clocks only as metadata; do not assume they are synchronized accurately enough.
-- [ ] Start both recordings.
-- [ ] Generate a visible flash and short sound captured by both devices.
-- [ ] Perform a small set of non-participant pilot shots.
-- [ ] End with a second synchronization event to estimate drift.
-- [ ] Copy files locally to the TUF computer using pseudonymous session IDs.
+- [ ] Fix the iPhone at a geometry selected in Phase 2A; do not hand-hold it.
+- [ ] Record the native mode, nominal FPS, resolution, orientation, distance, height, angle, shooting side, lighting, and session code.
+- [ ] Record a small set of non-participant pilot shots in native 120 or 240 fps mode.
+- [ ] Copy the original videos locally to the TUF using pseudonymous session IDs without transcoding the archive copy.
+- [ ] Inspect transferred video metadata, frame timestamps, duration, and decodable frame count before analysis; preserve anomalies rather than claiming that metadata alone proves zero dropped frames.
+- [ ] Run offline pose/event analysis on the reference session and preserve its algorithm version and parameters.
+- [ ] Keep live-session and reference-session results in separate tables; never pair different shots as if they were synchronized.
 
 ### Exit gate
 
-- The start synchronization event is identifiable in both recordings.
-- End-of-session drift can be estimated or bounded.
-- Every live trial can be matched to the correct reference-video interval.
+- Native frame timing and recording metadata are retained or their limitations documented.
+- Every offline algorithm trial can be matched to the correct interval in the same high-frame-rate reference video.
+- Reference-session annotations and algorithm results use the same shot identifiers.
+- Reports state that the design validates offline event detection on separate high-frame-rate recordings, not absolute accuracy of the simultaneous live output.
 - Original videos are retained locally and never committed to GitHub.
 
 ---
@@ -298,14 +317,14 @@ TUF computer or visible cue
 
 ### Goal
 
-Estimate how accurately and reliably the live/replay pipeline detects knee and elbow events using consumer-phone reference video.
+Estimate how accurately and reliably the offline pipeline detects knee and elbow events within the separately recorded consumer-phone high-frame-rate sessions. Live-system performance remains a separate engineering result.
 
 ### Annotation work
 
 - [ ] Write operational definitions for knee peak extension velocity and elbow extension onset.
 - [ ] Build or adopt a local frame-by-frame annotation workflow with recorded provenance and license.
 - [ ] Blind annotation to live/replay results.
-- [ ] Repeat a subset of annotations to estimate within-rater reliability.
+- [ ] Repeat a randomized, relabeled subset after a documented washout interval to estimate within-rater reliability; hide prior marks and do not claim that memory bias is eliminated.
 - [ ] If a second trained annotator becomes available, estimate between-rater agreement; otherwise state the limitation explicitly.
 - [ ] Preserve uncertain annotations and confidence ratings.
 
@@ -325,7 +344,7 @@ Estimate how accurately and reliably the live/replay pipeline detects knee and e
 - `deltaT` bias, MAE/RMSE, and agreement limits where appropriate;
 - valid-trial yield and failure reasons;
 - results stratified by FPS, visibility, geometry, and side;
-- live-versus-replay differences;
+- live-versus-same-stream replay differences, reported separately from high-frame-rate annotation error;
 - annotation reliability and uncertainty.
 
 ### Exit gate
@@ -337,7 +356,13 @@ Estimate how accurately and reliably the live/replay pipeline detects knee and e
 
 ### Claim limit
 
-This phase provides consumer-device reference validation, not laboratory motion-capture validation.
+This phase provides separate-session, consumer-device offline event validation. It is not laboratory motion-capture validation and does not directly validate the event time emitted during a different live shot.
+
+### Dataset separation
+
+- Store live engineering, same-stream replay, audio-proxy, and high-frame-rate offline-validation results as separate datasets with distinct ID namespaces.
+- Do not join live and high-frame-rate trials across sessions or calculate a fabricated paired accuracy statistic.
+- Public summaries may compare distributions only when the comparison question, denominators, device context, and non-paired design are explicit.
 
 ---
 
@@ -482,7 +507,7 @@ The active queue is reorganized around the October 2026 presentation. Detailed s
 
 ### After the presentation
 
-1. **Phase 2B:** synchronized dual-phone reference capture.
+1. **Phase 2B:** separated iPhone native high-frame-rate reference sessions.
 2. **Phase 2C:** blinded manual annotation and event validation.
 3. Complete **Phase 1C/2A** characterization and tune parameters against validation evidence.
 4. Freeze the algorithm and device profile.
@@ -490,7 +515,7 @@ The active queue is reorganized around the October 2026 presentation. Detailed s
 6. Conduct **Phase 4** feasibility work, then **Phase 5** participant efficacy work.
 7. Make the **Phase 6** product decision.
 
-October materials must not make effectiveness, motor-learning, cognitive-load, or participant-readiness claims. Same-stream recording and replay demonstrate traceability and reproducibility, not independent measurement validity; the dual-phone reference phase remains mandatory before participant enrollment.
+October materials must not make effectiveness, motor-learning, cognitive-load, or participant-readiness claims. Same-stream recording and replay demonstrate traceability and reproducibility. Separate iPhone high-frame-rate sessions can test offline event detection, but cannot be described as synchronized validation of the live output.
 
 ## Related documents
 

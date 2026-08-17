@@ -2,7 +2,7 @@
 
 籃球罰球動力鏈聽覺回饋研究原型，內部名稱為 c802。
 
-> **計畫狀態澄清：** 本專案曾以國科會大專學生研究計畫申請案編號 `115CFD2200044` 提出申請，但未獲通過。本 repository 是後續獨立延續的研究軟體，不代表國科會核准、補助或背書。
+> **計畫狀態澄清：** 本專案曾提出國科會大專學生研究計畫申請，但未獲通過。本 repository 是後續獨立延續的研究軟體，不代表國科會核准、補助或背書。公開版本不保存原始申請書或申請編號。
 
 ## Public test site
 
@@ -16,7 +16,7 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 - Ordered low-cost validation plan using the available ASUS TUF Gaming F15, iPhone 15 Pro, and Samsung Galaxy A60: [`ROADMAP.md`](./ROADMAP.md)
 - October 2026 presentation-first scope, reordered execution queue, current audio hardware, claim limits, and references: [`docs/october-2026-presentation-plan.md`](./docs/october-2026-presentation-plan.md)
 
-The October deliverable is a working prototype with preliminary engineering and measurement evidence, not a completed participant efficacy study. Before the presentation, prioritize hands-on device diagnostics, a stable demonstration build, same-stream recording/data export, a minimal TUF replay comparison, a small camera-placement pilot, and preliminary phone-speaker/AirPods Pro 2 latency characterization. Full tuning and participant testing follow the validation and ethics gates after the presentation.
+The October deliverable is a working prototype with preliminary engineering and measurement evidence, not a completed participant efficacy study. The fixed equipment is one iPhone 15 Pro, one Samsung Galaxy A60, one ASUS TUF laptop, the phone speaker, and AirPods Pro 2; no additional measurement device is assumed. Before the presentation, prioritize hands-on device diagnostics, a stable demonstration build, same-stream recording/data export, a minimal TUF replay comparison, a small camera-placement pilot, and preliminary phone-speaker/AirPods Pro 2 latency characterization. Full tuning and participant testing follow the validation and ethics gates after the presentation.
 
 Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
 
@@ -48,7 +48,7 @@ This snapshot replaces the earlier April camera feasibility prototype. It is pre
 
 ## Important limitations
 
-- The timing algorithm has not yet been validated against 240 fps video or motion-capture ground truth.
+- The timing algorithm has not yet been validated on separately recorded iPhone 120/240 fps sessions or against motion-capture ground truth; the available equipment cannot produce simultaneous live analysis and native slow-motion recording of the same shot.
 - Interpolation increases computational resolution; it does not create measurements that were absent from the source video.
 - Session statistics are currently shared across experiment modes and must be separated before formal data collection.
 - CSV rows do not yet include participant, session, condition, trial order, or camera metadata.
