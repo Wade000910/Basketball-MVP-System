@@ -73,6 +73,8 @@ Development after the archived snapshot is tracked separately. The first data-in
 
 - Change record: [`docs/experiment-readiness-v1.md`](./docs/experiment-readiness-v1.md)
 - Literature and GitHub provenance: [`docs/SOURCES.md`](./docs/SOURCES.md)
+- Shooting-event and technique-claim audit: [`docs/shooting-claim-audit.md`](./docs/shooting-claim-audit.md)
+- 2026-08-19 shot-detection evidence, minimal correction, simulations, and remaining limits: [`docs/shot-detection-validation-2026-08-19.md`](./docs/shot-detection-validation-2026-08-19.md)
 - Revised method responding to proposal reviews: [`docs/revised-method-after-review.md`](./docs/revised-method-after-review.md)
 - Archived historical snapshot: tag `archive/c802-prototype-20260602`
 

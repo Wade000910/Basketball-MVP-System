@@ -53,7 +53,7 @@ The exported data must retain both `sourceFrameCount` and measured FPS so that r
 
 The revised hypothesis does not assume that visual feedback is more demanding than auditory feedback. Reviews of augmented feedback show that modality, timing, information content, and task characteristics can all affect performance and learning ([Sigrist et al., 2013](https://doi.org/10.3758/s13423-012-0333-8); [Moinuddin et al., 2021](https://doi.org/10.7759/cureus.19695)).
 
-Both feedback conditions will therefore be terminal:
+Both feedback conditions will therefore be terminal. The terms `binary result` below describe a future matched feedback payload, not the current 50–150 ms classification, whose scientific meaning is unvalidated:
 
 - `baseline`: no knowledge of result or performance is shown after the shot;
 - `terminal_visual`: after the configured delay, show a binary result;
@@ -61,11 +61,15 @@ Both feedback conditions will therefore be terminal:
 
 The auditory cue must not play during movement execution. Visual and auditory conditions should carry matched information and use the same nominal delay. Cognitive load will be measured rather than presumed, initially with a short post-block rating or NASA-TLX. A secondary-task measure may be piloted later, because adding a second task could itself change shooting behavior.
 
+Before participant use, the feedback payload must be selected independently from shot detection. A shot-occurrence detector answers only whether an attempt happened; technique characterization reports continuous measurements; ball outcome records make/miss. None currently supplies a validated `correct/incorrect` label. Until that gap is resolved, Ding/Buzz is an engineering test of feedback delivery only.
+
 ### 4. Separate measurement variability from intervention outcomes
 
 The per-trial variable is the estimated kinetic-chain timing difference:
 
 `deltaT = elbowExtensionOnsetTime - kneePeakExtensionVelocityTime`
+
+This is the prototype's inherited definition, not the event definition used by Templin et al. (2024), which compares peak elbow-extension angular velocity with peak knee-extension angular velocity. Results from the two definitions must not be treated as interchangeable.
 
 SD and CV are summaries computed within a single participant, session, block, and condition. They must never pool conditions. Before using them as efficacy outcomes:
 
@@ -162,6 +166,8 @@ For knee event time, elbow event time, and `deltaT`, report:
 
 BlazePose was designed for real-time landmark inference, but its original paper does not validate this basketball event detector or camera geometry ([Bazarevsky et al., 2020](https://arxiv.org/abs/2006.10204)). Basketball kinetic sequencing is a legitimate research target, but existing work does not establish this project's event definitions or a universal 50–150 ms target ([Templin et al., 2024](https://commons.nmu.edu/isbs/vol42/iss1/93/)).
 
+Shot occurrence, data quality, technique characterization, and shot outcome are separate analysis layers. Knee flexion cannot be a mandatory occurrence criterion because valid shooting styles may contain little knee dip. Ball release is the preferred occurrence reference; if automatic ball tracking is not reliable in the fixed single-phone view, validation will use manual release annotation and label any body-only detector as a proxy.
+
 ### Phase 3 — Feedback and learning evaluation
 
 Begin this phase only if Phase 2 supplies predefined evidence that the measurements are usable.
@@ -197,6 +203,8 @@ The following values are inherited or plausible candidates, not validated specif
 
 Each value must be justified by literature, technical measurements, pilot data, or a preregistered design decision before it is treated as fixed.
 
+The 50–150 ms value is additionally prohibited from serving as a universal correctness label unless new validation explicitly supports that use.
+
 ## Engineering consequences for this repository
 
 For the October 2026 presentation, the immediate milestones are reordered as follows:
@@ -226,6 +234,7 @@ No participant data should be collected under the label of a validated experimen
 ## Related project records
 
 - [Source and provenance matrix](./SOURCES.md)
+- [Shooting-event and technique-claim audit](./shooting-claim-audit.md)
 - [2026-06-02 archived prototype status](./status-2026-06-02.md)
 - [Experiment-readiness v1 changes](./experiment-readiness-v1.md)
 - [October 2026 presentation-first plan and references](./october-2026-presentation-plan.md)

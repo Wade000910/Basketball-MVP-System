@@ -28,3 +28,14 @@ test('baseline condition masks augmented feedback values', () => {
     assert.equal(core.maskForBaseline('baseline', '87 ms'), '--');
     assert.equal(core.maskForBaseline('auditory', '87 ms'), '87 ms');
 });
+
+test('arm raise confirmation requires a visible wrist above its shoulder', () => {
+    const landmarks = Array.from({length:33}, () => ({y:0.5, visibility:0.9}));
+    landmarks[11].y = 0.3; landmarks[15].y = 0.4;
+    landmarks[12].y = 0.3; landmarks[16].y = 0.4;
+    assert.equal(core.hasRaisedArm(landmarks), false);
+    landmarks[16].y = 0.2;
+    assert.equal(core.hasRaisedArm(landmarks), true);
+    landmarks[16].visibility = 0.2;
+    assert.equal(core.hasRaisedArm(landmarks), false);
+});

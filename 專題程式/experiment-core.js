@@ -36,5 +36,17 @@
         return condition === 'baseline' ? hiddenValue : value;
     }
 
-    return { calculateSD, sameExperimentalBlock, qualityFlags, escapeCsv, rowsToCsv, maskForBaseline };
+    function hasRaisedArm(landmarks, minVisibility = 0.6) {
+        if (!Array.isArray(landmarks)) return false;
+        return [[11, 15], [12, 16]].some(([shoulderIndex, wristIndex]) => {
+            const shoulder = landmarks[shoulderIndex];
+            const wrist = landmarks[wristIndex];
+            return shoulder && wrist &&
+                Number(shoulder.visibility || 0) >= minVisibility &&
+                Number(wrist.visibility || 0) >= minVisibility &&
+                Number(wrist.y) < Number(shoulder.y);
+        });
+    }
+
+    return { calculateSD, sameExperimentalBlock, qualityFlags, escapeCsv, rowsToCsv, maskForBaseline, hasRaisedArm };
 });

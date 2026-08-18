@@ -17,6 +17,7 @@ assert.match(html, /latestPresentedFrameIndex===lastAnalyzedPresentedFrameIndex/
 assert.match(html, /lastAnalyzedPresentedFrameIndex=latestPresentedFrameIndex/, 'Pose loop must mark the presented frame before sending it.');
 assert.match(html, /\.\/vendor\/mediapipe-pose\/pose\.js/, 'Pose JavaScript must load from the same-origin vendor directory.');
 assert.match(html, /locateFile:\(f\)=>`\.\/vendor\/mediapipe-pose\/\$\{f\}`/, 'Pose runtime assets must resolve from the same-origin vendor directory.');
+assert.match(html, /now - shotData\[0\]\.t > 1700/, 'Confirmed shot capture timeout must remain at the replay-checked 1700 ms value.');
 for (const file of ['pose.js','pose_landmark_full.tflite','pose_solution_packed_assets.data','pose_solution_packed_assets_loader.js','pose_solution_simd_wasm_bin.js','pose_solution_simd_wasm_bin.wasm','pose_solution_wasm_bin.js','pose_solution_wasm_bin.wasm','pose_web.binarypb','LICENSE','THIRD_PARTY_NOTICES.md']) {
     assert.equal(fs.existsSync(`專題程式/vendor/mediapipe-pose/${file}`), true, `Missing self-hosted MediaPipe Pose asset: ${file}`);
 }

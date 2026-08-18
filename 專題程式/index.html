@@ -247,7 +247,7 @@
             };
         }
 
-        const {calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline} = ExperimentCore;
+        const {calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline, hasRaisedArm} = ExperimentCore;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         async function ensureAudioReady() {
@@ -286,7 +286,7 @@
         let knFilter = new ButterworthFilter(10, 30), ebFilter = new ButterworthFilter(10, 30);
         let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, videoTrack = null;
         let latestLandmarks = null;
-        let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null;
+        let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null, armRaisedConfirmed = false;
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
         let diagRaw = null, videoFrameCallbackId = null, animationFrameId = null, lastVideoFrameTime = null, lastVideoCurrentTime = null;
         const localCapture = new SessionCapture.LocalSessionCapture();
@@ -420,6 +420,12 @@
             if(!currentShotContext || localCapture.status!=='recording') return;
             localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'});
         }
+        function resetProvisionalShot(title, detail) {
+            state='IDLE'; shotData=[]; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false;
+            currentShotSide=null; currentShotContext=null;
+            if(localCapture.status!=='recording') setContextControlsDisabled(false);
+            updateUI('IDLE','gray',title,detail);
+        }
         modeSel.addEventListener('change', resetDisplayedStatistics);
         blockInput.addEventListener('change', resetDisplayedStatistics);
         sessionInput.addEventListener('change', resetDisplayedStatistics);
@@ -485,13 +491,13 @@
             latestLandmarks = res.poseLandmarks;
             localCapture.recordLandmarks(activeInference,res.poseLandmarks || []);
             if(!res.poseLandmarks){
-                if(state === 'RECORDING') { recordAbortedTrial('POSE_LANDMARKS_MISSING'); state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; updateUI('IDLE','gray','人體遺失','請重新進入畫面'); }
+                if(state === 'RECORDING') { if(armRaisedConfirmed) recordAbortedTrial('POSE_LANDMARKS_MISSING'); resetProvisionalShot('人體遺失','請重新進入畫面'); }
                 lastT=now; return;
             }
 
             const l = res.poseLandmarks;
             const torsoVis = (l[11].visibility + l[12].visibility + l[23].visibility + l[24].visibility) / 4;
-            if(torsoVis < 0.6) { if(state === 'RECORDING') { recordAbortedTrial('TORSO_VISIBILITY_LOW'); state = 'IDLE'; shotData = []; currentShotSide=null; currentShotContext=null; updateUI('IDLE','gray','辨識度不足','請面向鏡頭'); } lastT=now; return; }
+            if(torsoVis < 0.6) { if(state === 'RECORDING') { if(armRaisedConfirmed) recordAbortedTrial('TORSO_VISIBILITY_LOW'); resetProvisionalShot('辨識度不足','請面向鏡頭'); } lastT=now; return; }
 
             const side = currentShotSide || sideSel.value;
             const ebIdx = side === 'left' ? [11, 13, 15] : [12, 14, 16];
@@ -513,7 +519,7 @@
                     if(sKn < 155 && knV < -40 && torsoVis > 0.7){
                         const context=experimentContext();
                         if(!contextIsComplete(context)){ updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs'); break; }
-                        state='RECORDING'; shotData=[]; currentShotContext=Object.freeze({...context}); currentShotSide=currentShotContext.shootingSide; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; setContextControlsDisabled(true);
+                        state='RECORDING'; shotData=[]; currentShotContext=Object.freeze({...context}); currentShotSide=currentShotContext.shootingSide; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false; setContextControlsDisabled(true);
                         document.getElementById('chart_container').style.display='none';
                     }
                     break;
@@ -521,7 +527,11 @@
                     updateUI('RECORDING','yellow','動作擷取中','紀錄軌跡...');
                     shotData.push({t:now, kn:sKn, eb:sEb}); shotVisibility.push(sideVis);
                     if(lastShotFrameT!==null) shotFrameIntervals.push(now-lastShotFrameT); lastShotFrameT=now;
-                    if((sEb > 155 && (sEb-prevEb)/dtSec < 40) || (now - shotData[0].t > 1500)){ state='PROCESSING'; recEndT=now; }
+                    if(hasRaisedArm(l)) armRaisedConfirmed=true;
+                    if((sEb > 155 && (sEb-prevEb)/dtSec < 40) || (now - shotData[0].t > 1700)){
+                        if(armRaisedConfirmed){ state='PROCESSING'; recEndT=now; }
+                        else resetProvisionalShot('準備投籃','未確認出手，繼續等待');
+                    }
                     break;
                 case 'PROCESSING':
                     updateUI('PROCESSING','purple','計算中','執行升頻演算法...');
@@ -570,7 +580,7 @@
                         tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,calcDt,'hidden')}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
                         hBody.insertBefore(tr, hBody.firstChild);
                     }
-                    currentShotSide=null; currentShotContext=null; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(localCapture.status!=='recording') setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
+                    currentShotSide=null; currentShotContext=null; armRaisedConfirmed=false; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(localCapture.status!=='recording') setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
             }
             prevEb=sEb; prevKn=sKn; lastT=now;
         }
@@ -603,7 +613,7 @@
                 audioStatus.innerText=`音訊啟動失敗：${error.message}`;
                 audioStatus.className='text-xs font-bold text-red-700';
             }
-            state='IDLE'; shotData=[]; shotHistory=[]; poseAnalysisFailed=false; frameTimestampSource=null; latestPresentedFrameIndex=null; lastAnalyzedPresentedFrameIndex=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
+            state='IDLE'; shotData=[]; shotHistory=[]; armRaisedConfirmed=false; poseAnalysisFailed=false; frameTimestampSource=null; latestPresentedFrameIndex=null; lastAnalyzedPresentedFrameIndex=null; resetDisplayedStatistics(); captureDownloads.innerHTML=''; captureStatus.innerText='正在啟動相機與本機錄影…';
             resetDiagnostics();
             camera=new Camera(vEl, { onFrame:async()=>{
                 if(!isAnalyzing || poseAnalysisFailed || poseRequestInFlight || vEl.readyState<2 || !vEl.videoWidth || latestPresentedFrameIndex===null || latestPresentedFrameIndex===lastAnalyzedPresentedFrameIndex) return;
@@ -643,7 +653,7 @@
             requestAnimationFrame(renderLoop);
             startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = async () => { if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} stopVideoFrameDiagnostics(); const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings(); if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; resetZoomControl(); currentShotSide=null; currentShotContext=null; setContextControlsDisabled(false); stopBtn.disabled=true; captureStatus.innerText='正在完成影片與 Session 檔案…'; try{const files=await localCapture.stop({diagnostics,actualCameraSettings});renderCaptureDownloads(files);captureStatus.innerText='Session 已停止；請逐一下載全部檔案。';}catch(error){captureStatus.innerText=`Session 停止失敗：${error.message}`;} stopBtn.disabled=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請下載全部 Session 檔案'); updateDiagnosticPanel(); };
+        stopBtn.onclick = async () => { if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} stopVideoFrameDiagnostics(); const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings(); if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; resetZoomControl(); currentShotSide=null; currentShotContext=null; armRaisedConfirmed=false; setContextControlsDisabled(false); stopBtn.disabled=true; captureStatus.innerText='正在完成影片與 Session 檔案…'; try{const files=await localCapture.stop({diagnostics,actualCameraSettings});renderCaptureDownloads(files);captureStatus.innerText='Session 已停止；請逐一下載全部檔案。';}catch(error){captureStatus.innerText=`Session 停止失敗：${error.message}`;} stopBtn.disabled=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請下載全部 Session 檔案'); updateDiagnosticPanel(); };
         dlBtn.onclick = () => {
             const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
             const csvText=rowsToCsv(shotHistory,columns);
