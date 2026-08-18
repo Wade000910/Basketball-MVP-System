@@ -24,6 +24,8 @@ Phase 1A same-stream local recording, output files, privacy boundaries, and iPho
 
 Sanitized iPhone engineering results and unresolved gates from 2026-08-17: [`docs/test-log-2026-08-17.md`](./docs/test-log-2026-08-17.md)
 
+GitHub Pages 503/429 deployment failures, recovery evidence, and the repeatable response procedure: [`docs/github-pages-incidents-2026-08.md`](./docs/github-pages-incidents-2026-08.md)
+
 ## Current state
 
 - Current engineering date: **2026-08-17**
