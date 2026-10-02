@@ -15,6 +15,8 @@ The project will use consumer devices for engineering and low-cost validation. i
 
 Complete the phases in order. A later phase cannot be treated as valid merely because its interface is available. Each phase has an explicit exit gate.
 
+Current execution checklist and completion corrections: [Remaining tests — 2026-10-02](./docs/remaining-tests-2026-10-02.md). A locally retained August 18 v6 session now demonstrates a complete eight-file short export. Latest-build regression, the five-minute recording comparison, and the later validation gates remain open.
+
 ## Shared rules for every phase
 
 - Work on a feature branch and merge through a reviewed Pull Request.
@@ -136,7 +138,7 @@ session-<participant>-<session>/
 
 The initial browser implementation may download these files individually if reliable archive generation would require an unreviewed dependency. The manifest must still bind them to one session.
 
-Engineering implementation has progressed through self-hosted pose build `phase1a-self-hosted-pose-v5`. The 2026-08-17 visual short run completed 1,176/1,176 successful inferences with no analysis error, while the auditory run completed 1,178/1,178 and exposed a physical-output verification gap. Build `phase1a-audio-unlock-v6` adds an explicit iOS audio-unlock test. The Phase 1A exit gate remains open until a complete eight-file short capture and the five-minute comparison runs are completed and reviewed. See [`docs/test-log-2026-08-17.md`](./docs/test-log-2026-08-17.md).
+Engineering implementation has progressed through self-hosted pose build `phase1a-self-hosted-pose-v5`. The 2026-08-17 visual short run completed 1,176/1,176 successful inferences with no analysis error, while the auditory run completed 1,178/1,178 and exposed a physical-output verification gap. Build `phase1a-audio-unlock-v6` adds an explicit iOS audio-unlock test. The October 2 local audit confirmed a complete eight-file August 18 v6 short session with matching file sizes and CSV counts. It predates the raised-arm/1700 ms correction and does not establish audible output. The Phase 1A exit gate remains open for latest-build regression and the five-minute comparison. See the [historical log](./docs/test-log-2026-08-17.md) and [current checklist](./docs/remaining-tests-2026-10-02.md).
 
 ### Performance comparison
 
