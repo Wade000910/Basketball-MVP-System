@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>投籃離線檢查</title><link rel="stylesheet" href="./styles.css"></head>
+<body><main>
+<h1>投籃離線檢查</h1>
+<p>讀取既有影片與分析匯出，協助查看和標記事件。本頁不重新執行姿態推論，也不改動即時系統。檔案只在此頁記憶體中處理，不會上傳。</p>
+<section><h2>1. 選取完整資料</h2>
+<label>同一組 Session 的八份檔案 <input id="files" type="file" multiple accept=".json,.csv,.mp4,.webm"></label>
+<p id="status" role="status">等待選取資料。</p><p>會核對 manifest、名稱、大小、筆數與分析連結。原格式沒有檔案雜湊，這些檢查不能證明影片內容的來源。</p>
+</section>
+<section id="review" hidden><h2>2. 影片與來源時間</h2>
+<div class="stage"><video id="video" controls playsinline preload="metadata"></video><canvas id="overlay" aria-label="預存骨架疊圖"></canvas></div>
+<div class="controls"><label>播放速度 <select id="speed"><option value="1">1倍</option><option value="0.5">0.5倍</option><option value="0.25">0.25倍</option></select></label><button id="previous" type="button">上一筆來源影格</button><button id="next" type="button">下一筆來源影格</button></div>
+<label>來源影格記錄 <input id="frame" type="range" min="0" max="0" value="0" step="1"></label>
+<p id="clock"></p>
+<p>來源記錄不一定包含影片的每一格。錄影與分析可能有不同時間起點，請先在影片找出與目前來源影格相同的瞬間，再設定對齊。對齊不是自動校正，也不保證量測準確。</p>
+<button id="align" type="button">確認目前來源影格對應目前影片時間</button><button id="resetAlignment" type="button">清除對齊與本次標記</button>
+<p id="alignment" role="status">尚未確認對齊，無法標記。</p>
+<label><input id="follow" type="checkbox" checked> 播放時跟隨最近的來源影格記錄</label>
+<p>暫停後可用上一筆／下一筆逐筆檢查；左右方向鍵也可切換。影片的播放時間、實際呈現影格時間與來源記錄會分開顯示。</p>
+<label>顯示最近分析資料的時間容許範圍（毫秒） <input id="tolerance" type="number" min="0" max="1000" step="1" value="40"></label>
+<p>這是檢視配對設定，不是準確度標準。超出範圍不顯示骨架；停頓與缺失資料不補造。</p>
+<p>高影格率影片應另核對容許範圍，40ms可能跨越多個影格。單點對齊不能驗證整段時間漂移；正式量測前仍須核對首段、中段及尾段。</p>
+<label><input id="blind" type="checkbox" checked> 隱藏演算法結果與骨架，供人工標記</label>
+<p>若曾顯示演算法資料，本次匯出會記錄為輔助標記，之後再隱藏也不會改成獨立標記。</p>
+<pre id="sample" hidden></pre>
+<canvas id="chart" width="960" height="220" hidden aria-label="預存膝肘角度訊號"></canvas>
+<h2>3. 人工事件標記</h2>
+<label>試次 <select id="trial"></select></label>
+<p>請自行確認影片動作與試次的對應。舊匯出沒有試次的來源時間邊界及膝肘事件時間，本頁不會由 deltaT 倒推出事件位置。膝部峰值與肘部起始須依事先定義的標註準則；目視點選不等於已驗證真值。</p>
+<div class="controls"><button id="markKnee" type="button">標記膝部伸展角速度峰值</button><button id="markElbow" type="button">標記肘部伸展起始</button><button id="markRelease" type="button">標記出手</button></div>
+<p id="marks"></p><button id="clearTrial" type="button">清除此試次標記</button>
+<div id="jumpMarks" class="controls"></div>
+<div class="controls"><button id="undo" type="button">撤銷上一次標記</button><button id="redo" type="button">重做</button></div>
+<h2>4. 比較與保存</h2>
+<p>人工 deltaT＝肘部事件時間－膝部事件時間，沿用本專案的正負方向。顯示系統結果後才會呈現與舊匯出 deltaT 的差異。</p>
+<div class="tablewrap"><table><thead><tr><th>試次</th><th>人工 deltaT（ms）</th><th class="assisted" hidden>原分析 deltaT（ms）</th><th class="assisted" hidden>差異（ms）</th><th class="assisted" hidden>原品質標記</th></tr></thead><tbody id="comparison"></tbody></table></div>
+<button id="export" type="button">下載人工標記 JSON</button><p>關閉或換資料前請下載。原始影片與 CSV 不會被覆寫。對齊及試次歸屬由人工確認，差異表尚不能當作量測準確度結果。</p>
+<label>重新載入先前的人工標記 <input id="restore" type="file" accept=".json"></label><p>會檢查來源清單、Session、版本、事件與時間；只接受本頁輸出的標記格式。曾顯示演算法結果的紀錄會保留。</p>
+</section>
+</main><script src="./core.js"></script><script src="./app.js"></script></body></html>
