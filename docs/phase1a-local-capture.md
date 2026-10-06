@@ -2,6 +2,8 @@
 
 ## Status
 
+**2026-10-02 evidence update:** A locally retained August 18 `phase1a-audio-unlock-v6` auditory short session has all eight output files, matching listed sizes and CSV counts, and 1,105 successful analyses with no analysis error. This demonstrates short-run export integrity on that build; it does not establish audible output, the later shot-confirmation regression, or the five-minute recording/performance gate. See the [current remaining-test checklist](./remaining-tests-2026-10-02.md). The build progression below is retained as historical evidence.
+
 Build `phase1a-local-capture-v1` implements the engineering portion of Phase 1A. It has not yet passed the iPhone hands-on exit gate and is not approved for participant collection.
 
 The first iPhone short run on 2026-08-17 recorded 1,610 presented frames over 55.31 seconds but received zero pose results. The resulting header-only trial data is retained as a failed engineering observation, not a participant result. Build `phase1a-ios-pose-startup-v2` enables analysis before camera startup, records the pose-analysis error count and a truncated last error message, and warns after five seconds when video frames arrive without pose results. This change remains unverified until the repeat short run succeeds.

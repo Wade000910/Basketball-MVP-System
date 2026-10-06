@@ -13,6 +13,9 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 
 ## Development roadmap
 
+- Standalone local offline viewer: [`offline-review/index.html`](./offline-review/index.html), [instructions and verification](./docs/offline-review-first-version.md). It reads existing exports; it does not rerun pose estimation or modify the live application. Physical time alignment remains a manual validation task.
+- Initial offline frame-review reference audit and integration direction, keeping this project's analysis logic: [`docs/offline-review-reference-2026-10-06.md`](./docs/offline-review-reference-2026-10-06.md). The standalone first version is described above; full-video reanalysis and two-video overlay are still pending.
+- Current remaining tests, required corrections, and the locally verified complete eight-file short run: [`docs/remaining-tests-2026-10-02.md`](./docs/remaining-tests-2026-10-02.md)
 - Ordered low-cost validation plan using the available ASUS TUF Gaming F15, iPhone 15 Pro, and Samsung Galaxy A60: [`ROADMAP.md`](./ROADMAP.md)
 - October 2026 presentation-first scope, reordered execution queue, current audio hardware, claim limits, and references: [`docs/october-2026-presentation-plan.md`](./docs/october-2026-presentation-plan.md)
 
@@ -29,6 +32,7 @@ GitHub Pages 503/429 deployment failures, recovery evidence, and the repeatable 
 ## Current state
 
 - Current engineering date: **2026-08-17**
+- Latest development/reference audit: **2026-10-06**; an independent local viewer was added and tested with synthetic browser inputs. No new device experiment or physical measurement validation was performed.
 - Status: research prototype; not yet validated for training or clinical use
 - Main application: [`專題程式/index.html`](./專題程式/index.html)
 - Archived 2026-06-02 status: [`docs/status-2026-06-02.md`](./docs/status-2026-06-02.md)

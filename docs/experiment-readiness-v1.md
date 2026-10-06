@@ -22,7 +22,7 @@
 
 These are preserved as research parameters, not validated constants. The target interval must not be used to decide whether a shot occurred or to assign a scientifically meaningful `correct/incorrect` label. The current Ding/Buzz behavior is therefore an audio-path engineering test until a feedback target is independently justified.
 
-The arm-raise confirmation and 1700 ms timeout are engineering settings supported only by a small, same-person, two-session replay. They do not detect the ball, establish general sensitivity or specificity, or replace visible ball release as validation ground truth. A hands-on phone regression remains required before deployment.
+The arm-raise confirmation and 1700 ms timeout are engineering settings supported only by a small, same-person, two-session replay. They do not detect the ball, establish general sensitivity or specificity, or replace visible ball release as validation ground truth. The correction is deployed for engineering regression; deployment does not establish hands-on acceptance or authorize participant collection. The [current checklist](./remaining-tests-2026-10-02.md) records the remaining phone regression and later validation gates.
 
 ## Not ready for participant collection
 
