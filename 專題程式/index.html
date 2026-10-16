@@ -284,7 +284,7 @@
         let isAnalyzing = false, camera = null, shotHistory = [], shotData = [], state = 'IDLE';
         let lastT = 0, lastFpsT = performance.now(), frames = 0, currentSR = 30;
         let knFilter = new ButterworthFilter(10, 30), ebFilter = new ButterworthFilter(10, 30);
-        let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, videoTrack = null;
+        let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, timingReason = '', videoTrack = null;
         let latestLandmarks = null;
         let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null, armRaisedConfirmed = false;
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
@@ -418,7 +418,7 @@
         }
         function recordAbortedTrial(reasonCode) {
             if(!currentShotContext || localCapture.status!=='recording') return;
-            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'});
+            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'});
         }
         function resetProvisionalShot(title, detail) {
             state='IDLE'; shotData=[]; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false;
@@ -459,7 +459,11 @@
         }
 
         function processData() {
-            if(shotData.length < 10) return null;
+            timingReason='';
+            const invalid=reason=>{timingReason=reason;return null;};
+            if(shotData.length < 10) return invalid('INSUFFICIENT_SAMPLES');
+            if(shotData.some(d=>![d.t,d.kn,d.eb].every(Number.isFinite))) return invalid('NONFINITE_SAMPLE');
+            if(shotData.some((d,i)=>i>0 && d.t<=shotData[i-1].t)) return invalid('INVALID_TIMESTAMPS');
             const ts = shotData.map(d=>d.t), kns = shotData.map(d=>d.kn), ebs = shotData.map(d=>d.eb);
             const sKn = createSpline(ts, kns), sEb = createSpline(ts, ebs);
             let start = Math.ceil(ts[0]), end = Math.floor(ts[ts.length-1]);
@@ -472,7 +476,14 @@
                 chartK.push(kv); chartE.push(ev); chartLabels.push(t);
             }
 
-            let tE = pE; for(let t=pE; t>=start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
+            if(!chartK.every(Number.isFinite) || !chartE.every(Number.isFinite)) return invalid('NONFINITE_VELOCITY');
+            if(maxKv<=0) return invalid('KNEE_EXTENSION_NOT_FOUND');
+            if(maxEv<=10) return invalid('ELBOW_EXTENSION_NOT_FOUND');
+            if(tK===end || pE===end) return invalid('PEAK_AT_WINDOW_END');
+            let tE = null;
+            // Require an observed crossing; exclude the spline's artificial boundary extension.
+            for(let t=pE; t>start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
+            if(tE===null) return invalid('ELBOW_ONSET_NOT_FOUND');
 
             velocityChart.data.labels = chartLabels;
             velocityChart.data.datasets[0].data = chartK;
@@ -506,7 +517,17 @@
 
             const rawEb = calculateAngle(l[ebIdx[0]], l[ebIdx[1]], l[ebIdx[2]]);
             const rawKn = calculateAngle(l[knIdx[0]], l[knIdx[1]], l[knIdx[2]]);
-            const sEb = ebFilter.filter(rawEb), sKn = knFilter.filter(rawKn);
+            if(!Number.isFinite(rawEb) || !Number.isFinite(rawKn)) {
+                if(state==='RECORDING') {
+                    shotData.push({t:now,kn:rawKn,eb:rawEb});
+                    if(armRaisedConfirmed) { state='PROCESSING'; recEndT=now; }
+                    else resetProvisionalShot('無法辨識動作','請重新投籃');
+                    lastT=now; return;
+                }
+                if(state==='IDLE' || state==='RECORDING') { lastT=now; return; }
+            }
+            const sEb = Number.isFinite(rawEb) ? ebFilter.filter(rawEb) : prevEb;
+            const sKn = Number.isFinite(rawKn) ? knFilter.filter(rawKn) : prevKn;
             localCapture.recordSignal(activeInference,{shootingSide:side,rawElbowDeg:rawEb,rawKneeDeg:rawKn,filteredElbowDeg:sEb,filteredKneeDeg:sKn,sideVisibility:sideVis,state});
 
             ebDisp.innerText = maskForBaseline(modeSel.value,sEb.toFixed(0)+'°');
@@ -545,7 +566,7 @@
                     break;
                 case 'FEEDBACK':
                     const mode = modeSel.value;
-                    if(calcDt!==null){
+                    if(Number.isFinite(calcDt)){
                         const context=currentShotContext; const ok = calcDt>=50 && calcDt<=150;
                         dtDisp.innerText = maskForBaseline(mode,calcDt+' ms','-- ms');
 
@@ -563,7 +584,7 @@
 
                         // 統計計算
                         const blockRows=shotHistory.filter(row=>sameExperimentalBlock(row,context));
-                        const dts = blockRows.map(h => h.dt).concat(calcDt);
+                        const dts = blockRows.filter(h=>Number.isFinite(h.dt)).map(h => h.dt).concat(calcDt);
                         const sd = calculateSD(dts);
                         const mean = dts.reduce((a,b)=>a+b)/dts.length;
                         sdDisp.innerText = maskForBaseline(mode,sd.toFixed(2));
@@ -573,12 +594,25 @@
                         const measuredFps=meanFrameInterval ? 1000/meanFrameInterval : null;
                         const meanVisibility=shotVisibility.length ? shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length : null;
                         const flags=qualityFlags(measuredFps,meanVisibility);
-                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:flags==='OK'?'accepted':'low_quality',reasonCode:flags==='OK'?'':flags,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'experiment-readiness-v1',targetRangeMs:'50-150_UNVALIDATED'};
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:flags==='OK'?'accepted':'low_quality',reasonCode:flags==='OK'?'':flags,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         const tr = document.createElement('tr'); tr.className = ok?'bg-green-50':'bg-red-50';
                         tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,calcDt,'hidden')}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
                         hBody.insertBefore(tr, hBody.firstChild);
+                    }
+                    else {
+                        const context=currentShotContext;
+                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'};
+                        shotHistory.push(row);
+                        localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
+                        dtDisp.innerText='-- ms';
+                        document.getElementById('chart_container').style.display='none';
+                        updateUI('INVALID','gray','無法判定時序','此筆已保留，請重新投籃');
+                        vBar.style.width='0%';
+                        const tr=document.createElement('tr'); tr.className='bg-gray-50';
+                        tr.innerHTML='<td class="p-1 border-b">'+row.trialOrder+'</td><td class="p-1 border-b">--</td><td class="p-1 border-b">'+maskForBaseline(mode,'invalid','recorded')+'</td>';
+                        hBody.insertBefore(tr,hBody.firstChild);
                     }
                     currentShotSide=null; currentShotContext=null; armRaisedConfirmed=false; state='COOLDOWN'; setTimeout(()=>{ state='IDLE'; if(localCapture.status!=='recording') setContextControlsDisabled(false); if(mode!=='visual') dtDisp.innerText='-- ms'; vBar.style.width='0%'; }, 2000); break;
             }
@@ -643,7 +677,7 @@
             }, width:640, height:480, facingMode:'environment' });
             try {
                 resetZoomControl('正在偵測相機縮放能力…'); isAnalyzing=true; await camera.start();
-                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'experiment-readiness-v1',requestedCameraSettings});
+                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v2',requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
                 if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始 Session：${error.message}`; return;
