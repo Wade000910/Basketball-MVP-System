@@ -40,6 +40,15 @@ test('offline import reads unchanged capture format and variable frame intervals
     assert.equal(R.sampleForFrame(s,s.frames[1],5).signal.filteredKneeDeg,101);
     assert.equal(R.sampleForFrame(s,s.frames[1],1),null);
 });
+
+test('invalid trial survives CSV import with null timing and diagnostic reason',async()=>{
+    const files=await fixture();
+    await alter(files,'_live-trials.csv',t=>t.replaceAll('"50"','""').replaceAll('"accepted"','"invalid"').replaceAll('"OK"','"NONFINITE_SAMPLE"'));
+    const s=await R.readSession(files);
+    assert.equal(s.trials[0].dt,null);
+    assert.equal(s.trials[0].trialStatus,'invalid');
+    assert.equal(s.trials[0].qualityFlags,'NONFINITE_SAMPLE');
+});
 test('CSV supports multiline and escaped quotes and rejects damaged records',()=>{
     assert.deepEqual(R.parseCsv('a,b\r\n"hello, world","line\n""quote"""\r\n').rows,[{a:'hello, world',b:'line\n"quote"'}]);
     assert.throws(()=>R.parseCsv('a,a\n1,2'),/重複/);
