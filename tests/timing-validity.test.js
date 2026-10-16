@@ -38,6 +38,12 @@ test('missing onset and a truncated peak are rejected rather than replaced',()=>
     const c=runtime();events(c,0,30);assert.equal(c.processData(),null);assert.equal(c.timingReason,'ELBOW_ONSET_NOT_FOUND');
     const d=runtime();events(d,30,100);assert.equal(d.processData(),null);assert.equal(d.timingReason,'PEAK_AT_WINDOW_END');
 });
+test('real spline rejects a maximum plateau continuing through the last sample',()=>{
+    const c=runtime();
+    c.shotData=Array.from({length:11},(_,i)=>({t:i*10,kn:90+i*1.25,eb:90+Math.max(0,Math.min(60,i*10)-30)*.25}));
+    assert.equal(c.processData(),null);
+    assert.equal(c.timingReason,'PEAK_AT_WINDOW_END');
+});
 test('invalid feedback is recorded without sound or statistics; true zero enters numeric branch',()=>{
     const start=html.indexOf("case 'FEEDBACK':");
     const code=html.slice(start,html.indexOf('prevEb=sEb',start));

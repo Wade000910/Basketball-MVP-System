@@ -479,7 +479,10 @@
             if(!chartK.every(Number.isFinite) || !chartE.every(Number.isFinite)) return invalid('NONFINITE_VELOCITY');
             if(maxKv<=0) return invalid('KNEE_EXTENSION_NOT_FOUND');
             if(maxEv<=10) return invalid('ELBOW_EXTENSION_NOT_FOUND');
-            if(tK===end || pE===end) return invalid('PEAK_AT_WINDOW_END');
+            // Tied maxima can start earlier yet remain truncated at the end.
+            // Allow only floating-point roundoff, not a biomechanical tolerance.
+            const peakReachesEnd=(values,max)=>values[values.length-1]>=max-4096*Number.EPSILON*Math.max(1,Math.abs(max));
+            if(peakReachesEnd(chartK,maxKv) || peakReachesEnd(chartE,maxEv)) return invalid('PEAK_AT_WINDOW_END');
             let tE = null;
             // Require an observed crossing; exclude the spline's artificial boundary extension.
             for(let t=pE; t>start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
