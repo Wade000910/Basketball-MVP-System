@@ -142,11 +142,11 @@
                     <div class="grid grid-cols-2 gap-2 text-center">
                         <div class="bg-indigo-50 p-2 rounded border border-indigo-100">
                             <p class="text-[10px] font-bold text-indigo-500">穩定度 SD</p>
-                            <p id="sd_display" class="font-mono text-indigo-700 font-bold text-sm">0.00</p>
+                            <p id="sd_display" class="font-mono text-indigo-700 font-bold text-sm">--</p>
                         </div>
                         <div class="bg-teal-50 p-2 rounded border border-teal-100">
                             <p class="text-[10px] font-bold text-teal-500">變異係數 CV</p>
-                            <p id="cv_display" class="font-mono text-teal-700 font-bold text-sm">0.00%</p>
+                            <p id="cv_display" class="font-mono text-teal-700 font-bold text-sm">不適用</p>
                         </div>
                     </div>
 
@@ -410,7 +410,7 @@
         }
         function contextIsComplete(context) { return context.participantId && context.sessionId && context.blockId; }
         function resetDisplayedStatistics() {
-            sdDisp.innerText='0.00'; cvDisp.innerText='0.00%'; hBody.innerHTML=''; dtDisp.innerText='-- ms';
+            sdDisp.innerText='--'; cvDisp.innerText='不適用'; hBody.innerHTML=''; dtDisp.innerText='-- ms';
             document.getElementById('chart_container').style.display='none';
         }
         function setContextControlsDisabled(disabled) {
@@ -418,7 +418,7 @@
         }
         function recordAbortedTrial(reasonCode) {
             if(!currentShotContext || localCapture.status!=='recording') return;
-            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'});
+            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'});
         }
         function resetProvisionalShot(title, detail) {
             state='IDLE'; shotData=[]; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false;
@@ -570,43 +570,49 @@
                 case 'FEEDBACK':
                     const mode = modeSel.value;
                     if(Number.isFinite(calcDt)){
-                        const context=currentShotContext; const ok = calcDt>=50 && calcDt<=150;
+                        const context=currentShotContext;
+                        const meanFrameInterval=shotFrameIntervals.length ? shotFrameIntervals.reduce((a,b)=>a+b,0)/shotFrameIntervals.length : null;
+                        const measuredFps=meanFrameInterval ? 1000/meanFrameInterval : null;
+                        const meanVisibility=shotVisibility.length ? shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length : null;
+                        const flags=qualityFlags(measuredFps,meanVisibility);
+                        const qualityOk=flags==='OK';
+                        const ok = calcDt>=50 && calcDt<=150;
                         dtDisp.innerText = maskForBaseline(mode,calcDt+' ms','-- ms');
 
                         // 聽覺介入邏輯
-                        if(mode === 'auditory' || mode === 'visual'){
-                            if(ok){ if(mode==='auditory') beep(800,0.5); updateUI('正確','green','時序完美',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-green-500 transition-all"; }
-                            else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('失準','red','時序偏差',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
+                        if(!qualityOk){
+                            dtDisp.innerText='-- ms';
+                            updateUI('品質不足','gray','本次不納入回饋與統計',flags);
+                            vBar.style.width='0%';
+                        } else if(mode === 'auditory' || mode === 'visual'){
+                            if(ok){ if(mode==='auditory') beep(800,0.5); updateUI('候選範圍內','green','未驗證研究目標',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-green-500 transition-all"; }
+                            else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('候選範圍外','red','未驗證研究目標',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
                         } else {
                             updateUI('紀錄完成','blue','數據已存檔','請進行下一次投籃');
                             dtDisp.innerText='-- ms'; vBar.style.width='0%';
                         }
 
                         // 視覺回饋模式額外顯示圖表
-                        if(mode === 'visual') document.getElementById('chart_container').style.display='block';
+                        if(mode === 'visual') document.getElementById('chart_container').style.display=qualityOk?'block':'none';
 
                         // 統計計算
                         const blockRows=shotHistory.filter(row=>sameExperimentalBlock(row,context));
-                        const dts = blockRows.filter(h=>Number.isFinite(h.dt)).map(h => h.dt).concat(calcDt);
+                        const dts = blockRows.filter(h=>h.trialStatus==='accepted' && Number.isFinite(h.dt)).map(h => h.dt);
+                        if(qualityOk) dts.push(calcDt);
                         const sd = calculateSD(dts);
-                        const mean = dts.reduce((a,b)=>a+b)/dts.length;
-                        sdDisp.innerText = maskForBaseline(mode,sd.toFixed(2));
-                        cvDisp.innerText = maskForBaseline(mode,((sd/mean)*100).toFixed(1)+'%');
+                        sdDisp.innerText = maskForBaseline(mode,sd===null?'--':sd.toFixed(2));
+                        cvDisp.innerText = maskForBaseline(mode,'不適用（帶正負號Δt）');
 
-                        const meanFrameInterval=shotFrameIntervals.length ? shotFrameIntervals.reduce((a,b)=>a+b,0)/shotFrameIntervals.length : null;
-                        const measuredFps=meanFrameInterval ? 1000/meanFrameInterval : null;
-                        const meanVisibility=shotVisibility.length ? shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length : null;
-                        const flags=qualityFlags(measuredFps,meanVisibility);
-                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:flags==='OK'?'accepted':'low_quality',reasonCode:flags==='OK'?'':flags,dt:calcDt,result:ok?'in_range':'out_of_range',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'};
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:calcDt,result:qualityOk?(ok?'in_range':'out_of_range'):'not_evaluated_low_quality',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
-                        const tr = document.createElement('tr'); tr.className = ok?'bg-green-50':'bg-red-50';
-                        tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,calcDt,'hidden')}</td><td class="p-1 border-b ${ok?'text-green-600':'text-red-600'}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
+                        const tr = document.createElement('tr'); tr.className = !qualityOk?'bg-gray-50':(ok?'bg-green-50':'bg-red-50');
+                        tr.innerHTML = `<td class="p-1 border-b">${row.trialOrder}</td><td class="p-1 border-b font-bold">${maskForBaseline(mode,qualityOk?calcDt:'--', 'hidden')}</td><td class="p-1 border-b ${!qualityOk?'text-gray-600':(ok?'text-green-600':'text-red-600')}">${maskForBaseline(mode,row.result,'recorded')}</td>`;
                         hBody.insertBefore(tr, hBody.firstChild);
                     }
                     else {
                         const context=currentShotContext;
-                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v2',targetRangeMs:'50-150_UNVALIDATED'};
+                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         dtDisp.innerText='-- ms';
@@ -680,7 +686,7 @@
             }, width:640, height:480, facingMode:'environment' });
             try {
                 resetZoomControl('正在偵測相機縮放能力…'); isAnalyzing=true; await camera.start();
-                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v2',requestedCameraSettings});
+                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
                 if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始 Session：${error.message}`; return;

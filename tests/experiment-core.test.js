@@ -3,7 +3,9 @@ const test = require('node:test');
 const core = require('../專題程式/experiment-core.js');
 
 test('sample SD is calculated within one supplied block', () => {
-    assert.equal(core.calculateSD([100]), 0);
+    assert.equal(core.calculateSD([100]), null);
+    assert.equal(core.calculateSD([]), null);
+    assert.equal(core.calculateSD([100, NaN]), null);
     assert.equal(core.calculateSD([100, 120]), Math.sqrt(200));
 });
 
@@ -17,6 +19,7 @@ test('block identity includes participant, session, block, and condition', () =>
 test('quality flags expose low frame rate and visibility', () => {
     assert.equal(core.qualityFlags(30, 0.9), 'OK');
     assert.equal(core.qualityFlags(20, 0.6), 'LOW_FPS|LOW_VISIBILITY');
+    assert.equal(core.qualityFlags(null, null), 'RATE_UNAVAILABLE|VISIBILITY_UNAVAILABLE');
 });
 
 test('CSV output quotes commas, quotes, and missing values', () => {

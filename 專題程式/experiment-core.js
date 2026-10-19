@@ -4,7 +4,7 @@
     root.ExperimentCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     function calculateSD(values) {
-        if (values.length < 2) return 0;
+        if (!Array.isArray(values) || values.length < 2 || values.some(value => !Number.isFinite(value))) return null;
         const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
         const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / (values.length - 1);
         return Math.sqrt(variance);
@@ -19,8 +19,10 @@
 
     function qualityFlags(measuredFps, meanVisibility) {
         const flags = [];
-        if (Number.isFinite(measuredFps) && measuredFps < 24) flags.push('LOW_FPS');
-        if (Number.isFinite(meanVisibility) && meanVisibility < 0.7) flags.push('LOW_VISIBILITY');
+        if (!Number.isFinite(measuredFps)) flags.push('RATE_UNAVAILABLE');
+        else if (measuredFps < 24) flags.push('LOW_FPS');
+        if (!Number.isFinite(meanVisibility)) flags.push('VISIBILITY_UNAVAILABLE');
+        else if (meanVisibility < 0.7) flags.push('LOW_VISIBILITY');
         return flags.length ? flags.join('|') : 'OK';
     }
 
