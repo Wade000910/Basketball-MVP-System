@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
+const core=require('../專題程式/experiment-core.js');
 const html=fs.readFileSync(path.join(__dirname,'../專題程式/index.html'),'utf8');
 function runtime() {
     const c={shotData:Array.from({length:11},(_,i)=>({t:i*10,kn:90,eb:90})),timingReason:'',velocityChart:{data:{datasets:[{},{}]},update(){}}};
@@ -44,15 +45,20 @@ test('real spline rejects a maximum plateau continuing through the last sample',
     assert.equal(c.processData(),null);
     assert.equal(c.timingReason,'PEAK_AT_WINDOW_END');
 });
-test('invalid feedback is recorded without sound or statistics; true zero enters numeric branch',()=>{
+test('invalid timing is excluded; low-quality timing gets no feedback; true zero enters numeric branch',()=>{
     const start=html.indexOf("case 'FEEDBACK':");
     const code=html.slice(start,html.indexOf('prevEb=sEb',start));
     for(const value of [null,0]) {
         const rows=[],captures=[],sounds=[],stats=[];
-        const c={calcDt:value,modeSel:{value:'auditory'},currentShotContext:{blockId:'B'},currentShotSide:'right',shotHistory:rows,shotData:[],shotFrameIntervals:[],shotVisibility:[],timingReason:'NONFINITE_SAMPLE',sameExperimentalBlock:()=>true,maskForBaseline:(_m,v)=>v,qualityFlags:()=> 'OK',calculateSD:v=>{stats.push(v);return 0;},localCapture:{trials:captures,recordTrial:r=>captures.push(r)},beep:(...v)=>sounds.push(v),dtDisp:{},sdDisp:{},cvDisp:{},vBar:{style:{}},document:{getElementById:()=>({style:{}}),createElement:()=>({})},hBody:{insertBefore(){}},updateUI(){},setTimeout(){},setContextControlsDisabled(){}};
+        const c={calcDt:value,modeSel:{value:'auditory'},currentShotContext:{blockId:'B'},currentShotSide:'right',shotHistory:rows,shotData:[],shotFrameIntervals:[20,20],shotVisibility:[0.9,0.9],timingReason:'NONFINITE_SAMPLE',sameExperimentalBlock:core.sameExperimentalBlock,maskForBaseline:core.maskForBaseline,qualityFlags:core.qualityFlags,calculateSD:v=>{stats.push(v);return core.calculateSD(v);},localCapture:{trials:captures,recordTrial:r=>captures.push(r)},beep:(...v)=>sounds.push(v),dtDisp:{},sdDisp:{},cvDisp:{},vBar:{style:{}},document:{getElementById:()=>({style:{}}),createElement:()=>({})},hBody:{insertBefore(){}},updateUI(){},setTimeout(){},setContextControlsDisabled(){}};
         vm.createContext(c);vm.runInContext('switch("FEEDBACK"){'+code,c);
         assert.equal(rows.length,1);assert.equal(captures.length,1);
         assert.equal(rows[0].dt,value);assert.equal(rows[0].trialStatus,value===null?'invalid':'accepted');
         assert.equal(sounds.length,value===null?0:1);assert.equal(stats.length,value===null?0:1);
     }
+    const rows=[],captures=[],sounds=[],stats=[];
+    const c={calcDt:75,modeSel:{value:'auditory'},currentShotContext:{blockId:'B'},currentShotSide:'right',shotHistory:rows,shotData:[],shotFrameIntervals:[50],shotVisibility:[0.9],timingReason:'',sameExperimentalBlock:core.sameExperimentalBlock,maskForBaseline:core.maskForBaseline,qualityFlags:core.qualityFlags,calculateSD:v=>{stats.push(v);return core.calculateSD(v);},localCapture:{trials:captures,recordTrial:r=>captures.push(r)},beep:(...v)=>sounds.push(v),dtDisp:{},sdDisp:{},cvDisp:{},vBar:{style:{}},document:{getElementById:()=>({style:{}}),createElement:()=>({})},hBody:{insertBefore(){}},updateUI(){},setTimeout(){},setContextControlsDisabled(){}};
+    vm.createContext(c);vm.runInContext('switch("FEEDBACK"){'+code,c);
+    assert.equal(rows[0].trialStatus,'low_quality');assert.equal(rows[0].result,'not_evaluated_low_quality');
+    assert.equal(sounds.length,0);assert.equal(stats[0].length,0);
 });
