@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {LocalSessionCapture, cleanSegment, selectMimeType, extensionForMime, sanitizeCameraSettings} = require('../專題程式/session-capture.js');
 const fs = require('node:fs');
+const {TIMING_DEFINITION} = require('../專題程式/experiment-core.js');
+const review = require('../offline-review/core.js');
 
 class FakeRecorder {
     static isTypeSupported(type) { return type === 'video/mp4'; }
@@ -63,6 +65,27 @@ test('failed inference is closed and counted separately', async () => {
     assert.equal(manifest.counts.failedInferences,1);
     const inferenceName=Object.keys(files).find(name=>name.endsWith('_inference-timestamps.csv'));
     assert.match(await files[inferenceName].text(),/"failed","Load failed"/);
+});
+
+test('event estimates and their clock survive session export and offline import', async () => {
+    const capture=new LocalSessionCapture({MediaRecorderClass:FakeRecorder});
+    const definition={...TIMING_DEFINITION};
+    capture.start({stream,context,buildId:'traceability',algorithmVersion:'timing-validity-v3',timingDefinition:definition});
+    capture.recordPresentedFrame({sourceTimestampMs:20,timestampSource:'mediaTime',width:640,height:480});
+    definition.clock='modified after start';
+    capture.recordTrial({id:1,...context,dt:-10,trialStatus:'accepted',qualityFlags:'OK',
+        eventDefinitionId:TIMING_DEFINITION.id,timingClock:TIMING_DEFINITION.clock,
+        kneePeakPerfMs:1020,elbowOnsetPerfMs:1010,elbowPeakPerfMs:1060});
+    capture.recordTrial({id:2,...context,dt:null,trialStatus:'invalid',qualityFlags:'ELBOW_ONSET_NOT_FOUND',
+        kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null});
+    const files=await capture.stop();
+    const inputs=Object.entries(files).map(([name,blob])=>({name,size:blob.size,text:()=>blob.text()}));
+    const session=await review.readSession(inputs);
+    assert.deepEqual(session.manifest.timingDefinition,TIMING_DEFINITION);
+    assert.equal(session.trials[0].timingClock,'pose-result-performance-now');
+    assert.equal(Number(session.trials[0].elbowOnsetPerfMs)-Number(session.trials[0].kneePeakPerfMs),session.trials[0].dt);
+    assert.equal(session.trials[1].kneePeakPerfMs,'');
+    assert.equal(session.trials[1].dt,null);
 });
 
 test('requires complete metadata and a live stream', () => {

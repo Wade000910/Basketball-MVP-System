@@ -32,7 +32,7 @@ GitHub Pages 503/429 deployment failures, recovery evidence, and the repeatable 
 ## Current state
 
 - Current engineering date: **2026-08-17**
-- Latest development/reference audit: **2026-10-06**; an independent local viewer was added and tested with synthetic browser inputs. No new device experiment or physical measurement validation was performed.
+- Latest software change: **2026-10-29**; live trial exports now retain separately named knee/elbow event estimates and their clock definition. See [event traceability](./docs/change-2026-10-29-event-traceability.md). No new device experiment or physical measurement validation was performed.
 - Status: research prototype; not yet validated for training or clinical use
 - Main application: [`專題程式/index.html`](./專題程式/index.html)
 - Archived 2026-06-02 status: [`docs/status-2026-06-02.md`](./docs/status-2026-06-02.md)
@@ -58,9 +58,9 @@ The June snapshot is preserved for comparison. The active implementation now add
 
 - The timing algorithm has not yet been validated on separately recorded iPhone 120/240 fps sessions or against motion-capture ground truth; the available equipment cannot produce simultaneous live analysis and native slow-motion recording of the same shot.
 - Interpolation increases computational resolution; it does not create measurements that were absent from the source video.
-- The browser audio branch can reach its feedback state, but physical phone-speaker and AirPods output still requires hands-on verification with build `phase1a-audio-unlock-v6`.
-- A low-quality trial may currently reach the auditory feedback path before its quality flag is finalized.
-- CV is not yet guarded against a zero or negative signed mean delta-t.
+- The browser audio branch can reach its feedback state, but physical phone-speaker and AirPods output still requires hands-on verification on the latest build, `timing-event-traceability-v1`.
+- Quality gating was added in the [October 19 change](./docs/change-2026-10-19-quality-gating.md); its callback-rate and visibility thresholds remain provisional and require device validation.
+- CV is not reported for signed delta-t. SD requires at least two accepted finite trials; neither statistic establishes training efficacy.
 - Camera frame rate is observed rather than guaranteed; long stalls and low-FPS trials must remain visible in the evidence.
 - MediaPipe Pose assets are self-hosted, but presentation libraries still use CDNs, so the prototype is not fully offline.
 - Deterministic software tests exist, but there is no declared open-source license yet.

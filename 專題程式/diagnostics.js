@@ -3,7 +3,7 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.DeviceDiagnostics = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-    const BUILD_ID = 'phase1a-audio-unlock-v6';
+    const BUILD_ID = 'timing-event-traceability-v1';
 
     function round(value, digits = 2) {
         return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;

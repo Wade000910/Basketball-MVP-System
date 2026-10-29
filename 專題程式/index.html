@@ -61,7 +61,7 @@
         <header class="mb-6 text-center">
             <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 籃球動力鏈聽覺回饋系統</h1>
             <div class="flex justify-center items-center space-x-4">
-                <p class="text-sm text-gray-600">獨立研究原型 c802｜相關研究計畫申請未獲通過｜版本日期：2026-08-17</p>
+                <p class="text-sm text-gray-600">獨立研究原型 c802｜相關研究計畫申請未獲通過｜版本日期：2026-10-29</p>
                 <select id="exp_mode" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 font-bold text-blue-700 outline-none">
                     <option value="auditory">聽覺介入模式 (實驗組)</option>
                     <option value="visual">視覺回饋模式 (對照組)</option>
@@ -75,6 +75,11 @@
                 <label class="text-xs font-bold">Shooting side<select id="shooting_side" class="mt-1 w-full border rounded px-2 py-1 font-normal"><option value="right">Right</option><option value="left">Left</option></select></label>
             </div>
             <p class="mt-2 text-xs font-bold text-red-700">UNVALIDATED RESEARCH PROTOTYPE — NOT FOR PARTICIPANT DATA COLLECTION UNTIL GROUND-TRUTH VALIDATION IS COMPLETE.</p>
+            <details class="mt-2 text-left text-xs bg-white p-3 rounded border">
+                <summary class="font-bold cursor-pointer">目前時序指標與回饋的意義</summary>
+                <p class="mt-2">Δt＝手肘伸展起始時間－膝部伸展角速度峰值時間。手肘起始依既有 10 deg/s 門檻估計，不是手肘角速度峰值，也不是球離手時間。</p>
+                <p class="mt-1">50–150 ms 僅為未驗證候選範圍；聲音用於回饋流程測試，不代表姿勢正確、投籃命中或訓練有效。1 ms 是插值計算間隔，不代表相機取樣率或量測準確度。</p>
+            </details>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -247,7 +252,7 @@
             };
         }
 
-        const {calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline, hasRaisedArm} = ExperimentCore;
+        const {TIMING_DEFINITION, calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline, hasRaisedArm} = ExperimentCore;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         async function ensureAudioReady() {
@@ -284,7 +289,7 @@
         let isAnalyzing = false, camera = null, shotHistory = [], shotData = [], state = 'IDLE';
         let lastT = 0, lastFpsT = performance.now(), frames = 0, currentSR = 30;
         let knFilter = new ButterworthFilter(10, 30), ebFilter = new ButterworthFilter(10, 30);
-        let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, timingReason = '', videoTrack = null;
+        let prevKn = 180, prevEb = 180, recEndT = 0, calcDt = null, timingReason = '', timingEvents = null, videoTrack = null;
         let latestLandmarks = null;
         let currentShotSide = null, currentShotContext = null, shotVisibility = [], shotFrameIntervals = [], lastShotFrameT = null, armRaisedConfirmed = false;
         const requestedCameraSettings = {width:640,height:480,facingMode:'environment'};
@@ -418,7 +423,7 @@
         }
         function recordAbortedTrial(reasonCode) {
             if(!currentShotContext || localCapture.status!=='recording') return;
-            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'});
+            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null});
         }
         function resetProvisionalShot(title, detail) {
             state='IDLE'; shotData=[]; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false;
@@ -460,6 +465,7 @@
 
         function processData() {
             timingReason='';
+            timingEvents=null;
             const invalid=reason=>{timingReason=reason;return null;};
             if(shotData.length < 10) return invalid('INSUFFICIENT_SAMPLES');
             if(shotData.some(d=>![d.t,d.kn,d.eb].every(Number.isFinite))) return invalid('NONFINITE_SAMPLE');
@@ -487,6 +493,8 @@
             // Require an observed crossing; exclude the spline's artificial boundary extension.
             for(let t=pE; t>start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
             if(tE===null) return invalid('ELBOW_ONSET_NOT_FOUND');
+            // Estimates on the pose-result performance.now() clock, not video PTS.
+            timingEvents={kneePeakPerfMs:tK,elbowOnsetPerfMs:tE,elbowPeakPerfMs:pE};
 
             velocityChart.data.labels = chartLabels;
             velocityChart.data.datasets[0].data = chartK;
@@ -558,11 +566,11 @@
                     }
                     break;
                 case 'PROCESSING':
-                    updateUI('PROCESSING','purple','計算中','執行升頻演算法...');
+                    updateUI('PROCESSING','purple','計算中','插值與事件時間估計...');
                     calcDt = processData(); state='DELAY';
                     break;
                 case 'DELAY':
-                    updateUI('DELAY','indigo','本體感覺沉澱','感受肌肉記憶...');
+                    updateUI('DELAY','indigo','等待回饋','設定等待時間：1 秒');
                     const progress = (now - recEndT) / 1000;
                     vBar.style.width = `${Math.min(100, progress * 100)}%`;
                     if(now-recEndT>1000) state='FEEDBACK';
@@ -603,7 +611,7 @@
                         sdDisp.innerText = maskForBaseline(mode,sd===null?'--':sd.toFixed(2));
                         cvDisp.innerText = maskForBaseline(mode,'不適用（帶正負號Δt）');
 
-                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:calcDt,result:qualityOk?(ok?'in_range':'out_of_range'):'not_evaluated_low_quality',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,qualityFlags:flags,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'};
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:calcDt,result:qualityOk?(ok?'in_range':'out_of_range'):'not_evaluated_low_quality',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,...timingEvents,qualityFlags:flags,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now'};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         const tr = document.createElement('tr'); tr.className = !qualityOk?'bg-gray-50':(ok?'bg-green-50':'bg-red-50');
@@ -612,7 +620,7 @@
                     }
                     else {
                         const context=currentShotContext;
-                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED'};
+                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         dtDisp.innerText='-- ms';
@@ -686,7 +694,7 @@
             }, width:640, height:480, facingMode:'environment' });
             try {
                 resetZoomControl('正在偵測相機縮放能力…'); isAnalyzing=true; await camera.start();
-                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',requestedCameraSettings});
+                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',timingDefinition:TIMING_DEFINITION,requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
                 if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始 Session：${error.message}`; return;
@@ -698,7 +706,7 @@
         };
         stopBtn.onclick = async () => { if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} stopVideoFrameDiagnostics(); const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings(); if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; resetZoomControl(); currentShotSide=null; currentShotContext=null; armRaisedConfirmed=false; setContextControlsDisabled(false); stopBtn.disabled=true; captureStatus.innerText='正在完成影片與 Session 檔案…'; try{const files=await localCapture.stop({diagnostics,actualCameraSettings});renderCaptureDownloads(files);captureStatus.innerText='Session 已停止；請逐一下載全部檔案。';}catch(error){captureStatus.innerText=`Session 停止失敗：${error.message}`;} stopBtn.disabled=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請下載全部 Session 檔案'); updateDiagnosticPanel(); };
         dlBtn.onclick = () => {
-            const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs'];
+            const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs','eventDefinitionId','timingClock','kneePeakPerfMs','elbowOnsetPerfMs','elbowPeakPerfMs'];
             const csvText=rowsToCsv(shotHistory,columns);
             const blob=new Blob([csvText],{type:'text/csv;charset=utf-8'}), url=URL.createObjectURL(blob);
             const link=document.createElement('a'); link.href=url; link.download=`c802_trials_${Date.now()}.csv`; link.click(); URL.revokeObjectURL(url);

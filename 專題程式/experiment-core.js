@@ -3,6 +3,16 @@
     if (typeof module === 'object' && module.exports) module.exports = api;
     root.ExperimentCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+    const TIMING_DEFINITION = Object.freeze({
+        id:'knee-peak-elbow-onset-v1',
+        kneeEvent:'peak_extension_angular_velocity',
+        elbowEvent:'last_at_or_below_threshold_before_peak_extension_velocity',
+        elbowOnsetThresholdDegPerSec:10,
+        deltaT:'elbowOnsetPerfMs - kneePeakPerfMs',
+        clock:'pose-result-performance-now',
+        interpolationStepMs:1,
+        validated:false
+    });
     function calculateSD(values) {
         if (!Array.isArray(values) || values.length < 2 || values.some(value => !Number.isFinite(value))) return null;
         const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -50,5 +60,5 @@
         });
     }
 
-    return { calculateSD, sameExperimentalBlock, qualityFlags, escapeCsv, rowsToCsv, maskForBaseline, hasRaisedArm };
+    return { TIMING_DEFINITION, calculateSD, sameExperimentalBlock, qualityFlags, escapeCsv, rowsToCsv, maskForBaseline, hasRaisedArm };
 });
