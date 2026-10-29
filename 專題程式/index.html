@@ -58,6 +58,10 @@
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
     <div class="max-w-4xl mx-auto p-4 md:p-6">
+        <nav aria-label="球員訓練導覽" style="margin-bottom:16px;padding:14px;background:white;border-radius:10px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between">
+            <a href="../training/" style="color:#174f39;font-weight:bold;text-decoration:underline">← 返回球員首頁／訓練紀錄</a>
+            <span id="training-context" style="font-size:13px">動作時序分析 · 命中結果請回訓練室人工記錄</span>
+        </nav>
         <header class="mb-6 text-center">
             <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 籃球動力鏈聽覺回饋系統</h1>
             <div class="flex justify-center items-center space-x-4">
@@ -209,6 +213,7 @@
         </main>
     </div>
 
+    <script src="./training-entry.js"></script>
     <script src="./experiment-core.js"></script>
     <script src="./diagnostics.js"></script>
     <script src="./camera-controls.js"></script>

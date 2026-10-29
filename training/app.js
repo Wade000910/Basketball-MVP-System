@@ -62,6 +62,10 @@
         $('session-state').textContent=finished?'訓練報告':'進行中';
         $('demo-banner').hidden=!active.isDemo;
         $('session-focus').textContent=active.note || '今天的重點：完成一組罰球並如實記錄。';
+        const linked=active.drill==='free_throw' && !active.isDemo;
+        const params=new URLSearchParams({from:'training',player:active.playerCode,session:active.id});
+        $('session-analysis').href=linked?'../專題程式/?'+params.toString():'../專題程式/';
+        $('analysis-context-note').textContent=linked?'另開分頁並帶入本組代碼與 Session ID；仍需手動啟動相機。命中紀錄與動作試次尚未自動配對。':'原判斷系統針對罰球動作時序；本組為其他投籃類型或合成示範，開啟時不帶入本組資料。';
         $('total-value').textContent=stats.total;$('made-value').textContent=stats.made;$('percentage-value').textContent=rate(stats);
         $('shot-progress').max=active.targetShots;$('shot-progress').value=Math.min(stats.total,active.targetShots);
         $('progress-label').textContent=stats.targetReached?'已達 '+active.targetShots+' 球目標'+(finished?'。':'，可結束看報告或繼續記錄。'):'目標 '+active.targetShots+' 球 · 還有 '+stats.remaining+' 球'+(finished?'（本組提前結束）':'');

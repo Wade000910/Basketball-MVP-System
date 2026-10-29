@@ -96,3 +96,20 @@ test('player progress uses weighted rates and excludes demos, other players and 
     assert.equal(data.drills[2].percentage,100);
     assert.equal(C.progress([], 'NEW').recentShots,0);
 });
+
+test('analysis entry pre-fills only valid training identifiers without starting the camera',()=>{
+    const vm=require('node:vm'),script=fs.readFileSync('專題程式/training-entry.js','utf8');
+    function run(search){
+        const elements={participant_id:{value:''},session_id:{value:''},block_id:{value:''},'training-context':{textContent:''}};
+        vm.runInNewContext(script,{URLSearchParams,window:{location:{search}},document:{getElementById:id=>elements[id]}});
+        return elements;
+    }
+    const valid=run('?from=training&player=P001&session=abc-123');
+    assert.equal(valid.participant_id.value,'P001');assert.equal(valid.session_id.value,'abc-123');assert.equal(valid.block_id.value,'B01');
+    assert.match(valid['training-context'].textContent,/尚未自動配對/);
+    for(const query of ['', '?player=P001&session=abc', '?from=training&player=%3Cscript%3E&session=abc','?from=training&player=P001&session='+ 'x'.repeat(81)]) {
+        assert.equal(run(query).participant_id.value,'');
+    }
+    const html=fs.readFileSync('專題程式/index.html','utf8');
+    assert.match(html,/href="\.\.\/training\/"/);assert.match(html,/src="\.\/training-entry.js"/);
+});

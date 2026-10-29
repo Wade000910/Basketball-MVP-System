@@ -44,6 +44,8 @@
         <div class="section-head"><div><p class="eyebrow" id="session-label">YOUR SESSION</p><h2 id="session-title">本組練習</h2></div><span id="session-state" class="pill">進行中</span></div>
         <p id="demo-banner" class="demo-banner" hidden>示範模式 · 以下為合成資料，未進行實際投籃，不會寫入正式訓練歷史。</p>
         <p id="session-focus" class="focus"></p>
+        <p><a id="session-analysis" class="analysis-button" href="../專題程式/" target="_blank" rel="noopener">開啟原本動作判斷系統 ↗</a></p>
+        <p id="analysis-context-note" class="muted"></p>
         <div class="metrics" aria-live="polite"><div><strong id="total-value">0</strong><span>已記錄球數</span></div><div><strong id="made-value">0</strong><span>命中</span></div><div><strong id="percentage-value">—</strong><span>命中率</span></div></div>
         <progress id="shot-progress" value="0" max="10" aria-label="本組目標進度"></progress><p id="progress-label" class="muted"></p>
         <div id="record-controls"><p class="muted">由你或教練在每次投籃後手動記錄。這裡沒有自動判定進球。</p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><div class="actions"><button id="undo-btn" type="button" class="secondary">撤回最後一球</button><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
@@ -53,7 +55,7 @@
         <div class="actions"><button id="repeat-btn" type="button" class="primary" hidden>同設定再練一組</button><button id="new-btn" type="button" class="secondary" hidden>更換訓練設定</button></div>
     </section>
     <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組，沒有雲端同步。</p><div id="history-list"></div></section>
-    <aside class="analysis-link"><div><h2>檢查動作時序</h2><p>既有相機分析可另外開啟。此頁的命中紀錄尚未與分析試次或影片自動配對；動作時序指標仍待驗證。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟相機分析 ↗</a></aside>
+    <aside class="analysis-link"><div><h2>原本的動作判斷系統</h2><p>開啟相機、姿態追蹤與聲音／視覺回饋。原系統針對罰球動作時序；不自動判斷進球。人工命中紀錄與分析試次尚未自動配對。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟動作判斷 ↗</a></aside>
     <footer>Basketball MVP · 訓練流程原型 v1<br>本頁可記錄訓練與產生報告，尚無自動命中辨識、AI 教練處方或付費功能。</footer>
 </main>
 </body>
