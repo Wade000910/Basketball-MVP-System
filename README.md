@@ -13,6 +13,7 @@ The test site follows the latest reviewed version merged to `main`. It demonstra
 
 ## Development roadmap
 
+- Product workflow first version: [`training/index.html`](./training/index.html) supports manual make/miss logging, corrections, local history, and downloadable reports. [Demo script and verification](./docs/training-demo-v1.md). This entry does not automatically pair shots with pose/video analysis and does not establish training efficacy or willingness to pay.
 - Standalone local offline viewer: [`offline-review/index.html`](./offline-review/index.html), [instructions and verification](./docs/offline-review-first-version.md). It reads existing exports; it does not rerun pose estimation or modify the live application. Physical time alignment remains a manual validation task.
 - Initial offline frame-review reference audit and integration direction, keeping this project's analysis logic: [`docs/offline-review-reference-2026-10-06.md`](./docs/offline-review-reference-2026-10-06.md). The standalone first version is described above; full-video reanalysis and two-video overlay are still pending.
 - Current remaining tests, required corrections, and the locally verified complete eight-file short run: [`docs/remaining-tests-2026-10-02.md`](./docs/remaining-tests-2026-10-02.md)
