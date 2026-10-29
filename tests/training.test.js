@@ -71,3 +71,28 @@ test('training entry references real local assets and all application element ID
     assert.match(fs.readFileSync('index.html','utf8'),/href="\.\/training\/"/);
     assert.doesNotMatch(js,/innerHTML|\bfetch\s*\(|XMLHttpRequest|sendBeacon/);
 });
+
+test('shooting types preserve old free-throw records and isolate comparisons',()=>{
+    assert.equal(create().drill,'free_throw');
+    for(const drill of ['free_throw','mid_range','three_point']) {
+        const s=C.finishSession(C.addShot(create({drill,id:drill}),true,'a',start),end);
+        assert.equal(C.parseStore(JSON.stringify({schemaVersion:C.SCHEMA,active:s,history:[s]})).active.drill,drill);
+        assert.match(C.csv(s),new RegExp(drill));
+    }
+    assert.throws(()=>create({drill:'toString'}));
+    const old=C.finishSession(C.addShot(create(),true,'a',start),end);
+    assert.equal(C.previousSession(create({drill:'three_point',now:end}),[old]),null);
+});
+
+test('player progress uses weighted rates and excludes demos, other players and unfinished groups',()=>{
+    const one=C.finishSession(C.addShot(create(),true,'a',start),end);
+    let two=create({id:'two'});for(let i=0;i<3;i++)two=C.addShot(two,false,'b'+i,start);
+    two=C.finishSession(two,end);
+    const other={...one,id:'other',playerCode:'P002'};
+    const old={...one,id:'old',drill:'three_point',startedAt:'2026-09-01T00:00:00Z',finishedAt:'2026-09-01T00:05:00Z'};
+    const data=C.progress([one,two,other,old,create(),C.demoSession()],'P001',new Date('2026-10-30T12:00:00Z'));
+    assert.equal(data.sessions,3);assert.equal(data.recentSessions,2);assert.equal(data.recentShots,4);
+    assert.equal(data.drills[0].percentage,25);assert.equal(data.drills[1].percentage,null);
+    assert.equal(data.drills[2].percentage,100);
+    assert.equal(C.progress([], 'NEW').recentShots,0);
+});

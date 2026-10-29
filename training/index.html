@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#11241d">
-    <title>罰球練習室 · Basketball MVP</title>
+    <title>球員訓練室 · Basketball MVP</title>
     <link rel="stylesheet" href="./styles.css">
     <script src="./core.js" defer></script>
     <script src="./app.js" defer></script>
@@ -13,20 +13,29 @@
 <header class="topbar"><a href="../">BASKETBALL <strong>MVP</strong></a><span class="tag">產品試用版</span></header>
 <main>
     <section class="hero">
-        <p class="eyebrow">FREE THROW / TRAINING ROOM</p>
-        <h1>每一組練習，<br>都有跡可循。</h1>
+        <p class="eyebrow">YOUR COURT. YOUR PROGRESS.</p>
+        <h1>今天的每一球，<br>都是明天的底氣。</h1>
         <p>設定今天的重點，記下每一球，帶走一份自己的訓練報告。</p>
         <div class="steps"><span id="step-setup" aria-current="step">01 設定練習</span><span id="step-train">02 逐球記錄</span><span id="step-report">03 回看報告</span></div>
     </section>
     <p id="storage-status" class="storage" role="status">紀錄僅存於此裝置的瀏覽器；清除網站資料會刪除紀錄。建議下載報告備份。</p>
     <p id="message" role="alert" hidden></p>
+    <section id="player-home" class="card dashboard">
+        <div class="section-head"><div><p class="eyebrow">PLAYER HOME</p><h2>我的球員首頁</h2></div><span class="pill">本機個人訓練</span></div>
+        <label>查看學員代碼<input id="dashboard-player" maxlength="32" placeholder="例如 P001" autocomplete="off"></label>
+        <p id="dashboard-summary" class="focus" aria-live="polite"></p>
+        <div id="drill-progress" class="drill-progress"></div>
+        <p class="muted">近 7 天含今天；依此裝置最近 30 組已完成紀錄統計。各類命中率以總命中／總球數計算，尚非訓練效果證明。</p>
+        <button id="home-action" type="button" class="primary">開始今天的訓練 ↗</button>
+    </section>
     <section id="setup-panel" class="card">
-        <div class="section-head"><div><p class="eyebrow">TODAY'S FOCUS</p><h2>開始一組罰球練習</h2></div><span class="pill">人工記錄命中</span></div>
+        <div class="section-head"><div><p class="eyebrow">TODAY'S FOCUS</p><h2>開始一組投籃練習</h2></div><span class="pill">人工記錄命中</span></div>
         <form id="setup-form">
             <div class="form-grid">
                 <label>學員代碼<input id="player-code" maxlength="32" placeholder="例如 P001" pattern="[A-Za-z0-9_-]{1,32}" required autocomplete="off"><small>請勿輸入真實姓名；代碼只用來整理本機歷史。</small></label>
                 <label>這組目標球數<select id="target-shots"><option value="10">10 球 · 輕量練習</option><option value="20">20 球 · 基本訓練</option><option value="30">30 球 · 延伸練習</option></select></label>
             </div>
+            <label>投籃類型<select id="drill-type"><option value="free_throw">罰球</option><option value="mid_range">中距離</option><option value="three_point">三分球</option></select></label>
             <label>今天專注一件事<textarea id="focus-note" maxlength="300" rows="2" placeholder="例如：每次出手前固定準備流程（可由教練填寫）"></textarea></label>
             <div class="actions"><button type="submit" class="primary">開始這組練習 <span aria-hidden="true">↗</span></button><button id="demo-btn" type="button" class="secondary">先看示範報告</button></div>
         </form>
@@ -40,7 +49,8 @@
         <div id="record-controls"><p class="muted">由你或教練在每次投籃後手動記錄。這裡沒有自動判定進球。</p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><div class="actions"><button id="undo-btn" type="button" class="secondary">撤回最後一球</button><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
         <section id="report-panel" hidden><h3>這組的訓練摘要</h3><p id="report-summary"></p><p id="comparison" class="focus"></p><p class="muted">命中率來自人工紀錄；跨次差異是描述性比較，場地、距離與練習條件可能不同，不能據此判定訓練效果。</p><div class="actions"><button id="download-report" type="button" class="primary">下載訓練報告 JSON</button><button id="download-csv" type="button" class="secondary">下載逐球 CSV</button><button id="print-report" type="button" class="secondary">列印 / 存成 PDF</button></div></section>
         <details class="shot-list" open><summary>逐球紀錄 · 可修正或刪除</summary><p class="muted">人工修正會同步更新本組統計與報告。</p><ol id="shot-list"></ol></details>
-        <button id="new-btn" type="button" class="secondary" hidden>開始新一組</button>
+        <button id="discard-btn" type="button" class="secondary" hidden>放棄本組練習</button>
+        <div class="actions"><button id="repeat-btn" type="button" class="primary" hidden>同設定再練一組</button><button id="new-btn" type="button" class="secondary" hidden>更換訓練設定</button></div>
     </section>
     <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組，沒有雲端同步。</p><div id="history-list"></div></section>
     <aside class="analysis-link"><div><h2>檢查動作時序</h2><p>既有相機分析可另外開啟。此頁的命中紀錄尚未與分析試次或影片自動配對；動作時序指標仍待驗證。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟相機分析 ↗</a></aside>
