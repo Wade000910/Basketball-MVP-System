@@ -69,7 +69,7 @@
             this.recordingError = null;
         }
 
-        start({stream, context, buildId, algorithmVersion, requestedCameraSettings}) {
+        start({stream, context, buildId, algorithmVersion, requestedCameraSettings, timingDefinition = null}) {
             if (this.status === 'recording') throw new Error('A session is already recording.');
             if (!stream || typeof stream.getVideoTracks !== 'function' || !stream.getVideoTracks().length) throw new Error('A live video stream is required.');
             if (!context?.participantId || !context?.sessionId || !context?.blockId || !context?.condition || !context?.shootingSide) throw new Error('Complete session metadata is required.');
@@ -82,6 +82,7 @@
             this.context = Object.freeze({...context});
             this.buildId = buildId;
             this.algorithmVersion = algorithmVersion;
+            this.timingDefinition = timingDefinition ? {...timingDefinition} : null;
             this.requestedCameraSettings = {...requestedCameraSettings};
             this.startedAt = this.nowIso();
             this.startedPerfMs = this.nowPerf();
@@ -172,7 +173,7 @@
             files[`${base}_inference-timestamps.csv`] = textBlob(rowsToCsv(this.inferences, ['processedFrameIndex','sourceTimestampMs','presentedFrameIndex','inferenceStartPerfMs','inferenceEndPerfMs','inferenceDurationMs','status','errorMessage']), 'text/csv;charset=utf-8');
             files[`${base}_landmarks.csv`] = textBlob(rowsToCsv(this.landmarks, ['processedFrameIndex','sourceTimestampMs','landmarkIndex','x','y','z','visibility']), 'text/csv;charset=utf-8');
             files[`${base}_live-signals.csv`] = textBlob(rowsToCsv(this.signals, ['processedFrameIndex','sourceTimestampMs','shootingSide','rawElbowDeg','rawKneeDeg','filteredElbowDeg','filteredKneeDeg','sideVisibility','state']), 'text/csv;charset=utf-8');
-            files[`${base}_live-trials.csv`] = textBlob(rowsToCsv(this.trials, ['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs']), 'text/csv;charset=utf-8');
+            files[`${base}_live-trials.csv`] = textBlob(rowsToCsv(this.trials, ['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs','eventDefinitionId','timingClock','kneePeakPerfMs','elbowOnsetPerfMs','elbowPeakPerfMs']), 'text/csv;charset=utf-8');
             files[`${base}_diagnostics.json`] = textBlob(JSON.stringify(diagnostics || {}, null, 2), 'application/json');
             const manifestName = `${base}_manifest.json`;
             const manifest = {
@@ -184,6 +185,7 @@
                 durationMs:this.stoppedPerfMs - this.startedPerfMs,
                 buildId:this.buildId,
                 algorithmVersion:this.algorithmVersion,
+                timingDefinition:this.timingDefinition,
                 requestedCameraSettings:sanitizeCameraSettings(this.requestedCameraSettings),
                 actualCameraSettings:sanitizeCameraSettings(actualCameraSettings),
                 videoMimeType:videoType,
