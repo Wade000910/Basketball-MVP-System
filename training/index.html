@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#11241d">
     <title>球員訓練室 · Basketball MVP</title>
     <link rel="stylesheet" href="./styles.css">
+    <script src="./analysis-store.js" defer></script>
     <script src="./core.js" defer></script>
     <script src="./app.js" defer></script>
 </head>
@@ -50,11 +51,13 @@
         <progress id="shot-progress" value="0" max="10" aria-label="本組目標進度"></progress><p id="progress-label" class="muted"></p>
         <div id="record-controls"><p class="muted">由你或教練在每次投籃後手動記錄。這裡沒有自動判定進球。</p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><div class="actions"><button id="undo-btn" type="button" class="secondary">撤回最後一球</button><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
         <section id="report-panel" hidden><h3>這組的訓練摘要</h3><p id="report-summary"></p><p id="comparison" class="focus"></p><p class="muted">命中率依逐球紀錄計算。回看不同組時，可搭配場地、距離與練習重點比較。</p><div class="actions"><button id="download-report" type="button" class="primary">下載訓練報告 JSON</button><button id="download-csv" type="button" class="secondary">下載逐球 CSV</button><button id="print-report" type="button" class="secondary">列印 / 存成 PDF</button></div></section>
+        <section id="analysis-report" class="focus" aria-label="本組動作摘要"><h3>本組動作摘要</h3><p id="analysis-summary"></p><ol id="analysis-runs"></ol><p class="muted">保留本組最近 30 次分析摘要。動作試次與人工投籃分別編號；可回看同組結果。</p></section>
         <details class="shot-list" open><summary>逐球紀錄 · 可修正或刪除</summary><p class="muted">人工修正會同步更新本組統計與報告。</p><ol id="shot-list"></ol></details>
         <button id="discard-btn" type="button" class="secondary" hidden>放棄本組練習</button>
         <div class="actions"><button id="repeat-btn" type="button" class="primary" hidden>同設定再練一組</button><button id="new-btn" type="button" class="secondary" hidden>更換訓練設定</button></div>
     </section>
     <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組，沒有雲端同步。</p><div id="history-list"></div></section>
+    <section class="card" id="backup-panel"><h2>備份與匯入</h2><p class="muted">下載全部訓練備份，換裝置時選取 JSON 即可匯入。也支援單組 JSON 訓練報告；重複代碼保留目前裝置的版本。</p><button id="download-backup" type="button" class="secondary">下載全部訓練備份</button><label>匯入備份或訓練報告<input id="import-backup" type="file" accept=".json,application/json"></label><p id="import-status" role="status"></p></section>
     <aside class="analysis-link"><div><h2>罰球動作分析</h2><p>開啟相機查看罰球動作時序，選擇聲音或視覺回饋。命中結果請在訓練室手動記錄，動作資料於分析頁另行下載。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟動作分析 ↗</a></aside>
     <footer>Basketball MVP · 每一球都有累積<br>記錄練習、回看進度、帶走自己的訓練報告。</footer>
 </main>
