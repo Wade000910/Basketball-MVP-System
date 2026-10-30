@@ -1,8 +1,8 @@
 (function(root, factory) {
-    const api=factory();
+    const api=factory(typeof module==='object'&&module.exports?require('./analysis-store.js'):root.TrainingAnalysis);
     if(typeof module==='object' && module.exports) module.exports=api;
     else root.TrainingCore=api;
-})(typeof globalThis!=='undefined'?globalThis:this,function() {
+})(typeof globalThis!=='undefined'?globalThis:this,function(Analysis) {
     const SCHEMA='basketball-training-v1';
     const DRILLS={free_throw:'罰球',mid_range:'中距離',three_point:'三分球'};
     function createSession({playerCode,targetShots,note='',drill='free_throw',id,now=new Date().toISOString(),isDemo=false}) {
@@ -10,7 +10,7 @@
         if(typeof playerCode!=='string' || !/^[A-Za-z0-9_-]{1,32}$/.test(playerCode.trim())) throw new Error('請填 1–32 字的學員代碼（英文、數字、底線或連字號）。');
         if(!Number.isInteger(targetShots) || targetShots<1 || targetShots>200) throw new Error('目標球數須為 1–200 的整數。');
         if(typeof note!=='string' || note.length>300) throw new Error('練習重點限 300 字。');
-        if(typeof id!=='string' || !id || !Number.isFinite(Date.parse(now))) throw new Error('無法建立訓練識別或時間。');
+        if(typeof id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id) || typeof now!=='string' || !Number.isFinite(Date.parse(now))) throw new Error('無法建立訓練識別或時間。');
         return {schemaVersion:SCHEMA,id,playerCode:playerCode.trim(),targetShots,note,drill,
             inputSource:'manual',isDemo:!!isDemo,startedAt:now,finishedAt:null,shots:[]};
     }
@@ -18,18 +18,23 @@
         if(!value || value.schemaVersion!==SCHEMA || !Object.hasOwn(DRILLS,value.drill) || value.inputSource!=='manual' || typeof value.isDemo!=='boolean') throw new Error('訓練紀錄格式不符。');
         createSession({...value,now:value.startedAt});
         if(!Array.isArray(value.shots) || value.shots.length>200) throw new Error('投籃紀錄格式不符。');
-        if(value.finishedAt!==null && (!Number.isFinite(Date.parse(value.finishedAt)) || Date.parse(value.finishedAt)<Date.parse(value.startedAt))) throw new Error('訓練結束時間不符。');
+        if(value.finishedAt!==null && (typeof value.finishedAt!=='string' || !Number.isFinite(Date.parse(value.finishedAt)) || Date.parse(value.finishedAt)<Date.parse(value.startedAt))) throw new Error('訓練結束時間不符。');
         const ids=new Set();
         for(const shot of value.shots) {
-            if(!shot || typeof shot.id!=='string' || !shot.id || ids.has(shot.id) || typeof shot.made!=='boolean' || !Number.isFinite(Date.parse(shot.recordedAt))) throw new Error('逐球紀錄格式不符。');
+            if(!shot || typeof shot.id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(shot.id) || ids.has(shot.id) || typeof shot.made!=='boolean' || typeof shot.recordedAt!=='string' || !Number.isFinite(Date.parse(shot.recordedAt))) throw new Error('逐球紀錄格式不符。');
             ids.add(shot.id);
+        }
+        if(value.analysisRuns!==undefined){
+            if(!Array.isArray(value.analysisRuns)||value.analysisRuns.length>30)throw new Error('動作紀錄格式不符。');
+            for(const run of value.analysisRuns){Analysis.normalize(run);if(value.isDemo || value.drill!=='free_throw' || run.sessionId!==value.id || run.participantId!==value.playerCode)throw new Error('動作紀錄與訓練不符。');}
+            Analysis.merge([],value.analysisRuns);
         }
         return value;
     }
     function addShot(session,made,id,now=new Date().toISOString()) {
         validateSession(session);
         if(session.finishedAt) throw new Error('這組已結束，請開始新一組。');
-        if(typeof made!=='boolean' || typeof id!=='string' || !id || session.shots.some(s=>s.id===id) || !Number.isFinite(Date.parse(now))) throw new Error('投籃紀錄不符。');
+        if(typeof made!=='boolean' || typeof id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id) || session.shots.some(s=>s.id===id) || typeof now!=='string' || !Number.isFinite(Date.parse(now))) throw new Error('投籃紀錄不符。');
         if(session.shots.length>=200) throw new Error('每組最多記錄 200 球。');
         return {...session,shots:[...session.shots,{id,made,recordedAt:now}]};
     }
@@ -79,6 +84,41 @@
         [true,false,true,true,false,true,false,true,true,true].forEach((made,i)=>{s=addShot(s,made,'demo-'+i,new Date(Date.parse(s.startedAt)+(i+1)*15000).toISOString());});
         return finishSession(s,'2026-10-30T01:03:00.000Z');
     }
+    function cleanSession(value){
+        validateSession(value);
+        if(value.isDemo)throw new Error('示範報告不會匯入訓練紀錄。');
+        const s=createSession({...value,now:value.startedAt});
+        s.finishedAt=value.finishedAt;
+        s.shots=value.shots.map(t=>({id:t.id,made:t.made,recordedAt:t.recordedAt}));
+        if(value.analysisRuns)s.analysisRuns=Analysis.merge([],value.analysisRuns);
+        return s;
+    }
+    function parseBackup(text){
+        if(typeof text!=='string'||text.length>5*1024*1024)throw new Error('備份檔限 5 MB。');
+        const data=JSON.parse(text);
+        if(!data || typeof data!=='object')throw new Error('請選擇訓練 JSON 報告或備份。');
+        if(data.schemaVersion===SCHEMA && data.shots){const s=cleanSession(data);return {schemaVersion:SCHEMA,active:s.finishedAt?null:s,history:s.finishedAt?[s]:[]};}
+        if(data.schemaVersion!=='basketball-training-backup-v1')throw new Error('請選擇訓練 JSON 報告或備份。');
+        const store=parseStore(JSON.stringify(data.store));
+        return {schemaVersion:SCHEMA,active:store.active?cleanSession(store.active):null,history:store.history.map(cleanSession)};
+    }
+    function mergeBackup(current,incoming){
+        parseStore(JSON.stringify(current));parseStore(JSON.stringify(incoming));
+        if(current.active && !current.active.finishedAt && incoming.active && !incoming.active.finishedAt && current.active.id!==incoming.active.id)throw new Error('請先結束或放棄目前練習，再匯入另一組未完成練習。');
+        const map=new Map(current.history.map(s=>[s.id,s]));
+        if(current.active?.finishedAt)map.set(current.active.id,current.active);
+        const candidates=[...incoming.history,...(incoming.active?.finishedAt?[incoming.active]:[])];
+        let added=0,skipped=0;
+        for(const s of candidates){
+            if(map.has(s.id) || current.active?.id===s.id){skipped++;continue;}
+            map.set(s.id,cleanSession(s));added++;
+        }
+        if(map.size>30)throw new Error('匯入後超過 30 組，未變更現有紀錄。請先下載備份並整理歷史。');
+        let active=current.active;
+        if(!active && incoming.active && !incoming.active.finishedAt){if(map.has(incoming.active.id))throw new Error('匯入的練習代碼與已完成紀錄重複。');active=cleanSession(incoming.active);added++;}
+        else if(incoming.active && !incoming.active.finishedAt)skipped++;
+        return {schemaVersion:SCHEMA,active,history:[...map.values()].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)),added,skipped};
+    }
     function progress(history,playerCode,now=new Date()) {
         const sessions=history.filter(s=>!s.isDemo && s.finishedAt && s.playerCode===playerCode);
         const start=new Date(now);start.setHours(0,0,0,0);start.setDate(start.getDate()-6);
@@ -90,5 +130,5 @@
         });
         return {sessions:sessions.length,recentSessions:recent.length,recentShots:shots,drills};
     }
-    return {SCHEMA,DRILLS,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession};
+    return {SCHEMA,DRILLS,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
 });

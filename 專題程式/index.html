@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Basketball MVP｜罰球動作分析</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./analysis.css">
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
@@ -41,6 +41,9 @@
             0%, 100% { opacity: 1; }
             50% { opacity: .5; }
         }
+        .video-container { aspect-ratio: 4 / 3; }
+        #framing-guide {position:absolute;inset:8% 15%;border:2px dashed #ffffff88;border-radius:24px;z-index:15;pointer-events:none;}
+        #camera-guide {min-height:3em;}
         #chart_container {
             position: absolute;
             bottom: 10px;
@@ -63,22 +66,25 @@
             <span id="training-context" style="font-size:13px">動作時序分析 · 命中結果請回訓練室人工記錄</span>
         </nav>
         <header class="mb-6 text-center">
-            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 籃球動力鏈聽覺回饋系統</h1>
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 罰球動作分析</h1>
             <div class="flex justify-center items-center space-x-4">
                 <p class="text-sm text-gray-600">罰球動作分析｜膝肘時序・聲音與視覺回饋</p>
-                <select id="exp_mode" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 font-bold text-blue-700 outline-none">
+                <select id="exp_mode" aria-label="回饋方式" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 font-bold text-blue-700 outline-none">
                     <option value="auditory">聲音回饋</option>
                     <option value="visual">視覺回饋</option>
                     <option value="baseline">僅記錄（無回饋）</option>
                 </select>
             </div>
-            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-left bg-white p-3 rounded-lg shadow-sm">
+            <label class="mt-4 block text-sm">慣用手 <select id="shooting_side" class="border rounded p-2"><option value="right">右手</option><option value="left">左手</option></select></label>
+            <details id="identity-settings" class="mt-3 text-left bg-white p-3 rounded-lg"><summary class="cursor-pointer text-sm">進階設定：訓練代碼（已自動填入）</summary>
+            <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
                 <label class="text-xs font-bold">學員代碼<input id="participant_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="P001"></label>
                 <label class="text-xs font-bold">本次訓練代碼<input id="session_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="S01"></label>
                 <label class="text-xs font-bold">組別代碼<input id="block_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="B01"></label>
-                <label class="text-xs font-bold">慣用手<select id="shooting_side" class="mt-1 w-full border rounded px-2 py-1 font-normal"><option value="right">右手</option><option value="left">左手</option></select></label>
+
             </div>
-            <p class="mt-2 text-xs text-gray-600">將手機固定於身體側面，讓肩、肘、髖與膝保持在畫面內，再開始分析。</p>
+            </details>
+            <section aria-label="拍攝準備" class="mt-4 bg-blue-50 rounded-lg p-4 text-left text-sm"><h2 class="font-bold">開始前，先把手機擺好</h2><ol class="list-decimal ml-5 mt-2 space-y-1"><li>橫放手機並固定於慣用手側，避免手持晃動。</li><li>讓肩膀到腳踝都在畫面內，頭頂預留舉球空間。</li><li>選擇回饋方式，按「開啟相機並開始」，允許相機權限。</li></ol><p id="camera-guide" role="status" class="mt-3 font-bold" aria-live="polite">相機尚未開啟。啟動後會提示身體是否清楚入鏡。</p></section>
             <details class="mt-2 text-left text-xs bg-white p-3 rounded border">
                 <summary class="font-bold cursor-pointer">如何閱讀動作時序</summary>
                 <p class="mt-2">Δt＝手肘伸展起始時間－膝部伸展角速度峰值時間。手肘起始依既有 10 deg/s 門檻估計，不是手肘角速度峰值，也不是球離手時間。</p>
@@ -91,6 +97,7 @@
                 <div class="video-container">
                     <video id="input_video" autoplay playsinline muted></video>
                     <canvas id="output_canvas" width="640" height="480"></canvas>
+                    <div id="framing-guide" aria-hidden="true"></div>
                     <div id="chart_container">
                         <canvas id="velocity_chart"></canvas>
                     </div>
@@ -108,7 +115,7 @@
                             測試音效
                         </button>
                         <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg transition-transform transform hover:scale-105">
-                            開始分析
+                            開啟相機並開始
                         </button>
                         <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
                             停止分析
@@ -116,7 +123,7 @@
                     </div>
                     <p id="audio_status" class="text-xs font-bold text-gray-600">音訊：點按「測試音效」確認聲音</p>
 
-                    <div class="w-full max-w-md bg-white px-4 py-3 rounded shadow border-l-4 border-orange-500">
+                    <details class="w-full max-w-md bg-white px-4 py-3 rounded shadow"><summary class="cursor-pointer font-bold text-sm">進階相機設定</summary>
                         <label class="flex justify-between items-center text-sm font-bold text-gray-700">
                             <span>🔍 鏡頭縮放 (Zoom)</span>
                             <span id="zoom_val" class="text-orange-600">1.0x</span>
@@ -125,14 +132,14 @@
                         <p id="zoom_status" class="text-xs text-gray-500 mt-2">啟動相機後偵測硬體縮放能力。</p>
                         <label class="flex items-center gap-2 text-sm text-gray-700 mt-3">
                             <input type="checkbox" id="diagnostic_overlay" checked class="accent-blue-600">
-                            <span>顯示診斷骨架（僅設定與待機時顯示）</span>
+                            <span>顯示身體骨架</span>
                         </label>
-                    </div>
+                    </details>
                 </div>
             </div>
 
             <div class="bg-white p-5 rounded-xl shadow-md flex flex-col">
-                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">數據分析面板</h2>
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">本次動作摘要</h2>
 
                 <div class="space-y-4 flex-grow">
                     <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 transition-all duration-300" id="status_box">
@@ -142,7 +149,7 @@
 
                     <!-- 核心指標顯示 -->
                     <div class="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center relative overflow-hidden">
-                        <p class="text-xs text-purple-800 font-bold mb-1">動力鏈時序差 ($\Delta t$)</p>
+                        <p class="text-xs text-purple-800 font-bold mb-1">膝肘動作時序差（Δt）</p>
                         <p id="dt_display" class="text-4xl font-mono text-purple-700 font-extrabold">-- ms</p>
                         <div id="visual_feedback_bar" class="absolute bottom-0 left-0 h-1 bg-green-500 transition-all" style="width: 0%"></div>
                     </div>
@@ -170,7 +177,7 @@
                         </div>
                     </div>
 
-                    <details class="border rounded bg-slate-50 p-3" open>
+                    <details id="advanced-diagnostics" class="border rounded bg-slate-50 p-3">
                         <summary class="text-xs font-bold text-slate-700 cursor-pointer">裝置與相機資訊</summary>
                         <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono">
                             <div>Build<br><strong id="diag_build">--</strong></div>
@@ -184,7 +191,8 @@
                         <button id="diag_download" type="button" class="mt-2 text-[10px] bg-slate-700 hover:bg-slate-800 text-white py-1 px-2 rounded">下載診斷 JSON</button>
                     </details>
 
-                    <details class="border rounded bg-emerald-50 p-3" open>
+                    <p id="training-sync" role="status" class="text-sm text-blue-800">停止分析後會保存本機動作摘要；影片請另外下載。</p>
+                    <details id="analysis-downloads" class="border rounded bg-emerald-50 p-3">
                         <summary class="text-xs font-bold text-emerald-800 cursor-pointer">下載影片與分析資料</summary>
                         <p id="capture_status" class="mt-2 text-[10px] text-emerald-800">填完 ID 後按啟動；同一相機串流會同時分析與錄影。</p>
                         <p id="capture_mime" class="mt-1 text-[10px] font-mono text-emerald-700">Video: --</p>
@@ -192,7 +200,7 @@
                         <p class="mt-2 text-[10px] text-red-700">停止後請逐一下載全部檔案。資料只保存在此瀏覽器記憶體，不會自動上傳。</p>
                     </details>
 
-                    <div class="border-t pt-4">
+                    <details class="border-t pt-4"><summary class="text-sm font-bold cursor-pointer">進階：逐次動作紀錄與 CSV</summary>
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="text-xs font-bold text-gray-700">動作紀錄匯出</h3>
                             <button id="download_btn" class="text-[10px] bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded shadow transition-colors">
@@ -207,12 +215,14 @@
                                 <tbody id="history_body"></tbody>
                             </table>
                         </div>
-                    </div>
+                    </details>
                 </div>
             </div>
         </main>
     </div>
 
+    <script src="../training/analysis-store.js"></script>
+    <script src="./shooting-guide.js"></script>
     <script src="./training-entry.js"></script>
     <script src="./experiment-core.js"></script>
     <script src="./diagnostics.js"></script>
@@ -418,7 +428,7 @@
         function experimentContext() {
             return {participantId:participantInput.value.trim(), sessionId:sessionInput.value.trim(), blockId:blockInput.value.trim(), condition:modeSel.value, shootingSide:sideSel.value};
         }
-        function contextIsComplete(context) { return context.participantId && context.sessionId && context.blockId; }
+        function contextIsComplete(context) { return /^[A-Za-z0-9_-]{1,32}$/.test(context.participantId) && /^[A-Za-z0-9_-]{1,80}$/.test(context.sessionId) && /^[A-Za-z0-9_-]{1,80}$/.test(context.blockId); }
         function resetDisplayedStatistics() {
             sdDisp.innerText='--'; cvDisp.innerText='不適用'; hBody.innerHTML=''; dtDisp.innerText='-- ms';
             document.getElementById('chart_container').style.display='none';
@@ -452,7 +462,8 @@
         }
 
         function updateUI(st, color, main, sub) {
-            badge.innerText = `狀態：${st}`;
+            const names={IDLE:'待機',RECORDING:'記錄中',PROCESSING:'分析中',FEEDBACK:'回饋',COOLDOWN:'準備下一球',INVALID:'請重試'};
+            badge.innerText = '狀態：'+(names[st] || st);
             badge.className = `absolute top-4 right-4 text-white font-bold px-4 py-2 rounded-lg z-20 shadow-lg text-lg border-2 border-${color}-400 bg-${color}-600 transition-all ${st==='RECORDING'?'animate-pulse-fast':''}`;
             if(st==='IDLE') badge.className = "absolute top-4 right-4 bg-gray-800 text-gray-300 font-bold px-4 py-2 rounded-lg z-20 shadow-lg text-lg border-2 border-gray-600";
             sBox.className = `bg-${color}-50 p-3 rounded-lg border border-${color}-200 transition-all`;
@@ -516,6 +527,10 @@
             if(now-lastFpsT >= 1000){ currentSR=frames; fpsDisp.innerText=`${frames} FPS`; knFilter.update(10, frames>0?frames:30); ebFilter.update(10, frames>0?frames:30); frames=0; lastFpsT=now; updateDiagnosticPanel(); }
 
             latestLandmarks = res.poseLandmarks;
+            const guidance=ShootingGuide.check(res.poseLandmarks,sideSel.value);
+            const guide=document.getElementById('camera-guide');
+            if(guide.textContent!==guidance.text)guide.textContent=guidance.text;
+            document.getElementById('framing-guide').style.borderColor=guidance.ready?'#86efac':'#ffffff88';
             localCapture.recordLandmarks(activeInference,res.poseLandmarks || []);
             if(!res.poseLandmarks){
                 if(state === 'RECORDING') { if(armRaisedConfirmed) recordAbortedTrial('POSE_LANDMARKS_MISSING'); resetProvisionalShot('人體遺失','請重新進入畫面'); }
@@ -659,8 +674,11 @@
         };
 
         startBtn.onclick = async () => {
+            if(isAnalyzing || startBtn.disabled)return;
             const context=experimentContext();
             if(!contextIsComplete(context)){updateUI('IDLE','red','Missing metadata','Enter participant, session, and block IDs');return;}
+            if(localCapture.hasUnsavedData() && !confirm('開始新的分析會取代尚未下載的影片與資料，仍要繼續嗎？'))return;
+            startBtn.disabled=true;setContextControlsDisabled(true);
             try {
                 const ready=await ensureAudioReady();
                 audioStatus.innerText=ready?`音訊：${audioCtx.state}`:`音訊：未啟動（${audioCtx.state}）`;
@@ -702,14 +720,47 @@
                 localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',timingDefinition:TIMING_DEFINITION,requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
-                if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始分析：${error.message}`; return;
+                if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始分析：${error.message}`; document.getElementById('camera-guide').textContent='無法開啟相機，請檢查瀏覽器權限後重試。'; startBtn.disabled=false;setContextControlsDisabled(false); return;
             }
             setContextControlsDisabled(true); configureZoomWhenReady(); setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},500);
             poseWatchdogId=setTimeout(()=>{poseWatchdogId=null;if(isAnalyzing&&diagRaw.poseResultCount===0){captureStatus.innerText='警告：相機有畫面，但姿勢分析尚無結果。請停止並下載診斷檔，不要繼續正式動作。';updateDiagnosticPanel();}},5000);
             requestAnimationFrame(renderLoop);
-            startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
+            startBtn.disabled=false; startBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
         };
-        stopBtn.onclick = async () => { if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} stopVideoFrameDiagnostics(); const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings(); if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; resetZoomControl(); currentShotSide=null; currentShotContext=null; armRaisedConfirmed=false; setContextControlsDisabled(false); stopBtn.disabled=true; captureStatus.innerText='正在完成影片與 Session 檔案…'; try{const files=await localCapture.stop({diagnostics,actualCameraSettings});renderCaptureDownloads(files);captureStatus.innerText='Session 已停止；請逐一下載全部檔案。';}catch(error){captureStatus.innerText=`Session 停止失敗：${error.message}`;} stopBtn.disabled=false; stopBtn.classList.add('hidden'); startBtn.classList.remove('hidden'); updateUI('IDLE','gray','系統已停止','請下載全部 Session 檔案'); updateDiagnosticPanel(); };
+        stopBtn.onclick = async () => {
+            if(!isAnalyzing || stopBtn.disabled)return;
+            stopBtn.disabled=true;
+            if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;}
+            if(state==='RECORDING' && armRaisedConfirmed)recordAbortedTrial('USER_STOPPED');
+            stopVideoFrameDiagnostics();
+            const diagnostics=diagnosticExport(),actualCameraSettings=currentTrackSettings();
+            if(camera)camera.stop();
+            isAnalyzing=false;poseRequestInFlight=false;activeInference=null;resetZoomControl();
+            currentShotSide=null;currentShotContext=null;armRaisedConfirmed=false;
+            captureStatus.innerText='正在完成影片與分析檔案…';
+            try{
+                const files=await localCapture.stop({diagnostics,actualCameraSettings});
+                renderCaptureDownloads(files);document.getElementById('analysis-downloads').open=true;
+                captureStatus.innerText='分析已停止，可展開下方按鈕下載影片與資料。';
+                saveTrainingAnalysis();
+            }catch(error){captureStatus.innerText=`停止失敗：${error.message}`;}
+            setContextControlsDisabled(false);stopBtn.disabled=false;stopBtn.classList.add('hidden');startBtn.classList.remove('hidden');
+            document.getElementById('camera-guide').textContent='分析已停止。可回訓練室查看摘要，或下載影片回看。';
+            updateUI('IDLE','gray','系統已停止','可回看摘要或下載影片');updateDiagnosticPanel();
+        };
+        function saveTrainingAnalysis() {
+            const context=localCapture.context;
+            try {
+                if(localCapture.trials.length>200)throw new Error('動作摘要超過 200 次，請下載完整資料套件。');
+                const run=TrainingAnalysis.normalize({schemaVersion:TrainingAnalysis.SCHEMA,id:crypto.randomUUID(),...context,startedAt:localCapture.startedAt,stoppedAt:localCapture.stoppedAt,trials:localCapture.trials.map(t=>({trialOrder:t.trialOrder,trialStatus:t.trialStatus,dt:t.dt??null,timestamp:t.timestamp,reasonCode:t.reasonCode||''}))});
+                const saved=localStorage.getItem(TrainingAnalysis.KEY);
+                const runs=TrainingAnalysis.merge(saved?TrainingAnalysis.parse(saved):[],[run]).slice(0,30);
+                localStorage.setItem(TrainingAnalysis.KEY,JSON.stringify(runs));
+                document.getElementById('training-sync').textContent='動作摘要已存於此瀏覽器。回訓練室開啟同一組報告，即可一起查看與下載。';
+            } catch(error) {
+                document.getElementById('training-sync').textContent='動作摘要未存入瀏覽器：'+error.message+' 影片與原始資料仍可用下方按鈕下載。';
+            }
+        }
         dlBtn.onclick = () => {
             const columns=['id','participantId','sessionId','blockId','condition','trialOrder','timestamp','shootingSide','trialStatus','reasonCode','dt','result','sourceFrameCount','measuredFps','meanVisibility','qualityFlags','algorithmVersion','targetRangeMs','eventDefinitionId','timingClock','kneePeakPerfMs','elbowOnsetPerfMs','elbowPeakPerfMs'];
             const csvText=rowsToCsv(shotHistory,columns);

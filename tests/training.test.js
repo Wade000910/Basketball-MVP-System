@@ -101,14 +101,15 @@ test('analysis entry pre-fills only valid training identifiers without starting 
     const vm=require('node:vm'),script=fs.readFileSync('專題程式/training-entry.js','utf8');
     function run(search){
         const elements={participant_id:{value:''},session_id:{value:''},block_id:{value:''},'training-context':{textContent:''}};
-        vm.runInNewContext(script,{URLSearchParams,window:{location:{search}},document:{getElementById:id=>elements[id]}});
+        vm.runInNewContext(script,{crypto:require('node:crypto').webcrypto,URLSearchParams,window:{location:{search}},document:{getElementById:id=>elements[id]}});
         return elements;
     }
     const valid=run('?from=training&player=P001&session=abc-123');
     assert.equal(valid.participant_id.value,'P001');assert.equal(valid.session_id.value,'abc-123');assert.equal(valid.block_id.value,'B01');
-    assert.match(valid['training-context'].textContent,/命中請回訓練室記錄/);
+    assert.match(valid['training-context'].textContent,/停止分析後/);
+    assert.equal(valid.participant_id.readOnly,true);assert.equal(valid.session_id.readOnly,true);
     for(const query of ['', '?player=P001&session=abc', '?from=training&player=%3Cscript%3E&session=abc','?from=training&player=P001&session='+ 'x'.repeat(81)]) {
-        assert.equal(run(query).participant_id.value,'');
+        const generated=run(query);assert.match(generated.participant_id.value,/^P[a-f0-9]{8}$/);assert.match(generated.session_id.value,/^[a-f0-9-]{36}$/);assert.equal(generated.block_id.value,'B01');assert.equal(generated.participant_id.readOnly,undefined);
     }
     const html=fs.readFileSync('專題程式/index.html','utf8');
     assert.match(html,/href="\.\.\/training\/"/);assert.match(html,/src="\.\/training-entry.js"/);
