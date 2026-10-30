@@ -1,92 +1,64 @@
-# Basketball Kinetic Chain Auditory Feedback System
+# Basketball MVP｜球員訓練室
 
-籃球罰球動力鏈聽覺回饋研究原型，內部名稱為 c802。
+記錄每一球，回看自己的訓練進度。支援罰球、中距離與三分球練習，提供逐球記錄、個人統計、訓練報告與罰球動作分析。
 
-> **計畫狀態澄清：** 本專案曾提出國科會大專學生研究計畫申請，但未獲通過。本 repository 是後續獨立延續的研究軟體，不代表國科會核准、補助或背書。公開版本不保存原始申請書或申請編號。
+**[立即開始訓練](https://wade000910.github.io/Basketball-MVP-System/training/)** · [網站首頁](https://wade000910.github.io/Basketball-MVP-System/)
 
-## Public test site
+## 開始使用
 
-- Stable test URL: <https://wade000910.github.io/Basketball-MVP-System/>
-- Device and privacy checklist: [`docs/testing-on-github-pages.md`](./docs/testing-on-github-pages.md)
+1. 開啟球員訓練室，輸入自訂學員代碼，例如 P001。
+2. 選擇罰球、中距離或三分球，設定目標球數與今天的練習重點。
+3. 每次投籃後，由自己或教練按「命中」或「未中」。誤記時可撤回、修正或刪除。
+4. 結束練習，查看命中率與同類型上一組的比較，下載報告或列印成 PDF。
+5. 下次使用相同代碼，回看近七天進度，或按「同設定再練一組」繼續練習。
 
-The test site follows the latest reviewed version merged to `main`. It demonstrates software operability only and is not a validated participant-data-collection system.
+第一次使用可以先開啟示範報告，熟悉操作。示範報告使用合成資料，與自己的訓練紀錄分開。
 
-## Development roadmap
+## 功能
 
-- Player training room: [`training/index.html`](./training/index.html) provides a player dashboard, free-throw/mid-range/three-point sessions, manual make/miss logging, repeat-session shortcuts, per-drill progress, local history, and downloadable reports. [Teacher demonstration guide](./docs/teacher-demo.md) and [initial workflow verification](./docs/training-demo-v1.md). Outcomes are manually entered and are not automatically paired with pose/video analysis.
-- Standalone local offline viewer: [`offline-review/index.html`](./offline-review/index.html), [instructions and verification](./docs/offline-review-first-version.md). It reads existing exports; it does not rerun pose estimation or modify the live application. Physical time alignment remains a manual validation task.
-- Initial offline frame-review reference audit and integration direction, keeping this project's analysis logic: [`docs/offline-review-reference-2026-10-06.md`](./docs/offline-review-reference-2026-10-06.md). The standalone first version is described above; full-video reanalysis and two-video overlay are still pending.
-- Current remaining tests, required corrections, and the locally verified complete eight-file short run: [`docs/remaining-tests-2026-10-02.md`](./docs/remaining-tests-2026-10-02.md)
-- Ordered low-cost validation plan using the available ASUS TUF Gaming F15, iPhone 15 Pro, and Samsung Galaxy A60: [`ROADMAP.md`](./ROADMAP.md)
-- October 2026 presentation-first scope, reordered execution queue, current audio hardware, claim limits, and references: [`docs/october-2026-presentation-plan.md`](./docs/october-2026-presentation-plan.md)
+| 功能 | 使用方式 |
+| --- | --- |
+| 球員首頁 | 查看近七天球數、完成組數及各投籃類型的命中率 |
+| 投籃練習 | 設定 10、20 或 30 球目標，手動記錄命中與未中 |
+| 紀錄修正 | 撤回最後一球，或修正、刪除指定球次 |
+| 訓練報告 | 查看本組摘要與上一組比較，下載 JSON、CSV 或列印 PDF |
+| 歷史紀錄 | 保存最近 30 組，重新開啟頁面可接續練習或回看報告 |
+| 罰球動作分析 | 開啟相機追蹤姿態，查看膝肘動作時序，選擇聲音或視覺回饋 |
+| 影片回看 | 匯入已下載的影片與分析資料，逐格檢視、對齊與標記事件 |
 
-The October deliverable is a working prototype with preliminary engineering and measurement evidence, not a completed participant efficacy study. The fixed equipment is one iPhone 15 Pro, one Samsung Galaxy A60, one ASUS TUF laptop, the phone speaker, and AirPods Pro 2; no additional measurement device is assumed. Before the presentation, prioritize hands-on device diagnostics, a stable demonstration build, same-stream recording/data export, a minimal TUF replay comparison, a small camera-placement pilot, and preliminary phone-speaker/AirPods Pro 2 latency characterization. Full tuning and participant testing follow the validation and ethics gates after the presentation.
+## 相機與影片
 
-Phase 0 implementation and device-test instructions: [`docs/phase0-device-diagnostics.md`](./docs/phase0-device-diagnostics.md)
+在罰球練習中按「開啟罰球動作分析」，會另開分析頁並帶入本組代碼。允許相機權限、確認音效，再開始分析。命中結果請回訓練室手動記錄；動作分析與命中報告分開保存。
 
-Phase 1A same-stream local recording, output files, privacy boundaries, and iPhone test procedure: [`docs/phase1a-local-capture.md`](./docs/phase1a-local-capture.md)
+動作頁的 Δt 表示「手肘伸展起始時間－膝部伸展角速度峰值時間」，用於回看兩個動作的先後與間隔。聲音依畫面顯示的時序區間切換。
 
-Sanitized iPhone engineering results and unresolved gates from 2026-08-17: [`docs/test-log-2026-08-17.md`](./docs/test-log-2026-08-17.md)
+需要回看影片時，在動作頁下載本機影片與資料套件，再前往[影片回看工具](https://wade000910.github.io/Basketball-MVP-System/offline-review/)選取同組檔案，依指引設定時間對齊。
 
-GitHub Pages 503/429 deployment failures, recovery evidence, and the repeatable response procedure: [`docs/github-pages-incidents-2026-08.md`](./docs/github-pages-incidents-2026-08.md)
+## 裝置與資料保存
 
-## Current state
+- 手機或電腦皆可開啟；Android 使用 Chrome，iPhone 使用 Safari。
+- 訓練頁不需要相機。動作分析頁需要網路連線、HTTPS 與相機權限。
+- 命中由使用者或教練手動記錄，統計會隨修正同步更新。
+- 紀錄保存在目前裝置與瀏覽器，沒有帳號或跨裝置同步；共用裝置可看到本機歷史。
+- 使用自訂代碼即可，請勿輸入真實姓名。清除網站資料會刪除紀錄，建議定期下載報告。
+- 影片與分析檔由使用者在本機下載及選取，檔案不會上傳至伺服器。
 
-- Current engineering date: **2026-08-17**
-- Latest software change: **2026-10-29**; live trial exports now retain separately named knee/elbow event estimates and their clock definition. See [event traceability](./docs/change-2026-10-29-event-traceability.md). No new device experiment or physical measurement validation was performed.
-- Status: research prototype; not yet validated for training or clinical use
-- Main application: [`專題程式/index.html`](./專題程式/index.html)
-- Archived 2026-06-02 status: [`docs/status-2026-06-02.md`](./docs/status-2026-06-02.md)
+## 本機開發
 
-The June snapshot is preserved for comparison. The active implementation now adds frozen experiment context, per-condition statistics, local same-stream recording, frame/inference timestamps, landmarks and signals, quality flags, baseline masking, self-hosted MediaPipe Pose assets, deterministic tests, and an iOS audio-unlock diagnostic control.
+以本機 HTTP 伺服器開啟儲存庫，進入 training/。相機功能請使用 localhost 或 HTTPS。
 
-## Implemented in the 2026-06-02 snapshot
-
-- Browser camera access and MediaPipe Pose tracking
-- 3D vector-based knee and elbow angle calculation
-- Dynamic selection of the more visible body side
-- Cascaded Butterworth low-pass filtering
-- Cubic-spline reconstruction evaluated at 1 ms intervals
-- Knee peak-velocity and elbow-extension onset timing estimate
-- Three experiment modes: baseline, visual feedback, and auditory feedback
-- One-second pre-feedback delay
-- Binary Ding/Buzz auditory feedback
-- Velocity chart for the visual-feedback condition
-- Per-run timing history, SD/CV display, and CSV export
-- MediaPipe model complexity 1 and confidence thresholds
-
-## Important limitations
-
-- The timing algorithm has not yet been validated on separately recorded iPhone 120/240 fps sessions or against motion-capture ground truth; the available equipment cannot produce simultaneous live analysis and native slow-motion recording of the same shot.
-- Interpolation increases computational resolution; it does not create measurements that were absent from the source video.
-- The browser audio branch can reach its feedback state, but physical phone-speaker and AirPods output still requires hands-on verification on the latest build, `timing-event-traceability-v1`.
-- Quality gating was added in the [October 19 change](./docs/change-2026-10-19-quality-gating.md); its callback-rate and visibility thresholds remain provisional and require device validation.
-- CV is not reported for signed delta-t. SD requires at least two accepted finite trials; neither statistic establishes training efficacy.
-- Camera frame rate is observed rather than guaranteed; long stalls and low-FPS trials must remain visible in the evidence.
-- MediaPipe Pose assets are self-hosted, but presentation libraries still use CDNs, so the prototype is not fully offline.
-- Deterministic software tests exist, but there is no declared open-source license yet.
-
-## Run locally
-
-Open `專題程式/index.html` in a browser that permits camera access, allow camera permission, select an experiment mode, and start the system. An internet connection is currently required to load the CDN dependencies.
-
-Do not use the generated timing values as scientific evidence until the measurement pipeline and experiment data separation have been verified.
-
-## Experiment-readiness development
-
-Development after the archived snapshot is tracked separately. The first data-integrity pass adds experimental identifiers, per-block/per-condition statistics, shot-level side locking, baseline blinding, richer CSV metadata, quality flags, and deterministic tests.
-
-- Change record: [`docs/experiment-readiness-v1.md`](./docs/experiment-readiness-v1.md)
-- Literature and GitHub provenance: [`docs/SOURCES.md`](./docs/SOURCES.md)
-- Shooting-event and technique-claim audit: [`docs/shooting-claim-audit.md`](./docs/shooting-claim-audit.md)
-- 2026-08-19 shot-detection evidence, minimal correction, simulations, and remaining limits: [`docs/shot-detection-validation-2026-08-19.md`](./docs/shot-detection-validation-2026-08-19.md)
-- Revised method responding to proposal reviews: [`docs/revised-method-after-review.md`](./docs/revised-method-after-review.md)
-- Archived historical snapshot: tag `archive/c802-prototype-20260602`
-
-The original timing events, filter configuration, one-second delay, and 50–150 ms band remain unvalidated research parameters. This development version is still **not approved for participant data collection**.
-
-Run the zero-dependency checks with Node.js:
+程式檢查：
 
 ```bash
 npm test
 ```
+
+瀏覽器流程檢查需 Node.js 22 以上及 Chrome／Chromium，設定 BROWSER_BIN 後執行：
+
+```bash
+node tools/training-browser-smoke.cjs
+```
+
+程式入口： [training/](./training/) · [專題程式/](./專題程式/) · [offline-review/](./offline-review/)
+
+開發紀錄與技術資料保存在 [docs/](./docs/)，歷史版本可由 Git 記錄查閱。
