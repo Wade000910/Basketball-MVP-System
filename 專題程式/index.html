@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>籃球動力鏈聽覺回饋系統 (c802 實驗核心版)</title>
+    <title>Basketball MVP｜罰球動作分析</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" crossorigin="anonymous"></script>
@@ -65,24 +65,24 @@
         <header class="mb-6 text-center">
             <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-2">🏀 籃球動力鏈聽覺回饋系統</h1>
             <div class="flex justify-center items-center space-x-4">
-                <p class="text-sm text-gray-600">獨立研究原型 c802｜相關研究計畫申請未獲通過｜版本日期：2026-10-29</p>
+                <p class="text-sm text-gray-600">罰球動作分析｜膝肘時序・聲音與視覺回饋</p>
                 <select id="exp_mode" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 font-bold text-blue-700 outline-none">
-                    <option value="auditory">聽覺介入模式 (實驗組)</option>
-                    <option value="visual">視覺回饋模式 (對照組)</option>
-                    <option value="baseline">基準模式 (無回饋)</option>
+                    <option value="auditory">聲音回饋</option>
+                    <option value="visual">視覺回饋</option>
+                    <option value="baseline">僅記錄（無回饋）</option>
                 </select>
             </div>
             <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-left bg-white p-3 rounded-lg shadow-sm">
-                <label class="text-xs font-bold">Participant ID<input id="participant_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="P001"></label>
-                <label class="text-xs font-bold">Session ID<input id="session_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="S01"></label>
-                <label class="text-xs font-bold">Block ID<input id="block_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="B01"></label>
-                <label class="text-xs font-bold">Shooting side<select id="shooting_side" class="mt-1 w-full border rounded px-2 py-1 font-normal"><option value="right">Right</option><option value="left">Left</option></select></label>
+                <label class="text-xs font-bold">學員代碼<input id="participant_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="P001"></label>
+                <label class="text-xs font-bold">本次訓練代碼<input id="session_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="S01"></label>
+                <label class="text-xs font-bold">組別代碼<input id="block_id" type="text" autocomplete="off" class="mt-1 w-full border rounded px-2 py-1 font-normal" placeholder="B01"></label>
+                <label class="text-xs font-bold">慣用手<select id="shooting_side" class="mt-1 w-full border rounded px-2 py-1 font-normal"><option value="right">右手</option><option value="left">左手</option></select></label>
             </div>
-            <p class="mt-2 text-xs font-bold text-red-700">UNVALIDATED RESEARCH PROTOTYPE — NOT FOR PARTICIPANT DATA COLLECTION UNTIL GROUND-TRUTH VALIDATION IS COMPLETE.</p>
+            <p class="mt-2 text-xs text-gray-600">將手機固定於身體側面，讓肩、肘、髖與膝保持在畫面內，再開始分析。</p>
             <details class="mt-2 text-left text-xs bg-white p-3 rounded border">
-                <summary class="font-bold cursor-pointer">目前時序指標與回饋的意義</summary>
+                <summary class="font-bold cursor-pointer">如何閱讀動作時序</summary>
                 <p class="mt-2">Δt＝手肘伸展起始時間－膝部伸展角速度峰值時間。手肘起始依既有 10 deg/s 門檻估計，不是手肘角速度峰值，也不是球離手時間。</p>
-                <p class="mt-1">50–150 ms 僅為未驗證候選範圍；聲音用於回饋流程測試，不代表姿勢正確、投籃命中或訓練有效。1 ms 是插值計算間隔，不代表相機取樣率或量測準確度。</p>
+                <p class="mt-1">目前回饋區間為 50–150 ms。區間內外會播放不同音效，方便回看動作節奏；命中結果請在訓練室記錄。</p>
             </details>
         </header>
 
@@ -108,13 +108,13 @@
                             測試音效
                         </button>
                         <button id="start_btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg transition-transform transform hover:scale-105">
-                            開始 Session
+                            開始分析
                         </button>
                         <button id="stop_btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
-                            停止 Session
+                            停止分析
                         </button>
                     </div>
-                    <p id="audio_status" class="text-xs font-bold text-gray-600">音訊：尚未測試</p>
+                    <p id="audio_status" class="text-xs font-bold text-gray-600">音訊：點按「測試音效」確認聲音</p>
 
                     <div class="w-full max-w-md bg-white px-4 py-3 rounded shadow border-l-4 border-orange-500">
                         <label class="flex justify-between items-center text-sm font-bold text-gray-700">
@@ -171,7 +171,7 @@
                     </div>
 
                     <details class="border rounded bg-slate-50 p-3" open>
-                        <summary class="text-xs font-bold text-slate-700 cursor-pointer">Phase 0 裝置診斷</summary>
+                        <summary class="text-xs font-bold text-slate-700 cursor-pointer">裝置與相機資訊</summary>
                         <div class="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono">
                             <div>Build<br><strong id="diag_build">--</strong></div>
                             <div>Camera<br><strong id="diag_camera">--</strong></div>
@@ -185,7 +185,7 @@
                     </details>
 
                     <details class="border rounded bg-emerald-50 p-3" open>
-                        <summary class="text-xs font-bold text-emerald-800 cursor-pointer">Phase 1A 本機 Session 套件</summary>
+                        <summary class="text-xs font-bold text-emerald-800 cursor-pointer">下載影片與分析資料</summary>
                         <p id="capture_status" class="mt-2 text-[10px] text-emerald-800">填完 ID 後按啟動；同一相機串流會同時分析與錄影。</p>
                         <p id="capture_mime" class="mt-1 text-[10px] font-mono text-emerald-700">Video: --</p>
                         <div id="capture_downloads" class="mt-2 grid grid-cols-1 gap-1"></div>
@@ -194,7 +194,7 @@
 
                     <div class="border-t pt-4">
                         <div class="flex justify-between items-center mb-2">
-                            <h3 class="text-xs font-bold text-gray-700">實驗紀錄匯出</h3>
+                            <h3 class="text-xs font-bold text-gray-700">動作紀錄匯出</h3>
                             <button id="download_btn" class="text-[10px] bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded shadow transition-colors">
                                 CSV 匯出
                             </button>
@@ -598,8 +598,8 @@
                             updateUI('品質不足','gray','本次不納入回饋與統計',flags);
                             vBar.style.width='0%';
                         } else if(mode === 'auditory' || mode === 'visual'){
-                            if(ok){ if(mode==='auditory') beep(800,0.5); updateUI('候選範圍內','green','未驗證研究目標',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-green-500 transition-all"; }
-                            else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('候選範圍外','red','未驗證研究目標',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
+                            if(ok){ if(mode==='auditory') beep(800,0.5); updateUI('回饋區間內','green','目前區間 50–150 ms',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-green-500 transition-all"; }
+                            else { if(mode==='auditory') beep(150,0.3,'sawtooth'); updateUI('回饋區間外','red','目前區間 50–150 ms',`Δt: ${calcDt}ms`); vBar.className="absolute bottom-0 left-0 h-1 bg-red-500 transition-all"; }
                         } else {
                             updateUI('紀錄完成','blue','數據已存檔','請進行下一次投籃');
                             dtDisp.innerText='-- ms'; vBar.style.width='0%';
@@ -690,7 +690,7 @@
                         activeDiagnostics.lastAnalysisError=String(error?.message || error || 'Unknown pose analysis error').slice(0,200);
                     }
                     poseAnalysisFailed=true;
-                    captureStatus.innerText=`姿勢分析已停止：${activeDiagnostics.lastAnalysisError}。影片仍在本機錄製；請停止 Session 並下載診斷檔。`;
+                    captureStatus.innerText=`姿勢分析已停止：${activeDiagnostics.lastAnalysisError}。影片仍在本機錄製；請停止分析並下載診斷檔。`;
                     updateDiagnosticPanel();
                 } finally {
                     activeInference=null;
@@ -702,7 +702,7 @@
                 localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',timingDefinition:TIMING_DEFINITION,requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
-                if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始 Session：${error.message}`; return;
+                if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始分析：${error.message}`; return;
             }
             setContextControlsDisabled(true); configureZoomWhenReady(); setTimeout(()=>{if(isAnalyzing){diagRaw.actualCameraSettings=currentTrackSettings();scheduleVideoFrameDiagnostics();updateDiagnosticPanel();}},500);
             poseWatchdogId=setTimeout(()=>{poseWatchdogId=null;if(isAnalyzing&&diagRaw.poseResultCount===0){captureStatus.innerText='警告：相機有畫面，但姿勢分析尚無結果。請停止並下載診斷檔，不要繼續正式動作。';updateDiagnosticPanel();}},5000);

@@ -106,7 +106,7 @@ test('analysis entry pre-fills only valid training identifiers without starting 
     }
     const valid=run('?from=training&player=P001&session=abc-123');
     assert.equal(valid.participant_id.value,'P001');assert.equal(valid.session_id.value,'abc-123');assert.equal(valid.block_id.value,'B01');
-    assert.match(valid['training-context'].textContent,/尚未自動配對/);
+    assert.match(valid['training-context'].textContent,/命中請回訓練室記錄/);
     for(const query of ['', '?player=P001&session=abc', '?from=training&player=%3Cscript%3E&session=abc','?from=training&player=P001&session='+ 'x'.repeat(81)]) {
         assert.equal(run(query).participant_id.value,'');
     }
