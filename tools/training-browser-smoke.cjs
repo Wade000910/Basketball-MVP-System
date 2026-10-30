@@ -72,9 +72,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     await run(`check($('session-title').textContent.includes('中距離'),'Drill reload');check($('dashboard-player').value==='SHOOTER','Player reload');$('new-btn').click();`);
     const workflowChecks=await require('./player-workflow-browser-checks.cjs')({run,send,evaluate,ready,sleep,screenshot,url,output});
     console.log('Player workflow checks passed: '+workflowChecks.join(', '));
+    const courtsideChecks=await require('./courtside-browser-checks.cjs')({run,send,evaluate,sleep,screenshot,output});
+    console.log('Courtside checks passed: '+courtsideChecks.join(', '));
     // Verify storage denial is explicit and the session still supports export.
     await run(`Storage.prototype.setItem=()=>{throw new Error('QuotaExceededError');};$('player-code').value='P003';$('setup-form').requestSubmit();check($('storage-status').textContent.includes('未成功儲存'),'Storage failure hidden');$('made-btn').click();window.confirm=()=>true;$('finish-btn').click();check($('total-value').textContent==='1','Denied storage blocked session');`);
     assert.deepEqual(exceptions,[]);
     console.log('Additional checks passed: discard cancellation, empty and recorded sessions, history preservation, three-point and mid-range reload, weighted dashboard, repeat settings, drill-isolated comparison.');
-    console.log(JSON.stringify({passed:true,checks:['setup','synthetic isolation','manual recording','undo','correction','finish','completed and active reload recovery','JSON/CSV actual download','print PDF','same-player comparison','mobile width','storage denial','discard','multiple drills','player dashboard','repeat session',...workflowChecks],screenshots:7,output},null,2));
+    console.log(JSON.stringify({passed:true,checks:['setup','synthetic isolation','manual recording','undo','correction','finish','completed and active reload recovery','JSON/CSV actual download','print PDF','same-player comparison','mobile width','storage denial','discard','multiple drills','player dashboard','repeat session',...workflowChecks,...courtsideChecks],screenshots:8,output},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(browser)browser.kill();server.close();});
