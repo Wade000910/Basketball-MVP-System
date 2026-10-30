@@ -1,0 +1,13 @@
+{
+  "id": "./",
+  "name": "Basketball MVP 球員訓練室",
+  "short_name": "Basketball MVP",
+  "lang": "zh-Hant",
+  "description": "記錄投籃、安排訓練計畫與回看個人進度。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5ef",
+  "theme_color": "#11241d",
+  "icons": [{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
