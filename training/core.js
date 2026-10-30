@@ -7,7 +7,7 @@
     const DRILLS={free_throw:'罰球',mid_range:'中距離',three_point:'三分球'};
     const POSITIONS={left:'左側',center:'中央',right:'右側',unspecified:'未標記'};
     const positionOf=session=>session.position ?? (session.drill==='free_throw'?'center':'unspecified');
-    function createSession({playerCode,targetShots,note='',drill='free_throw',position,id,now=new Date().toISOString(),isDemo=false}) {
+    function createSession({playerCode,targetShots,note='',drill='free_throw',position,id,now=new Date().toISOString(),isDemo=false,planId,planStep}) {
         if(!Object.hasOwn(DRILLS,drill)) throw new Error('請選擇有效的投籃類型。');
         position=position===undefined?(drill==='free_throw'?'center':'unspecified'):position;
         if(!Object.hasOwn(POSITIONS,position) || (drill==='free_throw' && position!=='center'))throw new Error('請選擇有效的投籃位置；罰球使用中央位置。');
@@ -15,8 +15,9 @@
         if(!Number.isInteger(targetShots) || targetShots<1 || targetShots>200) throw new Error('目標球數須為 1–200 的整數。');
         if(typeof note!=='string' || note.length>300) throw new Error('練習重點限 300 字。');
         if(typeof id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id) || typeof now!=='string' || !Number.isFinite(Date.parse(now))) throw new Error('無法建立訓練識別或時間。');
+        if(planId!==undefined || planStep!==undefined){if(typeof planId!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(planId)||!Number.isInteger(planStep)||planStep<1||planStep>10||isDemo)throw new Error('計畫組別格式不符。');}
         return {schemaVersion:SCHEMA,id,playerCode:playerCode.trim(),targetShots,note,drill,position,
-            inputSource:'manual',isDemo:!!isDemo,startedAt:now,finishedAt:null,shots:[]};
+            inputSource:'manual',isDemo:!!isDemo,startedAt:now,finishedAt:null,shots:[],...(planId===undefined?{}:{planId,planStep})};
     }
     function validateSession(value) {
         if(!value || value.schemaVersion!==SCHEMA || !Object.hasOwn(DRILLS,value.drill) || value.inputSource!=='manual' || typeof value.isDemo!=='boolean') throw new Error('訓練紀錄格式不符。');
@@ -72,8 +73,8 @@
         validateSession(session);
         const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
         // Codes/IDs are generated or constrained; free-text notes are only in JSON.
-        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt','position'];
-        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt,positionOf(session)].map(quote).join(','))].join('\r\n');
+        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt','position','planId','planStep'];
+        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt,positionOf(session),session.planId,session.planStep].map(quote).join(','))].join('\r\n');
     }
     function parseStore(text) {
         const data=JSON.parse(text);
@@ -81,6 +82,10 @@
         const ids=new Set();
         data.history.forEach(s=>{validateSession(s);if(s.isDemo || !s.finishedAt || ids.has(s.id))throw new Error('本機歷史紀錄不符。');ids.add(s.id);});
         if(data.active!==null) {validateSession(data.active);if(data.active.isDemo)throw new Error('示範資料不得存入正式紀錄。');}
+        if(data.plan!==undefined && data.plan!==null){
+            normalizePlan(data.plan);
+            if(data.plan.status==='active' && (!data.active || data.active.finishedAt || !matchesPlanStep(data.active,data.plan,data.plan.currentIndex)))throw new Error('目前練習與計畫進度不符。');
+        }
         return data;
     }
     function demoSession() {
@@ -104,25 +109,68 @@
         if(data.schemaVersion===SCHEMA && data.shots){const s=cleanSession(data);return {schemaVersion:SCHEMA,active:s.finishedAt?null:s,history:s.finishedAt?[s]:[]};}
         if(data.schemaVersion!=='basketball-training-backup-v1')throw new Error('請選擇訓練 JSON 報告或備份。');
         const store=parseStore(JSON.stringify(data.store));
-        return {schemaVersion:SCHEMA,active:store.active?cleanSession(store.active):null,history:store.history.map(cleanSession)};
+        return {schemaVersion:SCHEMA,active:store.active?cleanSession(store.active):null,history:store.history.map(cleanSession),...(store.plan?{plan:normalizePlan(store.plan)}:{})};
     }
     function mergeBackup(current,incoming){
         parseStore(JSON.stringify(current));parseStore(JSON.stringify(incoming));
+        let skippedPlan=0;
+        if(current.plan && incoming.plan?.id===current.plan.id){
+            const duplicate=new Set(incoming.history.filter(s=>s.planId===current.plan.id).map(s=>s.id));
+            if(incoming.active?.planId===current.plan.id)duplicate.add(incoming.active.id);
+            skippedPlan=duplicate.size;
+            incoming={...incoming,active:incoming.active?.planId===current.plan.id?null:incoming.active,history:incoming.history.filter(s=>s.planId!==current.plan.id)};
+        }
         if(current.active && !current.active.finishedAt && incoming.active && !incoming.active.finishedAt && current.active.id!==incoming.active.id)throw new Error('請先結束或放棄目前練習，再匯入另一組未完成練習。');
         const map=new Map(current.history.map(s=>[s.id,s]));
         if(current.active?.finishedAt)map.set(current.active.id,current.active);
         const candidates=[...incoming.history,...(incoming.active?.finishedAt?[incoming.active]:[])];
-        let added=0,skipped=0;
+        let added=0,skipped=skippedPlan;
         for(const s of candidates){
             if(map.has(s.id) || current.active?.id===s.id){skipped++;continue;}
             map.set(s.id,cleanSession(s));added++;
         }
         if(map.size>30)throw new Error('匯入後超過 30 組，未變更現有紀錄。請先下載備份並整理歷史。');
         let active=current.active;
-        if(!active && incoming.active && !incoming.active.finishedAt){if(map.has(incoming.active.id))throw new Error('匯入的練習代碼與已完成紀錄重複。');active=cleanSession(incoming.active);added++;}
+        if((!active || active.finishedAt) && incoming.active && !incoming.active.finishedAt){if(map.has(incoming.active.id))throw new Error('匯入的練習代碼與已完成紀錄重複。');active=cleanSession(incoming.active);added++;}
         else if(incoming.active && !incoming.active.finishedAt)skipped++;
-        return {schemaVersion:SCHEMA,active,history:[...map.values()].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)),added,skipped};
+        let plan=current.plan || null;
+        if(incoming.plan){
+            if(plan?.status==='active' && plan.id!==incoming.plan.id)throw new Error('請先完成或結束目前計畫，再匯入另一份計畫。');
+            if(!plan || plan.id!==incoming.plan.id)plan=normalizePlan(incoming.plan);
+            if(plan?.id===incoming.plan.id && current.plan?.id===incoming.plan.id && current.plan.status!=='active' && active?.planId===plan.id && !active.finishedAt)active=current.active;
+        }
+        if(plan){plan={...plan,reports:plan.reports.map(s=>map.has(s.id)?cleanSession(map.get(s.id)):s)};normalizePlan(plan);}
+        const result={schemaVersion:SCHEMA,active,history:[...map.values()].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)),...(plan?{plan}:{}),added,skipped};
+        parseStore(JSON.stringify(result));return result;
     }
+    function matchesPlanStep(session,plan,index){
+        const step=plan.steps[index];
+        return !!step && session.id===step.sessionId && session.planId===plan.id && session.planStep===index+1 && session.playerCode===plan.playerCode && session.drill===step.drill && positionOf(session)===step.position && session.targetShots===step.targetShots && session.note===step.note;
+    }
+    function normalizePlan(value){
+        if(!value || value.schemaVersion!=='basketball-training-plan-v1' || typeof value.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(value.id) || typeof value.name!=='string'||!value.name.trim()||value.name.length>60 || !['active','completed','stopped'].includes(value.status) || !Array.isArray(value.steps)||value.steps.length<1||value.steps.length>10 || !Number.isInteger(value.currentIndex)||value.currentIndex<0||value.currentIndex>value.steps.length || typeof value.startedAt!=='string'||!Number.isFinite(Date.parse(value.startedAt)) || !Array.isArray(value.reports)||value.reports.length!==value.currentIndex)throw new Error('訓練計畫格式不符。');
+        if(value.status==='active'?(value.currentIndex>=value.steps.length || value.endedAt!==null):(typeof value.endedAt!=='string'||!Number.isFinite(Date.parse(value.endedAt))||Date.parse(value.endedAt)<Date.parse(value.startedAt)))throw new Error('計畫時間或進度不符。');
+        if(value.status==='completed' && value.currentIndex!==value.steps.length)throw new Error('計畫尚有未完成組別。');
+        const ids=new Set();
+        const steps=value.steps.map(step=>{const s=createSession({...step,id:step.sessionId,playerCode:value.playerCode,now:value.startedAt,isDemo:false});if(ids.has(s.id))throw new Error('計畫組別代碼重複。');ids.add(s.id);return {sessionId:s.id,drill:s.drill,position:s.position,targetShots:s.targetShots,note:s.note};});
+        const plan={schemaVersion:value.schemaVersion,id:value.id,name:value.name,playerCode:value.playerCode,startedAt:value.startedAt,endedAt:value.endedAt,status:value.status,currentIndex:value.currentIndex,steps,reports:[]};
+        plan.reports=value.reports.map((s,index)=>{validateSession(s);if(!s.finishedAt || s.isDemo || !matchesPlanStep(s,plan,index))throw new Error('計畫報告與組別不符。');return cleanSession(s);});
+        return plan;
+    }
+    function createPlan({id,name,playerCode,steps,now=new Date().toISOString()}){
+        const plan=normalizePlan({schemaVersion:'basketball-training-plan-v1',id,name,playerCode,steps,startedAt:now,endedAt:null,status:'active',currentIndex:0,reports:[]});
+        return {plan,active:planSession(plan,now)};
+    }
+    function planSession(plan,now){const index=plan.currentIndex,step=plan.steps[index];return createSession({...step,id:step.sessionId,playerCode:plan.playerCode,now,planId:plan.id,planStep:index+1});}
+    function completePlanStep(plan,session,now=new Date().toISOString()){
+        plan=normalizePlan(plan);validateSession(session);
+        if(plan.status!=='active'||!matchesPlanStep(session,plan,plan.currentIndex))throw new Error('目前練習不屬於此計畫組別。');
+        const finished=finishSession(session,now),currentIndex=plan.currentIndex+1;
+        const next={...plan,currentIndex,reports:[...plan.reports,finished],status:currentIndex===plan.steps.length?'completed':'active',endedAt:currentIndex===plan.steps.length?now:null};
+        normalizePlan(next);return {plan:next,finished,active:next.status==='completed'?finished:planSession(next,now)};
+    }
+    function stopPlan(plan,now=new Date().toISOString()){plan=normalizePlan(plan);if(plan.status!=='active')throw new Error('這份計畫已結束。');return normalizePlan({...plan,status:'stopped',endedAt:now});}
+    function planSummary(plan){plan=normalizePlan(plan);const total=plan.reports.reduce((n,s)=>n+s.shots.length,0),made=plan.reports.reduce((n,s)=>n+summarize(s).made,0);return {completed:plan.currentIndex,groups:plan.steps.length,total,made,percentage:total?Math.round(made/total*1000)/10:null,target:plan.steps.reduce((n,s)=>n+s.targetShots,0)};}
     function progress(history,playerCode,now=new Date()) {
         const sessions=history.filter(s=>!s.isDemo && s.finishedAt && s.playerCode===playerCode);
         const start=new Date(now);start.setHours(0,0,0,0);start.setDate(start.getDate()-6);
@@ -146,5 +194,5 @@
         });
         return {points,positions};
     }
-    return {SCHEMA,DRILLS,POSITIONS,positionOf,trend,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
+    return {SCHEMA,DRILLS,POSITIONS,positionOf,trend,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup,normalizePlan,createPlan,completePlanStep,stopPlan,planSummary};
 });

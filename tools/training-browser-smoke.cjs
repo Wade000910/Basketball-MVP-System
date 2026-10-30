@@ -13,7 +13,7 @@ const server=http.createServer((req,res)=>{
         if(name.endsWith('/'))name+='index.html';
         const file=path.resolve(root,'.'+name);
         if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
-        res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'})[path.extname(file)] || 'application/octet-stream');
+        res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.svg':'image/svg+xml'})[path.extname(file)] || 'application/octet-stream');
         fs.createReadStream(file).on('error',()=>res.writeHead(404).end()).pipe(res);
     }catch{res.writeHead(400).end();}
 });
@@ -74,9 +74,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     console.log('Player workflow checks passed: '+workflowChecks.join(', '));
     const courtsideChecks=await require('./courtside-browser-checks.cjs')({run,send,evaluate,sleep,screenshot,output});
     console.log('Courtside checks passed: '+courtsideChecks.join(', '));
+    const planOfflineChecks=await require('./plan-offline-browser-checks.cjs')({run,send,evaluate,ready,sleep,screenshot,output,url});
+    console.log('Plan/offline checks passed: '+planOfflineChecks.join(', '));
     // Verify storage denial is explicit and the session still supports export.
     await run(`Storage.prototype.setItem=()=>{throw new Error('QuotaExceededError');};$('player-code').value='P003';$('setup-form').requestSubmit();check($('storage-status').textContent.includes('未成功儲存'),'Storage failure hidden');$('made-btn').click();window.confirm=()=>true;$('finish-btn').click();check($('total-value').textContent==='1','Denied storage blocked session');`);
     assert.deepEqual(exceptions,[]);
     console.log('Additional checks passed: discard cancellation, empty and recorded sessions, history preservation, three-point and mid-range reload, weighted dashboard, repeat settings, drill-isolated comparison.');
-    console.log(JSON.stringify({passed:true,checks:['setup','synthetic isolation','manual recording','undo','correction','finish','completed and active reload recovery','JSON/CSV actual download','print PDF','same-player comparison','mobile width','storage denial','discard','multiple drills','player dashboard','repeat session',...workflowChecks,...courtsideChecks],screenshots:8,output},null,2));
+    console.log(JSON.stringify({passed:true,checks:['setup','synthetic isolation','manual recording','undo','correction','finish','completed and active reload recovery','JSON/CSV actual download','print PDF','same-player comparison','mobile width','storage denial','discard','multiple drills','player dashboard','repeat session',...workflowChecks,...courtsideChecks,...planOfflineChecks],screenshots:9,output},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>{if(ws)ws.close();if(browser)browser.kill();server.close();});

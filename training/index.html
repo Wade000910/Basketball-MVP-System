@@ -6,9 +6,14 @@
     <meta name="theme-color" content="#11241d">
     <title>球員訓練室 · Basketball MVP</title>
     <link rel="stylesheet" href="./styles.css">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="./icon.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Basketball MVP">
     <script src="./analysis-store.js" defer></script>
     <script src="./core.js" defer></script>
     <script src="./app.js" defer></script>
+    <script src="./offline.js" defer></script>
 </head>
 <body>
 <header class="topbar"><a href="../">BASKETBALL <strong>MVP</strong></a><span class="tag">球員訓練</span></header>
@@ -21,6 +26,7 @@
     </section>
     <p id="storage-status" class="storage" role="status">紀錄僅存於此裝置的瀏覽器；清除網站資料會刪除紀錄。建議下載報告備份。</p>
     <p id="message" role="alert" hidden></p>
+    <aside class="offline-card"><p id="offline-status" role="status">正在準備離線訓練…</p><button id="install-app" type="button" class="secondary" hidden>加入手機主畫面</button><details><summary>手機安裝與離線使用</summary><p>先連線開啟本頁，等畫面顯示「已備妥離線訓練」。Android 可在瀏覽器選單選擇安裝／加入主畫面；iPhone 使用 Safari 的分享 → 加入主畫面。之後可離線記錄、查看報告與下載備份。相機分析與影片回看請在連線時開啟。</p></details></aside>
     <section id="player-home" class="card dashboard">
         <div class="section-head"><div><p class="eyebrow">PLAYER HOME</p><h2>我的球員首頁</h2></div><span class="pill">本機個人訓練</span></div>
         <label>查看學員代碼<input id="dashboard-player" maxlength="32" placeholder="例如 P001" autocomplete="off"></label>
@@ -42,7 +48,9 @@
             <label>今天專注一件事<textarea id="focus-note" maxlength="300" rows="2" placeholder="例如：每次出手前固定準備流程（可由教練填寫）"></textarea></label>
             <div class="actions"><button type="submit" class="primary">開始這組練習 <span aria-hidden="true">↗</span></button><button id="demo-btn" type="button" class="secondary">先看示範報告</button></div>
         </form>
+        <details class="plan-builder"><summary>安排多組訓練計畫</summary><p class="muted">沿用上方學員代碼。先排好今天的組別，每組結束後會自動進入下一組。</p><form id="plan-form"><label>計畫名稱<input id="plan-name" maxlength="60" value="今天的投籃訓練" required></label><ol id="plan-draft"></ol><div class="actions"><button id="plan-add-step" type="button" class="secondary">＋ 加一組</button><button id="plan-start" type="submit" class="primary">開始整份計畫</button></div><p class="muted">最多 10 組，每組 1–200 球。可隨時結束計畫，已完成的組別會保留。</p></form></details>
     </section>
+    <section id="plan-panel" class="card" hidden><div class="section-head"><h2 id="plan-title">本次訓練計畫</h2><span id="plan-state" class="pill"></span></div><p id="plan-progress" class="focus" role="status"></p><ol id="plan-steps"></ol><p id="plan-summary"></p><div class="actions"><button id="plan-download" type="button" class="secondary">下載計畫與報告</button><button id="plan-stop" type="button" class="secondary">結束計畫</button></div></section>
     <section id="session-panel" class="card" hidden>
         <div class="section-head"><div><p class="eyebrow" id="session-label">YOUR SESSION</p><h2 id="session-title">本組練習</h2></div><span id="session-state" class="pill">進行中</span></div>
         <p id="demo-banner" class="demo-banner" hidden>示範模式 · 以下為合成資料，未進行實際投籃，不會寫入正式訓練歷史。</p>

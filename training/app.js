@@ -2,7 +2,7 @@
     'use strict';
     const C=TrainingCore, A=TrainingAnalysis, KEY='basketball-training-v1';
     const $=id=>document.getElementById(id);
-    let active=null,history=[],loadFailed=false;
+    let active=null,history=[],plan=null,loadFailed=false;
     let lastRecordAt=-Infinity,lastRecordSession=null;
     const uid=()=>globalThis.crypto.randomUUID();
     const formatDate=value=>new Date(value).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -12,9 +12,10 @@
     function persist() {
         if(active?.isDemo) { $('storage-status').textContent='示範模式：合成資料只在記憶體中，不會寫入正式訓練歷史。';return; }
         if(active?.finishedAt) history=[active,...history.filter(s=>s.id!==active.id)].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)).slice(0,30);
+        if(plan && active?.finishedAt && plan.reports.some(s=>s.id===active.id))plan={...plan,reports:plan.reports.map(s=>s.id===active.id?active:s)};
         try {
             if(loadFailed) throw new Error('尚有無法讀取的舊資料');
-            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active,history}));
+            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active,history,...(plan?{plan}:{})}));
             $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份。';
         } catch(error) {
             $('storage-status').textContent='目前只保留在本頁記憶體，未成功儲存於瀏覽器。關閉前請下載報告；舊資料不會被覆寫。';
@@ -26,6 +27,35 @@
         setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
     function setActive(next) {active=next;persist();render();}
+    function requireNoPlan(){if(plan?.status==='active')throw new Error('請先完成或結束目前計畫，再開始其他練習。');}
+    function planWithAnalysis(){return plan?{...plan,reports:plan.reports.map(withAnalysis)}:null;}
+    function renderPlan(){
+        $('plan-panel').hidden=!plan;if(!plan)return;
+        const stats=C.planSummary(plan),running=plan.status==='active';
+        $('plan-title').textContent=plan.name+' · '+plan.playerCode;
+        $('plan-state').textContent=running?'進行中':plan.status==='completed'?'全部完成':'已結束';
+        $('plan-progress').textContent='已完成 '+stats.completed+' / '+stats.groups+' 組'+(running?' · 目前第 '+(plan.currentIndex+1)+' 組':'');
+        $('plan-summary').textContent='已完成組別共 '+stats.total+' 球、命中 '+stats.made+' 球，命中率 '+rate(stats)+'；計畫目標 '+stats.target+' 球。';
+        $('plan-steps').replaceChildren();
+        plan.steps.forEach((step,i)=>{
+            const li=document.createElement('li'),label=document.createElement('span');
+            label.textContent=C.DRILLS[step.drill]+' · '+C.POSITIONS[step.position]+' · '+step.targetShots+' 球 · '+(i<plan.currentIndex?'已完成':i===plan.currentIndex&&running?'正在練習':'未完成');
+            li.appendChild(label);
+            if(i<plan.reports.length){const s=plan.reports[i],view=document.createElement('button');view.type='button';view.className='text-button';view.textContent='查看本組報告';view.disabled=running;view.addEventListener('click',()=>perform(()=>{requireNoPlan();setActive(s);$('session-panel').scrollIntoView({behavior:'smooth',block:'start'});}));li.appendChild(view);}
+            $('plan-steps').appendChild(li);
+        });
+        $('plan-stop').hidden=!running;
+    }
+    function addPlanRow(spec={drill:'mid_range',position:'center',targetShots:20,note:''}){
+        const list=$('plan-draft');if(list.children.length>=10)return;
+        const li=document.createElement('li');li.className='plan-draft-row';
+        function field(name,label,options,value){const wrapper=document.createElement('label');wrapper.textContent=label;const control=document.createElement(options?'select':'input');control.dataset.field=name;if(options)Object.entries(options).forEach(([key,text])=>{const option=document.createElement('option');option.value=key;option.textContent=text;control.appendChild(option);});control.value=value;wrapper.appendChild(control);li.appendChild(wrapper);return control;}
+        const drill=field('drill','投籃類型',C.DRILLS,spec.drill),position=field('position','位置',C.POSITIONS,spec.position);
+        const target=field('targetShots','目標球數',null,String(spec.targetShots));target.type='number';target.min='1';target.max='200';target.required=true;
+        const note=field('note','練習重點',null,spec.note);note.maxLength=300;
+        const update=()=>{position.disabled=drill.value==='free_throw';if(position.disabled)position.value='center';};drill.addEventListener('change',update);update();
+        const remove=document.createElement('button');remove.type='button';remove.className='text-button';remove.textContent='移除此組';remove.addEventListener('click',()=>{li.remove();$('plan-add-step').disabled=false;});li.appendChild(remove);list.appendChild(li);$('plan-add-step').disabled=list.children.length>=10;
+    }
     function withAnalysis(session) {
         if(!session || session.isDemo)return session;
         const saved=localStorage.getItem(A.KEY),runs=saved?A.parse(saved):[];
@@ -106,6 +136,7 @@
     }
     function render() {
         renderDashboard();
+        renderPlan();
         $('setup-panel').hidden=!!active;$('session-panel').hidden=!active;
         for(const id of ['step-setup','step-train','step-report']) $(id).removeAttribute('aria-current');
         $(active?(active.finishedAt?'step-report':'step-train'):'step-setup').setAttribute('aria-current','step');
@@ -126,6 +157,8 @@
         $('progress-label').textContent=stats.targetReached?'已達 '+active.targetShots+' 球目標'+(finished?'。':'，可結束看報告或繼續記錄。'):'目標 '+active.targetShots+' 球 · 還有 '+stats.remaining+' 球'+(finished?'（本組提前結束）':'');
         $('record-controls').hidden=finished;$('report-panel').hidden=!finished;$('new-btn').hidden=!finished;
         $('discard-btn').hidden=finished;
+        $('discard-btn').textContent=plan?.status==='active'?'結束計畫並放棄本組':'放棄本組練習';
+        $('finish-btn').textContent=plan?.status==='active'?(plan.currentIndex+1<plan.steps.length?'結束本組並進入下一組':'完成計畫並看報告'):'結束並看報告';
         $('repeat-btn').hidden=!finished || active.isDemo;
         $('undo-btn').disabled=!stats.total;$('finish-btn').disabled=!stats.total;
         $('made-btn').disabled=stats.total>=200;$('missed-btn').disabled=stats.total>=200;
@@ -148,6 +181,7 @@
         });
     }
     $('setup-form').addEventListener('submit',event=>{event.preventDefault();perform(()=>{
+        requireNoPlan();
         $('dashboard-player').value=$('player-code').value.trim();
         $('trend-drill').value=$('drill-type').value;
         setActive(C.createSession({playerCode:$('player-code').value,drill:$('drill-type').value,position:$('drill-type').value==='free_throw'?'center':$('shot-position').value,targetShots:Number($('target-shots').value),note:$('focus-note').value,id:uid()}));
@@ -165,10 +199,19 @@
     $('undo-btn').addEventListener('click',()=>perform(()=>{setActive(C.removeShot(active,active.shots.at(-1)?.id));lastRecordAt=-Infinity;$('record-feedback').textContent='已撤回最後一球 · 現在 '+active.shots.length+' 球，下一球：第 '+(active.shots.length+1)+' 球';}));
     $('finish-btn').addEventListener('click',()=>perform(()=>{
         if(C.summarize(active).remaining && !confirm('尚未達到目標球數，仍要結束並產生報告嗎？'))return;
+        if(plan?.status==='active'){
+            const next=C.completePlanStep(plan,active);plan=next.plan;
+            history=[next.finished,...history.filter(s=>s.id!==next.finished.id)].slice(0,30);
+            setActive(next.active);
+            if(plan.status==='active'){$('made-btn').focus();$('record-controls').scrollIntoView({behavior:'smooth',block:'center'});}
+            else $('plan-panel').scrollIntoView({behavior:'smooth',block:'start'});
+            return;
+        }
         setActive(C.finishSession(active));$('report-panel').scrollIntoView({behavior:'smooth',block:'start'});
     }));
     $('new-btn').addEventListener('click',()=>perform(()=>{const previous=active;setActive(null);$('player-code').value=previous.isDemo?'':previous.playerCode;$('drill-type').value=previous.drill;updatePositionField();$('shot-position').value=C.positionOf(previous);$('player-code').focus();}));
     $('repeat-btn').addEventListener('click',()=>perform(()=>{
+        requireNoPlan();
         if(!active?.finishedAt || active.isDemo)return;
         setActive(C.createSession({playerCode:active.playerCode,drill:active.drill,position:C.positionOf(active),targetShots:active.targetShots,note:active.note,id:uid()}));
         $('made-btn').focus();
@@ -184,10 +227,30 @@
     });
     $('discard-btn').addEventListener('click',()=>perform(()=>{
         if(!active || active.finishedAt)return;
+        if(plan?.status==='active'){endPlan();return;}
         if(!confirm('放棄目前這組練習？本組逐球紀錄將移除，已完成的歷史報告會保留。'))return;
         const code=active.playerCode;setActive(null);$('player-code').value=code;$('player-code').focus();
     }));
-    $('demo-btn').addEventListener('click',()=>perform(()=>setActive(C.demoSession())));
+    $('demo-btn').addEventListener('click',()=>perform(()=>{requireNoPlan();setActive(C.demoSession());}));
+    $('plan-add-step').addEventListener('click',()=>addPlanRow());
+    $('plan-form').addEventListener('submit',event=>{event.preventDefault();perform(()=>{
+        requireNoPlan();if(active && !active.finishedAt)throw new Error('請先結束目前這組，再開始計畫。');
+        if(!$('player-code').reportValidity()){$('player-code').focus();return;}
+        const steps=[...$('plan-draft').children].map(row=>{const get=name=>row.querySelector('[data-field="'+name+'"]').value;return {sessionId:uid(),drill:get('drill'),position:get('position'),targetShots:Number(get('targetShots')),note:get('note')};});
+        const next=C.createPlan({id:uid(),name:$('plan-name').value.trim(),playerCode:$('player-code').value.trim(),steps});
+        plan=next.plan;$('dashboard-player').value=plan.playerCode;$('trend-drill').value=next.active.drill;setActive(next.active);$('made-btn').focus();
+    });});
+    function endPlan(){
+        if(plan?.status!=='active')return;
+        if(!confirm('結束整份計畫並放棄目前未完成的一組？已完成的組別與報告會保留。'))return;
+        const code=plan.playerCode;plan=C.stopPlan(plan);setActive(null);$('player-code').value=code;
+    }
+    $('plan-stop').addEventListener('click',()=>perform(endPlan));
+    $('plan-download').addEventListener('click',()=>perform(()=>{
+        if(!plan)return;
+        const reportPlan=planWithAnalysis(),store={schemaVersion:C.SCHEMA,active:plan.status==='active'?withAnalysis(active):null,history:reportPlan.reports,...{plan:reportPlan}};
+        download(new Blob([JSON.stringify({schemaVersion:'basketball-training-backup-v1',exportedAt:new Date().toISOString(),store},null,2)],{type:'application/json'}),'training-plan-'+plan.playerCode+'.json');
+    }));
     $('download-report').addEventListener('click',()=>perform(()=>{
         const session=withAnalysis(active);
         const report={...session,summary:C.summarize(active),analysisSummary:A.summary(session.analysisRuns || []),recording:{outcomes:'manual',analysisLink:'session',shotPairing:'separate_order'}};
@@ -197,7 +260,7 @@
     $('print-report').addEventListener('click',()=>window.print());
     $('download-backup').addEventListener('click',()=>perform(()=>{
         const realActive=active?.isDemo?null:active;
-        const store={schemaVersion:C.SCHEMA,active:realActive?withAnalysis(realActive):null,history:history.map(withAnalysis)};
+        const store={schemaVersion:C.SCHEMA,active:realActive?withAnalysis(realActive):null,history:history.map(withAnalysis),...(plan?{plan:planWithAnalysis()}:{})};
         const backup={schemaVersion:'basketball-training-backup-v1',exportedAt:new Date().toISOString(),store};
         download(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'basketball-backup-'+new Date().toISOString().slice(0,10)+'.json');
     }));
@@ -210,11 +273,11 @@
             if(loadFailed)throw new Error('本機舊資料無法讀取，請先備份或清理後再匯入。');
             const saved=localStorage.getItem(KEY),store=saved?C.parseStore(saved):{schemaVersion:C.SCHEMA,active:null,history:[]};
             // Import against the displayed state; never overwrite another tab's edits.
-            const current={schemaVersion:C.SCHEMA,active:active?.isDemo?store.active:active,history};
+            const current={schemaVersion:C.SCHEMA,active:active?.isDemo?store.active:active,history,...(plan?{plan}:{})};
             if(saved && JSON.stringify(store)!==JSON.stringify(current))throw new Error('紀錄已在其他分頁變更，請重新整理後再匯入。');
             const next=C.mergeBackup(current,incoming);
-            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:next.active,history:next.history}));
-            active=next.active;history=next.history;
+            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:next.active,history:next.history,...(next.plan?{plan:next.plan}:{})}));
+            active=next.active;history=next.history;plan=next.plan || null;
             $('dashboard-player').value=active?.playerCode || history[0]?.playerCode || '';
             render();$('import-status').textContent='匯入完成：新增 '+next.added+' 組，保留既有版本 '+next.skipped+' 組。';
         }catch(error){$('import-status').textContent='未匯入：'+(error.message || '檔案無法讀取');}
@@ -225,14 +288,15 @@
     $('clear-history').addEventListener('click',()=>perform(()=>{
         if(active && !active.finishedAt)throw new Error('請先結束目前練習並下載報告，再清除紀錄。');
         if(!confirm('永久清除此裝置的全部訓練紀錄？請先下載需要的報告。'))return;
-        localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
+        localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;plan=null;loadFailed=false;persist();render();message('此裝置的訓練紀錄、計畫與動作摘要已清除。');
     }));
     try {
         const saved=localStorage.getItem(KEY);
-        if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;}
+        if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;plan=data.plan || null;}
     }catch(error){loadFailed=true;$('storage-status').textContent='無法讀取本機紀錄；舊資料保留，暫停自動儲存。仍可練習並下載報告。';}
     $('dashboard-player').value=active?.isDemo?'':(active?.playerCode || history[0]?.playerCode || '');
     if(active)$('trend-drill').value=active.drill;
     updatePositionField();
+    for(const [drill,targetShots] of [['free_throw',10],['mid_range',20],['three_point',20]])addPlanRow({drill,position:'center',targetShots,note:''});
     render();
 })();
