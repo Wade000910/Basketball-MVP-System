@@ -27,6 +27,7 @@
         <p id="dashboard-summary" class="focus" aria-live="polite"></p>
         <div id="drill-progress" class="drill-progress"></div>
         <p class="muted">近 7 天含今天；依此裝置最近 30 組已完成紀錄統計。各類命中率以總命中／總球數計算。</p>
+        <section class="trend-panel" aria-label="近期命中率趨勢"><h3>最近幾組，投得如何？</h3><div class="form-grid"><label>投籃類型<select id="trend-drill"><option value="free_throw">罰球</option><option value="mid_range">中距離</option><option value="three_point">三分球</option></select></label><label>投籃位置<select id="trend-position"><option value="all">全部位置</option><option value="left">左側</option><option value="center">中央</option><option value="right">右側</option><option value="unspecified">未標記（舊紀錄）</option></select></label></div><p id="trend-description" class="muted" role="status"></p><div id="trend-chart" class="trend-chart"></div><div class="trend-table-wrap"><table id="trend-table"><caption>各組命中率與球數（由舊到新）</caption><thead><tr><th scope="col">日期</th><th scope="col">位置</th><th scope="col">命中／球數</th><th scope="col">命中率</th></tr></thead><tbody id="trend-rows"></tbody></table></div><h3>各位置累積</h3><div id="position-progress" class="position-progress"></div><p class="muted">折線顯示同代碼、同類型且有投籃紀錄的最近 10 組；各位置累積使用本機保存的全部已完成紀錄。</p></section>
         <button id="home-action" type="button" class="primary">開始今天的訓練 ↗</button>
     </section>
     <section id="setup-panel" class="card">
@@ -37,6 +38,7 @@
                 <label>這組目標球數<select id="target-shots"><option value="10">10 球 · 輕量練習</option><option value="20">20 球 · 基本訓練</option><option value="30">30 球 · 延伸練習</option></select></label>
             </div>
             <label>投籃類型<select id="drill-type"><option value="free_throw">罰球</option><option value="mid_range">中距離</option><option value="three_point">三分球</option></select></label>
+            <label id="position-field" hidden>本組投籃位置<select id="shot-position"><option value="center">中央</option><option value="left">左側</option><option value="right">右側</option><option value="unspecified">混合／未標記</option></select><small>從球員面向籃框的方向選擇；這組固定一個位置，換位置可開始新一組。</small></label>
             <label>今天專注一件事<textarea id="focus-note" maxlength="300" rows="2" placeholder="例如：每次出手前固定準備流程（可由教練填寫）"></textarea></label>
             <div class="actions"><button type="submit" class="primary">開始這組練習 <span aria-hidden="true">↗</span></button><button id="demo-btn" type="button" class="secondary">先看示範報告</button></div>
         </form>
@@ -47,9 +49,9 @@
         <p id="session-focus" class="focus"></p>
         <p><a id="session-analysis" class="analysis-button" href="../專題程式/" target="_blank" rel="noopener">開啟罰球動作分析 ↗</a></p>
         <p id="analysis-context-note" class="muted"></p>
-        <div class="metrics" aria-live="polite"><div><strong id="total-value">0</strong><span>已記錄球數</span></div><div><strong id="made-value">0</strong><span>命中</span></div><div><strong id="percentage-value">—</strong><span>命中率</span></div></div>
+        <div class="metrics"><div><strong id="total-value">0</strong><span>已記錄球數</span></div><div><strong id="made-value">0</strong><span>命中</span></div><div><strong id="percentage-value">—</strong><span>命中率</span></div></div>
         <progress id="shot-progress" value="0" max="10" aria-label="本組目標進度"></progress><p id="progress-label" class="muted"></p>
-        <div id="record-controls"><p class="muted">由你或教練在每次投籃後手動記錄。這裡沒有自動判定進球。</p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><div class="actions"><button id="undo-btn" type="button" class="secondary">撤回最後一球</button><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
+        <div id="record-controls"><p class="muted">每次投籃後，由你或教練手動記錄。</p><div class="courtside-controls"><p id="record-feedback" class="record-feedback" role="status" aria-live="polite" aria-atomic="true"></p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><button id="undo-btn" type="button" class="secondary">撤回最後一球</button></div><div class="actions"><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
         <section id="report-panel" hidden><h3>這組的訓練摘要</h3><p id="report-summary"></p><p id="comparison" class="focus"></p><p class="muted">命中率依逐球紀錄計算。回看不同組時，可搭配場地、距離與練習重點比較。</p><div class="actions"><button id="download-report" type="button" class="primary">下載訓練報告 JSON</button><button id="download-csv" type="button" class="secondary">下載逐球 CSV</button><button id="print-report" type="button" class="secondary">列印 / 存成 PDF</button></div></section>
         <section id="analysis-report" class="focus" aria-label="本組動作摘要"><h3>本組動作摘要</h3><p id="analysis-summary"></p><ol id="analysis-runs"></ol><p class="muted">保留本組最近 30 次分析摘要。動作試次與人工投籃分別編號；可回看同組結果。</p></section>
         <details class="shot-list" open><summary>逐球紀錄 · 可修正或刪除</summary><p class="muted">人工修正會同步更新本組統計與報告。</p><ol id="shot-list"></ol></details>

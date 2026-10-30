@@ -5,13 +5,17 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(Analysis) {
     const SCHEMA='basketball-training-v1';
     const DRILLS={free_throw:'罰球',mid_range:'中距離',three_point:'三分球'};
-    function createSession({playerCode,targetShots,note='',drill='free_throw',id,now=new Date().toISOString(),isDemo=false}) {
+    const POSITIONS={left:'左側',center:'中央',right:'右側',unspecified:'未標記'};
+    const positionOf=session=>session.position ?? (session.drill==='free_throw'?'center':'unspecified');
+    function createSession({playerCode,targetShots,note='',drill='free_throw',position,id,now=new Date().toISOString(),isDemo=false}) {
         if(!Object.hasOwn(DRILLS,drill)) throw new Error('請選擇有效的投籃類型。');
+        position=position===undefined?(drill==='free_throw'?'center':'unspecified'):position;
+        if(!Object.hasOwn(POSITIONS,position) || (drill==='free_throw' && position!=='center'))throw new Error('請選擇有效的投籃位置；罰球使用中央位置。');
         if(typeof playerCode!=='string' || !/^[A-Za-z0-9_-]{1,32}$/.test(playerCode.trim())) throw new Error('請填 1–32 字的學員代碼（英文、數字、底線或連字號）。');
         if(!Number.isInteger(targetShots) || targetShots<1 || targetShots>200) throw new Error('目標球數須為 1–200 的整數。');
         if(typeof note!=='string' || note.length>300) throw new Error('練習重點限 300 字。');
         if(typeof id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id) || typeof now!=='string' || !Number.isFinite(Date.parse(now))) throw new Error('無法建立訓練識別或時間。');
-        return {schemaVersion:SCHEMA,id,playerCode:playerCode.trim(),targetShots,note,drill,
+        return {schemaVersion:SCHEMA,id,playerCode:playerCode.trim(),targetShots,note,drill,position,
             inputSource:'manual',isDemo:!!isDemo,startedAt:now,finishedAt:null,shots:[]};
     }
     function validateSession(value) {
@@ -61,15 +65,15 @@
             remaining:Math.max(0,session.targetShots-total),targetReached:total>=session.targetShots};
     }
     function previousSession(session,history) {
-        return history.filter(s=>s.id!==session.id && s.playerCode===session.playerCode && s.drill===session.drill && s.isDemo===session.isDemo && s.finishedAt && Date.parse(s.startedAt)<Date.parse(session.startedAt))
+        return history.filter(s=>s.id!==session.id && s.playerCode===session.playerCode && s.drill===session.drill && positionOf(s)===positionOf(session) && s.isDemo===session.isDemo && s.finishedAt && Date.parse(s.startedAt)<Date.parse(session.startedAt))
             .sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt))[0] || null;
     }
     function csv(session) {
         validateSession(session);
         const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
         // Codes/IDs are generated or constrained; free-text notes are only in JSON.
-        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt'];
-        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt].map(quote).join(','))].join('\r\n');
+        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt','position'];
+        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt,positionOf(session)].map(quote).join(','))].join('\r\n');
     }
     function parseStore(text) {
         const data=JSON.parse(text);
@@ -130,5 +134,17 @@
         });
         return {sessions:sessions.length,recentSessions:recent.length,recentShots:shots,drills};
     }
-    return {SCHEMA,DRILLS,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
+    function trend(history,playerCode,drill,position='all') {
+        if(!Object.hasOwn(DRILLS,drill) || (position!=='all'&&!Object.hasOwn(POSITIONS,position)))throw new Error('趨勢篩選條件不符。');
+        const sessions=history.filter(s=>!s.isDemo && s.finishedAt && s.playerCode===playerCode && s.drill===drill && (position==='all'||positionOf(s)===position));
+        const ordered=sessions.filter(s=>s.shots.length).sort((a,b)=>Date.parse(a.startedAt)-Date.parse(b.startedAt)||a.id.localeCompare(b.id)).slice(-10);
+        const points=ordered.map(s=>({id:s.id,startedAt:s.startedAt,position:positionOf(s),...summarize(s)}));
+        const positions=Object.entries(POSITIONS).map(([id,label])=>{
+            const groups=history.filter(s=>!s.isDemo && s.finishedAt && s.playerCode===playerCode && s.drill===drill && positionOf(s)===id);
+            const total=groups.reduce((n,s)=>n+s.shots.length,0),made=groups.reduce((n,s)=>n+summarize(s).made,0);
+            return {id,label,total,made,percentage:total?Math.round(made/total*1000)/10:null};
+        });
+        return {points,positions};
+    }
+    return {SCHEMA,DRILLS,POSITIONS,positionOf,trend,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
 });
