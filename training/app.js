@@ -37,6 +37,7 @@
         if($('analysis-report').hidden)return;
         try {
             const session=withAnalysis(active),stats=A.summary(session.analysisRuns);
+            renderPairing(session);
             $('analysis-summary').textContent=stats.runs?'共 '+stats.runs+' 次分析、'+stats.total+' 個動作試次，其中 '+stats.accepted+' 次可用、'+stats.excluded+' 次未納入統計。'+(stats.meanDt===null?'':'平均時序差 '+stats.meanDt+' ms。'):'本組還沒有動作紀錄。可按「開啟罰球動作分析」，停止分析後會自動帶回摘要。';
             session.analysisRuns.forEach(run=>{
                 const item=document.createElement('li'),details=document.createElement('details'),title=document.createElement('summary'),list=document.createElement('ol');
@@ -46,6 +47,29 @@
                 details.append(title,list);item.appendChild(details);$('analysis-runs').appendChild(item);
             });
         }catch(error){$('analysis-summary').textContent='無法讀取動作摘要：'+error.message+' 請先下載動作頁的資料備份。';}
+    }
+    function renderPairing(session) {
+        const box=$('analysis-paired');box.replaceChildren();
+        if(!session.analysisRuns.length || !session.shots.length){box.hidden=true;return;}
+        const pairs=A.pair(session.shots,session.analysisRuns),p=A.pairedSummary(pairs);
+        box.hidden=false;
+        const lead=document.createElement('p');
+        lead.textContent='命中與動作配對：'+p.shots+' 球中 '+p.paired+' 球找到對應動作，'+p.usable+' 球有可用時序。';
+        box.appendChild(lead);
+        if(p.usable){
+            const table=document.createElement('table'),head=document.createElement('tr');
+            ['','球數','平均時序差','標準差'].forEach(t=>{const th=document.createElement('th');th.textContent=t;head.appendChild(th);});
+            table.appendChild(head);
+            [['命中',p.made],['未中',p.missed]].forEach(([label,g])=>{
+                const tr=document.createElement('tr');
+                [label,g.count,g.meanDt===null?'—':g.meanDt+' ms',g.sdDt===null?'—':g.sdDt+' ms'].forEach(t=>{const td=document.createElement('td');td.textContent=String(t);tr.appendChild(td);});
+                table.appendChild(tr);
+            });
+            box.appendChild(table);
+            const note=document.createElement('p');note.className='muted';
+            note.textContent='依記錄時間配對，每球對到記錄前最近的一次動作。僅供回看參考，球數少時差異可能只是偶然。';
+            box.appendChild(note);
+        }
     }
     function renderHistory() {
         const parent=$('history-list');parent.replaceChildren();
@@ -190,10 +214,10 @@
     $('demo-btn').addEventListener('click',()=>perform(()=>setActive(C.demoSession())));
     $('download-report').addEventListener('click',()=>perform(()=>{
         const session=withAnalysis(active);
-        const report={...session,summary:C.summarize(active),analysisSummary:A.summary(session.analysisRuns || []),recording:{outcomes:'manual',analysisLink:'session',shotPairing:'separate_order'}};
+        const report={...session,summary:C.summarize(active),analysisSummary:A.summary(session.analysisRuns || []),shotPairs:A.pair(active.shots,session.analysisRuns || []),pairedSummary:A.pairedSummary(A.pair(active.shots,session.analysisRuns || [])),recording:{outcomes:'manual',analysisLink:'session',shotPairing:A.PAIRING}};
         download(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.json');
     }));
-    $('download-csv').addEventListener('click',()=>perform(()=>download(new Blob([C.csv(active)],{type:'text/csv;charset=utf-8'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.csv')));
+    $('download-csv').addEventListener('click',()=>perform(()=>download(new Blob([C.csv(withAnalysis(active))],{type:'text/csv;charset=utf-8'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.csv')));
     $('print-report').addEventListener('click',()=>window.print());
     $('download-backup').addEventListener('click',()=>perform(()=>{
         const realActive=active?.isDemo?null:active;
