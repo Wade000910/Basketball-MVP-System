@@ -1,8 +1,8 @@
 {
   "name": "basketball-mvp-system",
-  "version": "0.1.0-experiment-readiness",
+  "version": "0.2.0-team",
   "private": true,
-  "description": "Research prototype checks for the c802 basketball feedback system",
+  "description": "Basketball MVP: personal and team shooting training with coach view",
   "scripts": {
     "test": "node --test tests/*.test.js && node tests/validate-html.js && node tests/validate-pages.js"
   }
