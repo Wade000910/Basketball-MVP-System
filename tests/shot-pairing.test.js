@@ -9,7 +9,7 @@ const trial=(order,sec,dt,status='accepted')=>({trialOrder:order,trialStatus:sta
 const run=(trials,condition='auditory',id='run1')=>({schemaVersion:A.SCHEMA,id,participantId:'P001',sessionId:'s1',blockId:'B01',condition,shootingSide:'right',startedAt:at(0),stoppedAt:at(300),trials});
 const shot=(id,sec,made)=>({id,made,recordedAt:at(sec)});
 
-test('each shot pairs with the latest motion trial before its tap',()=>{
+test('each shot pairs with its own motion trial',()=>{
     const pairs=A.pair([shot('a',13,true),shot('b',33,false),shot('c',53,true)],[run([trial(1,10,80),trial(2,30,120),trial(3,50,95)])]);
     assert.deepEqual(pairs.map(p=>p.trial.trialOrder),[1,2,3]);
     assert.deepEqual(pairs.map(p=>p.trial.lagMs),[3000,3000,3000]);
@@ -60,4 +60,22 @@ test('CSV keeps original columns first and appends paired motion status and timi
     assert.match(rows[2],/"unpaired",""$/);
     const blind=C.csv({...s,analysisRuns:[run([trial(1,10,80)],'baseline')]}).split('\r\n')[1];
     assert.match(blind,/"accepted",""$/);
+});
+test('fast cadence: a tap soon after the next release still pairs with its own shot',()=>{
+    // Releases every 5 s; trials stamped 1 s after release; taps 3 s after release.
+    const trials=[0,5,10,15].map((r,i)=>trial(i+1,r+1,80+i));
+    const shots=[0,5,10,15].map((r,i)=>shot('s'+i,r+3,i%2===0));
+    assert.deepEqual(A.pair(shots,[run(trials)]).map(p=>p.trial.trialOrder),[1,2,3,4]);
+});
+test('rapid taps recorded milliseconds apart still align one-to-one in order',()=>{
+    const shots=[shot('a',10,true),shot('b',10.01,true),shot('c',10.02,false)];
+    const trials=[trial(1,8,90),trial(2,8.01,110),trial(3,8.02,170)];
+    assert.deepEqual(A.pair(shots,[run(trials)]).map(p=>p.trial.dt),[90,110,170]);
+});
+test('pairing stays fast for a full 200-shot set',()=>{
+    const trials=Array.from({length:200},(_,i)=>trial(i+1,i*6+1,100));
+    const shots=Array.from({length:200},(_,i)=>shot('s'+i,i*6+3,true));
+    const start=Date.now();const pairs=A.pair(shots,[run(trials)]);
+    assert.equal(pairs.filter(p=>p.trial).length,200);
+    assert.ok(Date.now()-start<500,'alignment too slow');
 });

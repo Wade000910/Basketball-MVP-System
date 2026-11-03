@@ -15,7 +15,8 @@
         try {
             if(loadFailed) throw new Error('尚有無法讀取的舊資料');
             localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active,history}));
-            $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份。';
+            $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份或登入雲端備份。';
+            window.dispatchEvent(new CustomEvent('training:saved'));
         } catch(error) {
             $('storage-status').textContent='目前只保留在本頁記憶體，未成功儲存於瀏覽器。關閉前請下載報告；舊資料不會被覆寫。';
         }
@@ -67,7 +68,7 @@
             });
             box.appendChild(table);
             const note=document.createElement('p');note.className='muted';
-            note.textContent='依記錄時間配對，每球對到記錄前最近的一次動作。僅供回看參考，球數少時差異可能只是偶然。';
+            note.textContent='依記錄時間把每一球依序對到一次動作，同一次動作不會重複使用。僅供回看參考，球數少時差異可能只是偶然。';
             box.appendChild(note);
         }
     }
@@ -251,6 +252,25 @@
         if(!confirm('永久清除此裝置的全部訓練紀錄？請先下載需要的報告。'))return;
         localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
     }));
+    // Interface for the optional cloud layer (shared/cloud.js + training/cloud-ui.js).
+    window.TrainingApp={
+        snapshot(){
+            if(loadFailed)throw new Error('本機舊資料無法讀取，暫停同步。');
+            return {schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history};
+        },
+        withAnalysis,
+        applyRemote(sessions){
+            if(loadFailed)throw new Error('本機舊資料無法讀取，暫停同步。');
+            const clean=[];for(const s of sessions){try{clean.push(C.cleanSession(s));}catch{/* skip rows the app cannot validate */}}
+            const result=Cloud.mergeRemote({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history},clean);
+            if(!result.restored)return 0;
+            history=result.store.history;
+            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history}));
+            if(!$('dashboard-player').value)$('dashboard-player').value=history[0]?.playerCode || '';
+            render();
+            return result.restored;
+        }
+    };
     try {
         const saved=localStorage.getItem(KEY);
         if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;}

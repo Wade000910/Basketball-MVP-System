@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#11241d">
+    <title>教練總覽 · Basketball MVP</title>
+    <link rel="stylesheet" href="../training/styles.css">
+    <link rel="stylesheet" href="./styles.css">
+    <script src="../shared/cloud-config.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+    <script src="../shared/cloud.js" defer></script>
+    <script src="../training/analysis-store.js" defer></script>
+    <script src="./core.js" defer></script>
+    <script src="./app.js" defer></script>
+</head>
+<body>
+<header class="topbar"><a href="../">BASKETBALL <strong>MVP</strong></a><span class="tag">教練總覽</span></header>
+<main>
+    <section class="hero">
+        <p class="eyebrow">COACH VIEW</p>
+        <h1 id="team-title">全隊進度，一眼看清。</h1>
+        <p id="team-subtitle">球員自己練、自己記錄；加入球隊後，練習量、命中率與出手動作會出現在這裡。</p>
+    </section>
+    <p id="coach-message" role="alert" hidden></p>
+    <p id="demo-note" class="demo-note" hidden>示範模式：以下是合成的球隊資料，用來展示教練總覽，不是真實球員。</p>
+
+    <section id="coach-signin" class="card" hidden>
+        <div class="section-head"><div><p class="eyebrow">SIGN IN</p><h2>教練登入</h2></div></div>
+        <p class="muted">使用與訓練室相同的帳號。還沒有球隊？先到<a href="../training/">球員訓練室</a>登入並建立球隊。</p>
+        <form id="coach-signin-form"><div class="form-grid"><label>電子郵件<input id="coach-email" type="email" autocomplete="email" required></label><label>密碼<input id="coach-password" type="password" autocomplete="current-password" required></label></div><div class="actions"><button type="submit" class="primary">登入</button><a class="secondary" href="?demo=1">先看示範球隊</a></div></form>
+    </section>
+
+    <div id="coach-dashboard" hidden>
+        <div id="coach-actions" class="actions no-print" style="margin:0 0 18px"><label id="team-picker-label" hidden>球隊<select id="team-picker"></select></label><button id="refresh-btn" type="button" class="secondary">重新整理</button><button id="print-btn" type="button" class="secondary">列印 / 存成 PDF</button><button id="signout-btn" type="button" class="secondary">登出</button></div>
+        <div class="kpis" aria-label="本週全隊摘要">
+            <div><strong id="kpi-active">—</strong><span>近 7 天有練習的球員</span></div>
+            <div><strong id="kpi-shots">—</strong><span>近 7 天全隊出手</span></div>
+            <div><strong id="kpi-sessions">—</strong><span>近 7 天練習組數</span></div>
+            <div><strong id="kpi-ft">—</strong><span>全隊罰球命中率（4 週）</span></div>
+        </div>
+        <section class="card">
+            <div class="section-head"><div><p class="eyebrow">TEAM TREND</p><h2>每週練習量與命中率</h2></div></div>
+            <div id="team-weekly"></div>
+            <p class="muted">長條為每週全隊出手數，上方數字為該週整體命中率（所有投籃類型合計）。</p>
+        </section>
+        <section id="alert-card" class="card alert-card">
+            <div class="section-head"><div><p class="eyebrow">CHECK IN</p><h2>需要關心的球員</h2></div></div>
+            <ul id="inactive-list" class="alert-list"></ul>
+        </section>
+        <section class="card">
+            <div class="section-head"><div><p class="eyebrow">ROSTER</p><h2>球員一覽</h2></div><span id="roster-count" class="pill"></span></div>
+            <div class="roster-wrap"><table class="roster"><thead><tr><th scope="col">球員</th><th scope="col" class="num">近 7 天組數</th><th scope="col" class="num">近 7 天出手</th><th scope="col" class="num">罰球</th><th scope="col" class="num">中距離</th><th scope="col" class="num">三分</th><th scope="col">罰球趨勢</th><th scope="col">最近練習</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
+            <p class="muted">命中率為近 4 週該類型總命中／總出手。點選球員查看詳細。</p>
+        </section>
+        <section id="player-detail" class="card" hidden aria-live="polite">
+            <div class="section-head"><div><p class="eyebrow">PLAYER</p><h2 id="detail-name"></h2></div><span id="detail-pill" class="pill"></span></div>
+            <div id="detail-weekly"></div>
+            <h3>罰球出手動作</h3>
+            <p id="detail-motion-lead" class="muted"></p>
+            <div id="detail-motion" class="motion-grid"></div>
+            <p class="muted">時序差 Δt＝手肘開始伸展的時間－膝蓋伸展最快的時間，由手機相機估計。命中與未中的差異只供教學討論，不是準確度驗證。</p>
+            <div class="actions no-print"><button id="remove-player" type="button" class="secondary">將這位球員移出球隊</button></div>
+        </section>
+    </div>
+    <footer>Basketball MVP · 教練總覽<br>只顯示已加入球隊的球員；球員退出後資料即不再顯示。</footer>
+</main>
+</body>
+</html>

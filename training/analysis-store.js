@@ -17,29 +17,46 @@
     function forSession(session,runs){return merge(session.analysisRuns || [],runs.filter(r=>r.sessionId===session.id&&r.participantId===session.playerCode)).filter(r=>r.sessionId===session.id&&r.participantId===session.playerCode).slice(0,30);}
     function summary(runs){const trials=runs.flatMap(r=>r.trials.map(t=>({...t,condition:r.condition}))),accepted=trials.filter(t=>t.trialStatus==='accepted'),visible=accepted.filter(t=>t.condition!=='baseline');return {runs:runs.length,total:trials.length,accepted:accepted.length,excluded:trials.length-accepted.length,meanDt:visible.length?Math.round(visible.reduce((n,t)=>n+t.dt,0)/visible.length*10)/10:null};}
     // Pair manual make/miss records with motion trials by time.
-    // A motion trial is stamped about 1 s after release; a make/miss tap usually follows
-    // the release by a few seconds. Each shot takes the latest unused motion trial that is
-    // at most leadMs after the tap and at most lagMs before it, and pairs stay in time order,
-    // so a spurious earlier trial is skipped instead of shifting every later pair.
-    const PAIRING={id:'time-latest-before-tap-v1',leadMs:3000,lagMs:10000};
+    // A motion trial is stamped about 1 s after release; a make/miss tap usually follows the
+    // release by a few seconds, so a tap is expected roughly expectedLagMs after its trial.
+    // Pairs keep time order and each trial is used once. Among all such alignments the one
+    // with the most pairs wins, then the one whose lags sit closest to expectedLagMs, so a
+    // spurious trial or a missed detection is skipped instead of shifting later pairs.
+    const PAIRING={id:'time-ordered-alignment-v2',leadMs:3000,lagMs:10000,expectedLagMs:2000};
     function pair(shots,runs,options={}){
-        const {leadMs,lagMs}={...PAIRING,...options};
+        const {leadMs,lagMs,expectedLagMs}={...PAIRING,...options};
         const trials=runs.flatMap(r=>r.trials.map(t=>({...t,runId:r.id,condition:r.condition,time:Date.parse(t.timestamp)})))
             .filter(t=>Number.isFinite(t.time)).sort((a,b)=>a.time-b.time||a.trialOrder-b.trialOrder);
-        let floor=-1;
-        return [...shots].map((s,index)=>({...s,index,time:Date.parse(s.recordedAt)})).sort((a,b)=>a.time-b.time||a.index-b.index).map(shot=>{
-            let match=-1;
-            for(let i=trials.length-1;i>floor;i--){
-                const lag=shot.time-trials[i].time;
-                if(lag<-leadMs)continue;
-                if(lag<=lagMs)match=i;
-                break;
+        const ordered=[...shots].map((s,index)=>({...s,index,time:Date.parse(s.recordedAt)})).sort((a,b)=>a.time-b.time||a.index-b.index);
+        const n=ordered.length,m=trials.length;
+        // best[i][j]: optimal alignment of the first i shots with the first j trials.
+        const better=(a,b)=>a.pairs>b.pairs || (a.pairs===b.pairs && a.cost<b.cost);
+        const best=Array.from({length:n+1},()=>Array(m+1));
+        for(let i=0;i<=n;i++)for(let j=0;j<=m;j++){
+            let cell={pairs:0,cost:0,move:'start'};
+            if(i>0){const c=best[i-1][j];cell={pairs:c.pairs,cost:c.cost,move:'skipShot'};}
+            if(j>0){const c=best[i][j-1];if(better(c,cell) || cell.move==='start')cell={pairs:c.pairs,cost:c.cost,move:'skipTrial'};}
+            if(i>0 && j>0){
+                const lag=ordered[i-1].time-trials[j-1].time;
+                if(lag>=-leadMs && lag<=lagMs){
+                    const c=best[i-1][j-1],cand={pairs:c.pairs+1,cost:c.cost+Math.abs(lag-expectedLagMs),move:'match'};
+                    if(better(cand,cell))cell=cand;
+                }
             }
-            if(match<0)return {shotId:shot.id,made:shot.made,trial:null};
-            floor=match;
-            const t=trials[match];
-            return {shotId:shot.id,made:shot.made,trial:{runId:t.runId,trialOrder:t.trialOrder,trialStatus:t.trialStatus,condition:t.condition,dt:t.dt,lagMs:shot.time-t.time}};
-        }).sort((a,b)=>shots.findIndex(s=>s.id===a.shotId)-shots.findIndex(s=>s.id===b.shotId));
+            best[i][j]=cell;
+        }
+        const matched=new Map();
+        for(let i=n,j=m;i>0 || j>0;){
+            const move=best[i][j].move;
+            if(move==='match'){matched.set(ordered[i-1].id,trials[j-1]);i--;j--;}
+            else if(move==='skipShot')i--;
+            else j--;
+        }
+        return shots.map(shot=>{
+            const t=matched.get(shot.id);
+            if(!t)return {shotId:shot.id,made:shot.made,trial:null};
+            return {shotId:shot.id,made:shot.made,trial:{runId:t.runId,trialOrder:t.trialOrder,trialStatus:t.trialStatus,condition:t.condition,dt:t.dt,lagMs:Date.parse(shot.recordedAt)-t.time}};
+        });
     }
     function group(values){
         if(!values.length)return {count:0,meanDt:null,sdDt:null};
