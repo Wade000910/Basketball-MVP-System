@@ -37,7 +37,7 @@ module.exports=async function({run,send,evaluate,ready,sleep,screenshot,url,outp
     const reportFile=path.join(output,'training-WORKFLOW.json');
     for(let n=0;n<100;n++){if(fs.existsSync(reportFile)&&fs.readdirSync(output).some(f=>/^basketball-backup-.*\.json$/.test(f)))break;await sleep(100);}
     const report=JSON.parse(fs.readFileSync(reportFile,'utf8'));
-    assert.equal(report.analysisRuns[0].trials.length,2);assert.equal(report.analysisSummary.meanDt,0);assert.equal(report.recording.shotPairing,'separate_order');
+    assert.equal(report.analysisRuns[0].trials.length,2);assert.equal(report.analysisSummary.meanDt,0);assert.equal(report.recording.shotPairing.id,'time-latest-before-tap-v1');assert.equal(report.shotPairs.length,report.shots.length);
     const backupFile=fs.readdirSync(output).find(f=>/^basketball-backup-.*\.json$/.test(f));
     const backup=JSON.parse(fs.readFileSync(path.join(output,backupFile),'utf8'));
     assert.equal(backup.store.active.id,id);assert.equal(backup.store.active.analysisRuns.length,1);
