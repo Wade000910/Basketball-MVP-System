@@ -8,7 +8,11 @@
     <link rel="stylesheet" href="./styles.css">
     <script src="./analysis-store.js" defer></script>
     <script src="./core.js" defer></script>
+    <script src="../shared/cloud-config.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+    <script src="../shared/cloud.js" defer></script>
     <script src="./app.js" defer></script>
+    <script src="./cloud-ui.js" defer></script>
 </head>
 <body>
 <header class="topbar"><a href="../">BASKETBALL <strong>MVP</strong></a><span class="tag">球員訓練</span></header>
@@ -53,14 +57,30 @@
         <progress id="shot-progress" value="0" max="10" aria-label="本組目標進度"></progress><p id="progress-label" class="muted"></p>
         <div id="record-controls"><p class="muted">每次投籃後，由你或教練手動記錄。</p><div class="courtside-controls"><p id="record-feedback" class="record-feedback" role="status" aria-live="polite" aria-atomic="true"></p><div class="shot-buttons"><button id="made-btn" class="made" type="button">＋ 命中</button><button id="missed-btn" class="missed" type="button">＋ 未中</button></div><button id="undo-btn" type="button" class="secondary">撤回最後一球</button></div><div class="actions"><button id="finish-btn" type="button" class="primary">結束並看報告</button></div></div>
         <section id="report-panel" hidden><h3>這組的訓練摘要</h3><p id="report-summary"></p><p id="comparison" class="focus"></p><p class="muted">命中率依逐球紀錄計算。回看不同組時，可搭配場地、距離與練習重點比較。</p><div class="actions"><button id="download-report" type="button" class="primary">下載訓練報告 JSON</button><button id="download-csv" type="button" class="secondary">下載逐球 CSV</button><button id="print-report" type="button" class="secondary">列印 / 存成 PDF</button></div></section>
-        <section id="analysis-report" class="focus" aria-label="本組動作摘要"><h3>本組動作摘要</h3><p id="analysis-summary"></p><ol id="analysis-runs"></ol><p class="muted">保留本組最近 30 次分析摘要。動作試次與人工投籃分別編號；可回看同組結果。</p></section>
+        <section id="analysis-report" class="focus" aria-label="本組動作摘要"><h3>本組動作摘要</h3><p id="analysis-summary"></p><div id="analysis-paired" hidden></div><ol id="analysis-runs"></ol><p class="muted">保留本組最近 30 次分析摘要。每一球依記錄時間對到最近的動作試次；用兩支手機時請確認時間設為自動。</p></section>
         <details class="shot-list" open><summary>逐球紀錄 · 可修正或刪除</summary><p class="muted">人工修正會同步更新本組統計與報告。</p><ol id="shot-list"></ol></details>
         <button id="discard-btn" type="button" class="secondary" hidden>放棄本組練習</button>
         <div class="actions"><button id="repeat-btn" type="button" class="primary" hidden>同設定再練一組</button><button id="new-btn" type="button" class="secondary" hidden>更換訓練設定</button></div>
     </section>
-    <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組，沒有雲端同步。</p><div id="history-list"></div></section>
+    <section class="card" id="cloud-panel" aria-labelledby="cloud-title">
+        <div class="section-head"><div><p class="eyebrow">TEAM &amp; BACKUP</p><h2 id="cloud-title">雲端備份與球隊</h2></div><span id="cloud-pill" class="pill">未登入</span></div>
+        <p id="cloud-status" class="muted" role="status" aria-live="polite">不登入也能照常練習，紀錄只存在這台裝置。登入後可雲端備份、換手機還原，並加入球隊讓教練看到你的進度。</p>
+        <form id="cloud-signin" hidden>
+            <div class="form-grid"><label>電子郵件<input id="cloud-email" type="email" autocomplete="email" required></label><label>密碼<input id="cloud-password" type="password" minlength="6" autocomplete="current-password" required><small>至少 6 個字元。</small></label></div>
+            <div class="actions"><button id="cloud-signin-btn" type="submit" class="primary">登入</button><button id="cloud-signup-btn" type="button" class="secondary">註冊新帳號</button></div>
+        </form>
+        <div id="cloud-account" hidden>
+            <form id="cloud-profile" class="inline-form"><label>球隊中顯示的名字<input id="cloud-name" maxlength="40" required placeholder="例如：煒峻、#23"><small>教練和隊友會看到這個名字；可以用暱稱或背號。</small></label><button type="submit" class="secondary">儲存名字</button></form>
+            <div class="actions"><button id="cloud-sync-btn" type="button" class="primary">立即同步</button><button id="cloud-signout-btn" type="button" class="secondary">登出</button></div>
+            <h3>我的球隊</h3>
+            <ul id="cloud-teams" class="team-list"></ul>
+            <form id="cloud-join" class="inline-form"><label>加入球隊<input id="cloud-join-code" maxlength="8" autocomplete="off" placeholder="輸入 8 碼邀請碼" required><small>加入後，該隊教練可以看到你的練習紀錄；退出後就看不到。</small></label><button type="submit" class="secondary">加入</button></form>
+            <details><summary>我是教練：建立球隊</summary><form id="cloud-create" class="inline-form"><label>球隊名稱<input id="cloud-team-name" maxlength="60" required placeholder="例如：大同資工系隊"></label><button type="submit" class="secondary">建立並取得邀請碼</button></form></details>
+        </div>
+    </section>
+    <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組；登入後完整紀錄保存在雲端。</p><div id="history-list"></div></section>
     <section class="card" id="backup-panel"><h2>備份與匯入</h2><p class="muted">下載全部訓練備份，換裝置時選取 JSON 即可匯入。也支援單組 JSON 訓練報告；重複代碼保留目前裝置的版本。</p><button id="download-backup" type="button" class="secondary">下載全部訓練備份</button><label>匯入備份或訓練報告<input id="import-backup" type="file" accept=".json,application/json"></label><p id="import-status" role="status"></p></section>
-    <aside class="analysis-link"><div><h2>罰球動作分析</h2><p>開啟相機查看罰球動作時序，選擇聲音或視覺回饋。命中結果請在訓練室手動記錄，動作資料於分析頁另行下載。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟動作分析 ↗</a></aside>
+    <aside class="analysis-link"><div><h2>罰球動作分析</h2><p>開啟相機查看罰球動作時序，選擇聲音或視覺回饋。命中結果在訓練室記錄，報告會把每一球對到對應的動作。</p></div><a href="../專題程式/" target="_blank" rel="noopener">開啟動作分析 ↗</a></aside>
     <footer>Basketball MVP · 每一球都有累積<br>記錄練習、回看進度、帶走自己的訓練報告。</footer>
 </main>
 </body>

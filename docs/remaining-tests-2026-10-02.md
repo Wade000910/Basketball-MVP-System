@@ -106,5 +106,5 @@
 - [Phase 1A 錄影與資料](./phase1a-local-capture.md)
 - [8 月 17 日歷史工程紀錄](./test-log-2026-08-17.md)
 - [投籃候選修正與驗證](./shot-detection-validation-2026-08-19.md)
-- [完整實驗路線](../ROADMAP.md)
+- [完整實驗路線](./research-roadmap.md)
 - [報告前與報告後安排](./october-2026-presentation-plan.md)

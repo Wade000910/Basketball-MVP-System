@@ -15,7 +15,8 @@
         try {
             if(loadFailed) throw new Error('尚有無法讀取的舊資料');
             localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active,history}));
-            $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份。';
+            $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份或登入雲端備份。';
+            window.dispatchEvent(new CustomEvent('training:saved'));
         } catch(error) {
             $('storage-status').textContent='目前只保留在本頁記憶體，未成功儲存於瀏覽器。關閉前請下載報告；舊資料不會被覆寫。';
         }
@@ -37,6 +38,7 @@
         if($('analysis-report').hidden)return;
         try {
             const session=withAnalysis(active),stats=A.summary(session.analysisRuns);
+            renderPairing(session);
             $('analysis-summary').textContent=stats.runs?'共 '+stats.runs+' 次分析、'+stats.total+' 個動作試次，其中 '+stats.accepted+' 次可用、'+stats.excluded+' 次未納入統計。'+(stats.meanDt===null?'':'平均時序差 '+stats.meanDt+' ms。'):'本組還沒有動作紀錄。可按「開啟罰球動作分析」，停止分析後會自動帶回摘要。';
             session.analysisRuns.forEach(run=>{
                 const item=document.createElement('li'),details=document.createElement('details'),title=document.createElement('summary'),list=document.createElement('ol');
@@ -46,6 +48,29 @@
                 details.append(title,list);item.appendChild(details);$('analysis-runs').appendChild(item);
             });
         }catch(error){$('analysis-summary').textContent='無法讀取動作摘要：'+error.message+' 請先下載動作頁的資料備份。';}
+    }
+    function renderPairing(session) {
+        const box=$('analysis-paired');box.replaceChildren();
+        if(!session.analysisRuns.length || !session.shots.length){box.hidden=true;return;}
+        const pairs=A.pair(session.shots,session.analysisRuns),p=A.pairedSummary(pairs);
+        box.hidden=false;
+        const lead=document.createElement('p');
+        lead.textContent='命中與動作配對：'+p.shots+' 球中 '+p.paired+' 球找到對應動作，'+p.usable+' 球有可用時序。';
+        box.appendChild(lead);
+        if(p.usable){
+            const table=document.createElement('table'),head=document.createElement('tr');
+            ['','球數','平均時序差','標準差'].forEach(t=>{const th=document.createElement('th');th.textContent=t;head.appendChild(th);});
+            table.appendChild(head);
+            [['命中',p.made],['未中',p.missed]].forEach(([label,g])=>{
+                const tr=document.createElement('tr');
+                [label,g.count,g.meanDt===null?'—':g.meanDt+' ms',g.sdDt===null?'—':g.sdDt+' ms'].forEach(t=>{const td=document.createElement('td');td.textContent=String(t);tr.appendChild(td);});
+                table.appendChild(tr);
+            });
+            box.appendChild(table);
+            const note=document.createElement('p');note.className='muted';
+            note.textContent='依記錄時間把每一球依序對到一次動作，同一次動作不會重複使用。僅供回看參考，球數少時差異可能只是偶然。';
+            box.appendChild(note);
+        }
     }
     function renderHistory() {
         const parent=$('history-list');parent.replaceChildren();
@@ -190,10 +215,10 @@
     $('demo-btn').addEventListener('click',()=>perform(()=>setActive(C.demoSession())));
     $('download-report').addEventListener('click',()=>perform(()=>{
         const session=withAnalysis(active);
-        const report={...session,summary:C.summarize(active),analysisSummary:A.summary(session.analysisRuns || []),recording:{outcomes:'manual',analysisLink:'session',shotPairing:'separate_order'}};
+        const report={...session,summary:C.summarize(active),analysisSummary:A.summary(session.analysisRuns || []),shotPairs:A.pair(active.shots,session.analysisRuns || []),pairedSummary:A.pairedSummary(A.pair(active.shots,session.analysisRuns || [])),recording:{outcomes:'manual',analysisLink:'session',shotPairing:A.PAIRING}};
         download(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.json');
     }));
-    $('download-csv').addEventListener('click',()=>perform(()=>download(new Blob([C.csv(active)],{type:'text/csv;charset=utf-8'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.csv')));
+    $('download-csv').addEventListener('click',()=>perform(()=>download(new Blob([C.csv(withAnalysis(active))],{type:'text/csv;charset=utf-8'}),(active.isDemo?'DEMO-':'')+'training-'+active.playerCode+'.csv')));
     $('print-report').addEventListener('click',()=>window.print());
     $('download-backup').addEventListener('click',()=>perform(()=>{
         const realActive=active?.isDemo?null:active;
@@ -227,6 +252,25 @@
         if(!confirm('永久清除此裝置的全部訓練紀錄？請先下載需要的報告。'))return;
         localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
     }));
+    // Interface for the optional cloud layer (shared/cloud.js + training/cloud-ui.js).
+    window.TrainingApp={
+        snapshot(){
+            if(loadFailed)throw new Error('本機舊資料無法讀取，暫停同步。');
+            return {schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history};
+        },
+        withAnalysis,
+        applyRemote(sessions){
+            if(loadFailed)throw new Error('本機舊資料無法讀取，暫停同步。');
+            const clean=[];for(const s of sessions){try{clean.push(C.cleanSession(s));}catch{/* skip rows the app cannot validate */}}
+            const result=Cloud.mergeRemote({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history},clean);
+            if(!result.restored)return 0;
+            history=result.store.history;
+            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history}));
+            if(!$('dashboard-player').value)$('dashboard-player').value=history[0]?.playerCode || '';
+            render();
+            return result.restored;
+        }
+    };
     try {
         const saved=localStorage.getItem(KEY);
         if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;}

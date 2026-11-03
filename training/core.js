@@ -72,8 +72,11 @@
         validateSession(session);
         const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';
         // Codes/IDs are generated or constrained; free-text notes are only in JSON.
-        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt','position'];
-        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt,positionOf(session)].map(quote).join(','))].join('\r\n');
+        // Motion columns are appended so existing column positions stay unchanged.
+        const columns=['sessionId','playerCode','drill','inputSource','isDemo','shotOrder','made','recordedAt','position','motionStatus','motionDtMs'];
+        const pairs=new Map(Analysis.pair(session.shots,session.analysisRuns || []).map(p=>[p.shotId,p.trial]));
+        const motion=t=>!t?['unpaired','']:t.condition==='baseline'?[t.trialStatus,'']:[t.trialStatus,t.trialStatus==='accepted'?t.dt:''];
+        return '\uFEFF'+[columns.join(','),...session.shots.map((s,i)=>[session.id,session.playerCode,session.drill,session.inputSource,session.isDemo,i+1,s.made,s.recordedAt,positionOf(session),...motion(pairs.get(s.id))].map(quote).join(','))].join('\r\n');
     }
     function parseStore(text) {
         const data=JSON.parse(text);

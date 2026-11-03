@@ -74,6 +74,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     console.log('Player workflow checks passed: '+workflowChecks.join(', '));
     const courtsideChecks=await require('./courtside-browser-checks.cjs')({run,send,evaluate,sleep,screenshot,output});
     console.log('Courtside checks passed: '+courtsideChecks.join(', '));
+    const cloudChecks=await require('./cloud-browser-checks.cjs')({run,send,evaluate,ready,sleep,screenshot,url});
+    console.log('Cloud checks passed: '+cloudChecks.join(', '));
     // Verify storage denial is explicit and the session still supports export.
     await run(`Storage.prototype.setItem=()=>{throw new Error('QuotaExceededError');};$('player-code').value='P003';$('setup-form').requestSubmit();check($('storage-status').textContent.includes('未成功儲存'),'Storage failure hidden');$('made-btn').click();window.confirm=()=>true;$('finish-btn').click();check($('total-value').textContent==='1','Denied storage blocked session');`);
     assert.deepEqual(exceptions,[]);
