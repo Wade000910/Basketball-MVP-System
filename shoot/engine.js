@@ -19,76 +19,105 @@
     'use strict';
     const {MotionCore,ExperimentCore}=deps;
     const ALGORITHM_VERSION='player-peak-v1';
-    const CONFIG={filterHz:10,startKneeDeg:155,startKneeVel:-40,startTorsoVis:0.7,minTorsoVis:0.6,
-        endElbowDeg:155,endElbowVel:40,maxRecordMs:1700,cooldownMs:3000,fallbackFps:30};
     const R={shoulder:12,elbow:14,wrist:16,hip:24,knee:26,ankle:28},L={shoulder:11,elbow:13,wrist:15,hip:23,knee:25,ankle:27};
 
-    // frame: {t: ms on the camera clock, landmarks: MediaPipe pose landmarks or null}.
-    // push() returns null or {type:'trial', trial} when a shot attempt ends.
-    function createDetector({side='right',timestampSource='camera-frame',config={}}={}){
-        const c={...CONFIG,...config},idx=side==='left'?L:R;
-        const knF=new MotionCore.ButterworthFilter(c.filterHz,c.fallbackFps),ebF=new MotionCore.ButterworthFilter(c.filterHz,c.fallbackFps);
-        let state='IDLE',hint='請下蹲準備投籃',lastT=null,prevKn=null,prevEb=null,windowStart=null,windowFrames=0,fps=null,cooldownUntil=0;
-        let shot=null;
-        const status=(s,h)=>{state=s;hint=h;};
-        function finish(trial){
-            shot=null;status('COOLDOWN','準備下一球');cooldownUntil=trial.endT+c.cooldownMs;
-            return {type:'trial',trial:{...trial,timestampSource,algorithmVersion:ALGORITHM_VERSION}};
+    // A line-by-line port of onResults() in 專題程式/index.html (timing-validity-v3):
+    // same thresholds, same filter start values and per-second rate update, same states
+    // (IDLE -> RECORDING -> PROCESSING -> DELAY -> FEEDBACK -> 2 s cooldown -> IDLE), and
+    // the filters keep running in every state, as on the research page. tests/
+    // shoot-equivalence.test.js runs both on the same frames and requires equal results.
+    // Differences, all outside the timing logic:
+    //  - frames are timed by the camera clock when available; a repeated or older camera
+    //    timestamp is dropped (the research page's clock never repeats);
+    //  - the 2 s cooldown runs on frame time instead of a wall-clock setTimeout;
+    //  - the result also carries the peak interval, elbow peak minus knee peak.
+    // frame: {t: ms, landmarks: MediaPipe pose landmarks or null}.
+    // push() returns null, or {type:'trial', trial} at the frame where the research page
+    // gives feedback (about 1 s after release), or at once for an interrupted attempt.
+    function createDetector({side='right',timestampSource='camera-frame'}={}){
+        const idx=side==='left'?L:R;
+        const knFilter=new MotionCore.ButterworthFilter(10,30),ebFilter=new MotionCore.ButterworthFilter(10,30);
+        let state='IDLE',hint='請下蹲準備投籃',lastT=0,started=false,lastFpsT=null,frames=0,fps=null;
+        let prevKn=180,prevEb=180,recEndT=0,cooldownUntil=null,pending=null;
+        let shotData=[],shotVisibility=[],shotFrameIntervals=[],lastShotFrameT=null,armRaisedConfirmed=false;
+        const out=trial=>({type:'trial',trial:{...trial,timestampSource,algorithmVersion:ALGORITHM_VERSION}});
+        function resetProvisionalShot(text){state='IDLE';shotData=[];shotVisibility=[];shotFrameIntervals=[];lastShotFrameT=null;armRaisedConfirmed=false;hint=text;}
+        function aborted(reasonCode,t){
+            return armRaisedConfirmed?out({status:'aborted',reasonCode,dt:null,dtPeak:null,events:null,measuredFps:null,meanVisibility:null,sourceFrameCount:shotData.length,endT:t}):null;
         }
-        function abort(t,reason){
-            const armed=shot&&shot.armed;
-            shot=null;
-            if(armed)return finish({status:'aborted',reasonCode:reason,dt:null,dtPeak:null,events:null,measuredFps:null,meanVisibility:null,sourceFrameCount:0,endT:t});
-            status('IDLE','請下蹲準備投籃');return null;
-        }
-        function evaluate(t){
-            const data=shot.data,result=MotionCore.detectTiming(data);
-            const meanInterval=shot.intervals.length?shot.intervals.reduce((a,b)=>a+b,0)/shot.intervals.length:null;
-            const measuredFps=meanInterval?Math.round(1000/meanInterval*10)/10:null;
-            const meanVisibility=shot.vis.length?Math.round(shot.vis.reduce((a,b)=>a+b,0)/shot.vis.length*1000)/1000:null;
-            const base={measuredFps,meanVisibility,sourceFrameCount:data.length,endT:t};
-            if(result.reason)return finish({...base,status:'invalid',reasonCode:result.reason,dt:null,dtPeak:null,events:null});
-            const flags=ExperimentCore.qualityFlags(measuredFps,meanVisibility),ok=flags==='OK';
-            const e=result.events;
-            return finish({...base,status:ok?'accepted':'low_quality',reasonCode:ok?'':flags,dt:result.dt,dtPeak:e.elbowPeakPerfMs-e.kneePeakPerfMs,events:e});
+        function processData(){
+            const result=MotionCore.detectTiming(shotData);
+            const meanFrameInterval=shotFrameIntervals.length?shotFrameIntervals.reduce((a,b)=>a+b,0)/shotFrameIntervals.length:null;
+            const measuredFps=meanFrameInterval?1000/meanFrameInterval:null;
+            const meanVisibility=shotVisibility.length?shotVisibility.reduce((a,b)=>a+b,0)/shotVisibility.length:null;
+            const base={measuredFps,meanVisibility,sourceFrameCount:shotData.length,endT:recEndT};
+            if(result.reason)return {...base,measuredFps:null,meanVisibility:null,status:'invalid',reasonCode:result.reason,dt:null,dtPeak:null,events:null}; // research page stores no rate for invalid trials
+            const flags=ExperimentCore.qualityFlags(measuredFps,meanVisibility),qualityOk=flags==='OK',e=result.events;
+            return {...base,status:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:result.dt,dtPeak:e.elbowPeakPerfMs-e.kneePeakPerfMs,events:e};
         }
         function push({t,landmarks}){
-            if(!Number.isFinite(t)||(lastT!==null&&t<=lastT))return null; // repeated or out-of-order frame
-            if(windowStart===null)windowStart=t;
-            windowFrames++;
-            if(t-windowStart>=1000){fps=windowFrames*1000/(t-windowStart);knF.update(c.filterHz,fps);ebF.update(c.filterHz,fps);windowStart=t;windowFrames=0;}
-            const dtSec=lastT===null?null:(t-lastT)/1000;
-            lastT=t;
-            if(state==='COOLDOWN'){if(t<cooldownUntil)return null;status('IDLE','請下蹲準備投籃');}
-            if(!Array.isArray(landmarks)||landmarks.length<29){hint='找不到身體';return state==='RECORDING'?abort(t,'POSE_LANDMARKS_MISSING'):null;}
-            const torso=(landmarks[11].visibility+landmarks[12].visibility+landmarks[23].visibility+landmarks[24].visibility)/4;
-            if(!(torso>=c.minTorsoVis)){hint='身體辨識度不足';return state==='RECORDING'?abort(t,'TORSO_VISIBILITY_LOW'):null;}
-            const sideVis=[idx.shoulder,idx.elbow,idx.wrist,idx.hip,idx.knee,idx.ankle].reduce((n,i)=>n+(landmarks[i].visibility||0),0)/6;
-            const rawEb=MotionCore.calculateAngle(landmarks[idx.shoulder],landmarks[idx.elbow],landmarks[idx.wrist]);
-            const rawKn=MotionCore.calculateAngle(landmarks[idx.hip],landmarks[idx.knee],landmarks[idx.ankle]);
+            if(!Number.isFinite(t)||(started&&t<=lastT))return null;
+            started=true;
+            if(lastFpsT===null)lastFpsT=t;
+            frames++;
+            if(t-lastFpsT>=1000){fps=frames;knFilter.update(10,frames>0?frames:30);ebFilter.update(10,frames>0?frames:30);frames=0;lastFpsT=t;}
+            if(state==='COOLDOWN'&&t>=cooldownUntil){state='IDLE';hint='請下蹲準備投籃';}
+            const l=landmarks;
+            if(!Array.isArray(l)||l.length<29){
+                let ev=null;
+                if(state==='RECORDING'){ev=aborted('POSE_LANDMARKS_MISSING',t);resetProvisionalShot('找不到身體，請重新進入畫面');}
+                lastT=t;return ev;
+            }
+            const torsoVis=(l[11].visibility+l[12].visibility+l[23].visibility+l[24].visibility)/4;
+            if(torsoVis<0.6){
+                let ev=null;
+                if(state==='RECORDING'){ev=aborted('TORSO_VISIBILITY_LOW',t);resetProvisionalShot('身體辨識度不足');}
+                lastT=t;return ev;
+            }
+            const ebIdx=[idx.shoulder,idx.elbow,idx.wrist],knIdx=[idx.hip,idx.knee,idx.ankle];
+            const sideVis=[...ebIdx,...knIdx].reduce((sum,i)=>sum+(l[i].visibility||0),0)/6;
+            const rawEb=MotionCore.calculateAngle(l[ebIdx[0]],l[ebIdx[1]],l[ebIdx[2]]);
+            const rawKn=MotionCore.calculateAngle(l[knIdx[0]],l[knIdx[1]],l[knIdx[2]]);
             if(!Number.isFinite(rawEb)||!Number.isFinite(rawKn)){
-                if(state!=='RECORDING')return null;
-                if(shot.armed){shot.data.push({t,kn:rawKn,eb:rawEb});return evaluate(t);}
-                return abort(t,'NONFINITE_ANGLE');
+                if(state==='RECORDING'){
+                    shotData.push({t,kn:rawKn,eb:rawEb});
+                    if(armRaisedConfirmed){state='PROCESSING';recEndT=t;}
+                    else resetProvisionalShot('無法辨識動作，請重新投籃');
+                    lastT=t;return null;
+                }
+                if(state==='IDLE'){lastT=t;return null;}
             }
-            const sKn=knF.filter(rawKn),sEb=ebF.filter(rawEb);
-            const knV=dtSec&&prevKn!==null?(sKn-prevKn)/dtSec:0,ebV=dtSec&&prevEb!==null?(sEb-prevEb)/dtSec:0;
-            prevKn=sKn;prevEb=sEb;
-            if(state==='IDLE'){
-                if(sKn<c.startKneeDeg&&knV<c.startKneeVel&&torso>c.startTorsoVis){
-                    shot={data:[],vis:[],intervals:[],armed:false,lastFrameT:null};status('RECORDING','動作擷取中');
-                }else{hint='請下蹲準備投籃';return null;}
+            const sEb=Number.isFinite(rawEb)?ebFilter.filter(rawEb):prevEb;
+            const sKn=Number.isFinite(rawKn)?knFilter.filter(rawKn):prevKn;
+            const dtSec=(t-lastT)/1000,knV=(sKn-prevKn)/dtSec;
+            let ev=null;
+            switch(state){
+                case 'IDLE':
+                    hint='請下蹲準備投籃';
+                    if(sKn<155&&knV<-40&&torsoVis>0.7){state='RECORDING';hint='動作擷取中';shotData=[];shotVisibility=[];shotFrameIntervals=[];lastShotFrameT=null;armRaisedConfirmed=false;}
+                    break;
+                case 'RECORDING':
+                    shotData.push({t,kn:sKn,eb:sEb});shotVisibility.push(sideVis);
+                    if(lastShotFrameT!==null)shotFrameIntervals.push(t-lastShotFrameT);
+                    lastShotFrameT=t;
+                    if(ExperimentCore.hasRaisedArm(l))armRaisedConfirmed=true;
+                    if((sEb>155&&(sEb-prevEb)/dtSec<40)||(t-shotData[0].t>1700)){
+                        if(armRaisedConfirmed){state='PROCESSING';recEndT=t;}
+                        else resetProvisionalShot('未確認出手，請再投一次');
+                    }
+                    break;
+                case 'PROCESSING':
+                    hint='計算中';pending=processData();state='DELAY';
+                    break;
+                case 'DELAY':
+                    if(t-recEndT>1000)state='FEEDBACK';
+                    break;
+                case 'FEEDBACK':
+                    ev=out(pending);pending=null;armRaisedConfirmed=false;state='COOLDOWN';hint='準備下一球';cooldownUntil=t+2000;
+                    break;
             }
-            // RECORDING
-            shot.data.push({t,kn:sKn,eb:sEb});shot.vis.push(sideVis);
-            if(shot.lastFrameT!==null)shot.intervals.push(t-shot.lastFrameT);
-            shot.lastFrameT=t;
-            if(ExperimentCore.hasRaisedArm(landmarks))shot.armed=true;
-            if((sEb>c.endElbowDeg&&ebV<c.endElbowVel)||t-shot.data[0].t>c.maxRecordMs){
-                if(shot.armed)return evaluate(t);
-                shot=null;status('IDLE','未確認出手，請再投一次');
-            }
-            return null;
+            prevEb=sEb;prevKn=sKn;lastT=t;
+            return ev;
         }
         return {push,get state(){return state;},get hint(){return hint;},get fps(){return fps;}};
     }
@@ -145,5 +174,5 @@
             madeMeanPeak:mean(peaks.filter(r=>r.made).map(r=>r.dtPeak)),missedMeanPeak:mean(peaks.filter(r=>!r.made).map(r=>r.dtPeak)),
             unmatchedTrials:trials.filter(t=>!t.shotId&&t.trialStatus!=='aborted').length};
     }
-    return {ALGORITHM_VERSION,CONFIG,REFERENCE,RESULTS,createDetector,personalReference,judge,createResultLog,setSummary};
+    return {ALGORITHM_VERSION,REFERENCE,RESULTS,createDetector,personalReference,judge,createResultLog,setSummary};
 });

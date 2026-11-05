@@ -164,7 +164,7 @@
         for(const [a,b] of BONES(practice.run.shootingSide)){const p=landmarks[a],q=landmarks[b];if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*c.width,p.y*c.height);ctx.lineTo(q.x*c.width,q.y*c.height);ctx.stroke();}
         for(const i of new Set(BONES(practice.run.shootingSide).flat())){const p=landmarks[i];if(!p)continue;ctx.beginPath();ctx.arc(p.x*c.width,p.y*c.height,ctx.lineWidth*1.4,0,7);ctx.fill();}
     }
-    const STATES={IDLE:'準備投籃',RECORDING:'擷取動作',COOLDOWN:'下一球準備'};
+    const STATES={IDLE:'準備投籃',RECORDING:'擷取動作',PROCESSING:'計算中',DELAY:'計算中',FEEDBACK:'計算中',COOLDOWN:'下一球準備'};
     function onResults(res){
         if(!running||!detector)return;
         draw(res.poseLandmarks);
@@ -182,8 +182,8 @@
             practice=r.practice;log.trial({...trial,trialOrder:r.trialOrder},Date.now());save();
         }catch(error){message(error.message,'practice-message');return;}
         if(trial.status==='aborted'){$('last-note').textContent='這球中斷了：'+reason(trial.reasonCode);return;}
-        // Same 1 s delay as the research design, so feedback never overlaps the release.
-        setTimeout(()=>feedback(trial),1000);
+        // The detector already waits about 1 s after release, as on the research page.
+        feedback(trial);
     }
     function feedback(trial){
         const dt=$('last-dt');dt.className='';dt.dataset.count=String(Number(dt.dataset.count||0)+1);

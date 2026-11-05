@@ -19,17 +19,20 @@ const ramp=(t,t0,t1,a,b)=>t<=t0?a:t>=t1?b:a+(b-a)*(1-Math.cos(Math.PI*(t-t0)/(t1
 // Knee: 170 -> dip to 120 -> extend to 175 (fastest at 850 ms). Elbow: 70 -> 178 (fastest at 975 ms).
 const knee=t=>t<700?ramp(t,300,700,170,120):ramp(t,700,1000,120,175);
 const elbow=t=>ramp(t,850,1100,70,178);
-function shoot(detector,start,{fps=30,until=1600,armUp=true}={}){
+// Feeds a continuous timeline: idle standing, then shots starting at the given times.
+function timeline(detector,{shots=[],end,fps=30,armUp=true,drop=()=>false}){
     const events=[];
-    for(let t=0;t<=until;t+=1000/fps){const r=detector.push({t:start+t,landmarks:landmarks(knee(t),elbow(t),{armUp})});if(r)events.push(r);}
+    for(let t=0;t<=end;t+=1000/fps){
+        const s=shots.find(s=>t>=s&&t<s+1600),local=s===undefined?0:t-s;
+        const lm=drop(t)?null:landmarks(s===undefined?170:knee(local),s===undefined?70:elbow(local),{armUp});
+        const r=detector.push({t,landmarks:lm});if(r)events.push({...r,at:t});
+    }
     return events;
 }
-function idle(detector,from,ms,fps=30){for(let t=0;t<ms;t+=1000/fps)detector.push({t:from+t,landmarks:landmarks(170,70)});}
 
 test('a synthetic free throw yields one accepted trial with both timing definitions',()=>{
     const d=E.createDetector();
-    idle(d,0,2000);
-    const out=shoot(d,2000);
+    const out=timeline(d,{shots:[2000],end:5000});
     assert.equal(out.length,1);
     const t=out[0].trial;
     assert.equal(t.status,'accepted');
@@ -38,11 +41,12 @@ test('a synthetic free throw yields one accepted trial with both timing definiti
     assert.ok(t.dtPeak>95 && t.dtPeak<155,'peak interval near the true 125 ms, got '+t.dtPeak);
     assert.equal(t.dtPeak,t.events.elbowPeakPerfMs-t.events.kneePeakPerfMs);
     assert.ok(Math.abs(t.measuredFps-30)<1);
-    assert.equal(d.state,'COOLDOWN');
+    // Feedback comes about 1 s after the recording ends, as on the research page.
+    assert.ok(out[0].at-t.endT>1000 && out[0].at-t.endT<1100);
 });
 test('standing still never starts a trial',()=>{
     const d=E.createDetector();
-    idle(d,0,5000);
+    assert.equal(timeline(d,{end:5000}).length,0);
     assert.equal(d.state,'IDLE');
 });
 test('repeated or out-of-order camera frames are ignored',()=>{
@@ -51,33 +55,28 @@ test('repeated or out-of-order camera frames are ignored',()=>{
     assert.equal(d.push({t:100,landmarks:landmarks(120,70)}),null);
     assert.equal(d.push({t:50,landmarks:landmarks(120,70)}),null);
 });
-test('a second shot during cooldown is not captured; after cooldown it is',()=>{
+test('a shot inside the 2 s cooldown is not captured; the next one is',()=>{
+    // Shot 1 at 2000 ends ~3100, feedback ~4100, cooldown to ~6100.
     const d=E.createDetector();
-    idle(d,0,2000);
-    assert.equal(shoot(d,2000).length,1);
-    assert.equal(shoot(d,3700).length,0,'still cooling down');
-    idle(d,5400,1500);
-    assert.equal(shoot(d,7000).length,1);
+    const out=timeline(d,{shots:[2000,4600,8000],end:12000});
+    assert.equal(out.length,2);
+    assert.ok(out[1].trial.endT>8000);
 });
-test('losing the body after the arm is raised records an aborted trial',()=>{
+test('losing the body after the arm is raised records an aborted trial at once',()=>{
     const d=E.createDetector();
-    idle(d,0,2000);
-    let out=null;
-    for(let t=0;t<=900;t+=1000/30){const r=d.push({t:2000+t,landmarks:landmarks(knee(t),elbow(t))});if(r)out=r;}
-    out=d.push({t:2950,landmarks:null});
-    assert.equal(out.trial.status,'aborted');
-    assert.equal(out.trial.reasonCode,'POSE_LANDMARKS_MISSING');
+    const out=timeline(d,{shots:[2000],end:5000,drop:t=>t>2950&&t<3300});
+    assert.equal(out[0].trial.status,'aborted');
+    assert.equal(out[0].trial.reasonCode,'POSE_LANDMARKS_MISSING');
+    assert.ok(out[0].at<3000);
 });
 test('a squat without raising the arm is discarded, not recorded',()=>{
     const d=E.createDetector();
-    idle(d,0,2000);
-    assert.equal(shoot(d,2000,{armUp:false}).length,0);
+    assert.equal(timeline(d,{shots:[2000],end:5000,armUp:false}).length,0);
     assert.equal(d.state,'IDLE');
 });
 test('low frame rate marks the trial low quality',()=>{
     const d=E.createDetector();
-    idle(d,0,2000,15);
-    const out=shoot(d,2000,{fps:15});
+    const out=timeline(d,{shots:[2000],end:5000,fps:15});
     assert.equal(out.length,1);
     assert.equal(out[0].trial.status,'low_quality');
     assert.match(out[0].trial.reasonCode,/LOW_FPS/);
