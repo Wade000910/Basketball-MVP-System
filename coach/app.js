@@ -74,6 +74,12 @@
         $('detail-weekly').replaceChildren(weeklyChart(p.weekly,p.name+' 每週出手數與命中率'));
         const m=p.motion,box=$('detail-motion');box.replaceChildren();
         $('detail-motion-lead').textContent=m.paired?'近 '+WEEKS+' 週罰球中，'+m.paired+' 球對到相機動作紀錄，其中 '+m.usable+' 球有可用時序。':'這位球員近 '+WEEKS+' 週沒有搭配相機的罰球紀錄。';
+        if(m.peak.usable)for(const [label,g] of [['命中時',m.peak.made],['未中時',m.peak.missed]]){
+            const card=document.createElement('div'),title=document.createElement('span'),value=document.createElement('strong'),note=document.createElement('small');
+            title.textContent=label+'平均節奏（峰值定義）';value.textContent=g.meanDt===null?'—':g.meanDt+' ms';
+            note.textContent=g.count+' 球'+(g.sdDt===null?'':' · 標準差 '+g.sdDt+' ms');
+            card.append(title,value,note);box.appendChild(card);
+        }
         if(m.usable)for(const [label,g] of [['命中時',m.made],['未中時',m.missed]]){
             const card=document.createElement('div'),title=document.createElement('span'),value=document.createElement('strong'),note=document.createElement('small');
             title.textContent=label+'平均 Δt';value.textContent=g.meanDt===null?'—':g.meanDt+' ms';
@@ -108,6 +114,11 @@
     const fail=error=>message(Cloud.friendlyError(error));
 
     $('print-btn').addEventListener('click',()=>window.print());
+    $('csv-btn').addEventListener('click',()=>{
+        const blob=new Blob([CoachCore.shotCsv(roster,sessions)],{type:'text/csv;charset=utf-8'});
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(demo?'DEMO-':'')+'team-shots-'+new Date().toISOString().slice(0,10)+'.csv';
+        document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    });
     $('refresh-btn').addEventListener('click',()=>loadTeam().catch(fail));
     $('team-picker').addEventListener('change',()=>{team=teams.find(t=>t.id===$('team-picker').value);selected=null;loadTeam().catch(fail);});
     $('signout-btn').addEventListener('click',()=>{if(demo){location.search='';return;}api.signOut().then(()=>signedIn(null)).catch(fail);});

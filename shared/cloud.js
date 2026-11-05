@@ -13,13 +13,14 @@
     const LOCAL_LIMIT=30;
 
     // Local session object -> training_sessions row. Demo sessions never sync.
+    const shotOf=s=>{const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
     function toRow(session,userId){
         if(!session || session.isDemo)throw new Error('示範資料不會同步。');
         return {id:session.id,user_id:userId,player_code:session.playerCode,drill:session.drill,
             position:session.position ?? (session.drill==='free_throw'?'center':'unspecified'),
             target_shots:session.targetShots,note:session.note || '',started_at:session.startedAt,
             finished_at:session.finishedAt,
-            shots:session.shots.map(s=>({id:s.id,made:s.made,recordedAt:s.recordedAt})),
+            shots:session.shots.map(shotOf),
             analysis_runs:session.analysisRuns || []};
     }
     // training_sessions row -> local session object in the app's existing schema.
@@ -28,7 +29,7 @@
             targetShots:row.target_shots,note:row.note || '',drill:row.drill,position:row.position,
             inputSource:'manual',isDemo:false,startedAt:new Date(row.started_at).toISOString(),
             finishedAt:row.finished_at?new Date(row.finished_at).toISOString():null,
-            shots:(row.shots || []).map(s=>({id:s.id,made:s.made,recordedAt:s.recordedAt}))};
+            shots:(row.shots || []).map(shotOf)};
         if(Array.isArray(row.analysis_runs) && row.analysis_runs.length)session.analysisRuns=row.analysis_runs;
         return session;
     }
@@ -53,6 +54,7 @@
         if(/already registered|already been registered/i.test(text))return '這個信箱已註冊，請直接登入。';
         if(/Password should be/i.test(text))return '密碼至少需要 6 個字元。';
         if(/invite code not found/i.test(text))return '找不到這個邀請碼，請向教練確認。';
+        if(/mark code not found/i.test(text))return '記錄碼不存在或已過期，請投籃者重新產生。';
         if(/Failed to fetch|NetworkError|network/i.test(text))return '連不上雲端，請檢查網路後再試。';
         return text || '雲端操作未完成，請稍後再試。';
     }
@@ -84,6 +86,10 @@
                 const names=new Map(profiles.map(p=>[p.id,p.display_name]));
                 return members.map(m=>({...m,display_name:names.get(m.user_id) || '未命名球員'}));
             },
+            // Teammate marking (supabase/migrations/20261105000000_per_shot_rows.sql).
+            async openMarkCode(sessionId){return must(await client.rpc('open_mark_code',{session:sessionId}));},
+            async addShotMark(code,made){must(await client.rpc('add_shot_mark',{code,made}));},
+            async shotMarks(sessionId,afterId=0){return must(await client.from('shot_marks').select('id,made,created_at').eq('session_id',sessionId).gt('id',afterId).order('id').limit(50));},
             async teamSessions(userIds,sinceIso){
                 if(!userIds.length)return [];
                 return must(await client.from('training_sessions').select(SESSION_COLUMNS).in('user_id',userIds).gte('started_at',sinceIso).order('started_at',{ascending:false}).limit(2000));

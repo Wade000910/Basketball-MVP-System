@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>罰球投籃｜Basketball MVP</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="../專題程式/vendor/mediapipe-pose/pose.js" defer></script>
+    <script src="../training/analysis-store.js" defer></script>
+    <script src="../training/core.js" defer></script>
+    <script src="../專題程式/experiment-core.js" defer></script>
+    <script src="../專題程式/motion-core.js" defer></script>
+    <script src="../專題程式/shooting-guide.js" defer></script>
+    <script src="../shared/cloud-config.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+    <script src="../shared/cloud.js" defer></script>
+    <script src="./engine.js" defer></script>
+    <script src="./voice.js" defer></script>
+    <script src="./practice.js" defer></script>
+    <script src="./app.js" defer></script>
+</head>
+<body>
+<header class="topbar"><a href="../">BASKETBALL <strong>MVP</strong></a><span id="cloud-pill" class="tag">本機</span></header>
+
+<main id="setup-view">
+    <section class="hero">
+        <p class="eyebrow">FREE THROW</p>
+        <h1>投一球，<br>看一次節奏。</h1>
+        <p>手機放在側面拍你投罰球。每一球結束後會告訴你膝蓋到手肘的出力時間差；進沒進可以用說的。</p>
+    </section>
+    <p id="message" class="message" role="alert" hidden></p>
+
+    <section id="resume-card" class="card" hidden>
+        <h2>有一組還沒結束</h2>
+        <p id="resume-text" class="muted"></p>
+        <div class="actions"><button id="resume-btn" type="button" class="primary">繼續這組</button><button id="resume-finish-btn" type="button" class="secondary">直接結束並儲存</button></div>
+    </section>
+
+    <form id="setup-form" class="card">
+        <div class="form-grid">
+            <label>球員代碼<input id="player-code" maxlength="32" placeholder="例如 P001" autocomplete="off" required><small>不要填真實姓名。和球員首頁使用同一個代碼。</small></label>
+            <label>這組投幾球<select id="target-shots"><option>10</option><option selected>20</option><option>30</option><option>50</option></select></label>
+        </div>
+        <fieldset><legend>投籃手</legend>
+            <div class="segmented"><label><input type="radio" name="side" value="right" checked><span>右手</span></label><label><input type="radio" name="side" value="left"><span>左手</span></label></div>
+        </fieldset>
+        <fieldset><legend>回饋與記錄</legend>
+            <label class="check"><input id="sound-on" type="checkbox" checked><span>聲音回饋<small>出手 1 秒後：節奏和你進球時一樣是「叮」，偏離是「嗡」。先累積 5 顆有量到的進球才會開始判斷。</small></span></label>
+            <label class="check"><input id="voice-on" type="checkbox" checked><span>用說的記錄進球<small>投完說「進」或「沒進」。需要麥克風權限；說不清楚時可以點按鈕。</small></span></label>
+        </fieldset>
+        <details class="placement">
+            <summary>手機要怎麼放？</summary>
+            <svg viewBox="0 0 320 140" role="img" aria-label="手機放在投籃手那一側的正側面，距離 3 到 4 公尺，高度約腰部">
+                <line x1="10" y1="120" x2="310" y2="120" class="floor"/>
+                <circle cx="230" cy="32" r="10" class="person"/><line x1="230" y1="42" x2="230" y2="82" class="person"/><line x1="230" y1="82" x2="220" y2="120" class="person"/><line x1="230" y1="82" x2="240" y2="120" class="person"/><line x1="230" y1="52" x2="245" y2="22" class="person"/>
+                <rect x="40" y="70" width="12" height="20" rx="2" class="phone"/><line x1="46" y1="90" x2="46" y2="120" class="stand"/>
+                <line x1="58" y1="80" x2="210" y2="70" class="sight"/><line x1="58" y1="80" x2="210" y2="110" class="sight"/>
+                <text x="135" y="134" text-anchor="middle">3–4 公尺 · 投籃手那一側</text>
+                <text x="46" y="60" text-anchor="middle">腰部高度</text>
+            </svg>
+            <ul class="muted"><li>手機橫放或直放都可以，要拍到頭頂到腳和整隻手臂。</li><li>用腳架或靠在固定物上，不要手持。</li><li>光線充足、背景單純效果最好。</li></ul>
+        </details>
+        <button id="start-btn" type="submit" class="primary big">開始練習</button>
+        <p id="cloud-line" class="muted"></p>
+    </form>
+    <p class="muted center"><a href="../training/">球員首頁</a> · <a href="../專題程式/">研究模式（完整數據）</a></p>
+</main>
+
+<main id="practice-view" class="practice" hidden>
+    <div class="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div class="stage-top"><span id="state-badge" class="badge">準備中</span><span id="fps" class="fps"></span></div>
+        <p id="guide" class="guide"></p>
+        <div id="result-flash" class="flash" hidden></div>
+    </div>
+    <section class="panel">
+        <div class="score"><div><strong id="score-made">0</strong><span>進</span></div><div><strong id="score-total">0</strong><span id="score-target">/ 20 球</span></div><div><strong id="score-pct">--</strong><span>命中率</span></div></div>
+        <div class="last"><span class="muted">上一球節奏</span><strong id="last-dt">-- ms</strong><span id="last-note" class="muted">等待第一球</span></div>
+        <p id="voice-line" class="voice-line" hidden></p>
+        <div class="shot-buttons"><button id="made-btn" type="button" class="made">進</button><button id="missed-btn" type="button" class="missed">沒進</button></div>
+        <p id="practice-message" class="practice-message" role="status"></p>
+        <div class="actions">
+            <button id="teammate-btn" type="button" class="secondary">隊友幫記</button>
+            <button id="undo-btn" type="button" class="secondary">取消上一球</button>
+            <button id="end-btn" type="button" class="secondary">結束這組</button>
+        </div>
+        <div id="teammate-panel" class="teammate" hidden>
+            <p>請隊友用手機打開 <strong id="mark-url"></strong>，輸入記錄碼：</p>
+            <p id="mark-code" class="mark-code"></p>
+            <small>12 小時內有效。隊友按的結果會直接加進這組。</small>
+        </div>
+        <p id="sync-line" class="muted"></p>
+    </section>
+</main>
+
+<main id="summary-view" hidden>
+    <section class="card">
+        <p class="eyebrow">SET COMPLETE</p>
+        <h2 id="summary-title">這組結束了</h2>
+        <div class="metrics"><div><strong id="sum-pct">--</strong><span>命中率</span></div><div><strong id="sum-peak">--</strong><span>平均節奏（ms）</span></div><div><strong id="sum-sd">--</strong><span>節奏起伏（標準差 ms）</span></div></div>
+        <p id="sum-compare" class="focus"></p>
+        <h3>逐球紀錄 <small>記錯的球可以直接改</small></h3>
+        <ol id="sum-rows" class="sum-rows"></ol>
+        <p id="sum-save" class="muted"></p>
+        <div class="actions"><button id="again-btn" type="button" class="primary">再投一組</button><a class="secondary link-button" href="../training/">到球員首頁看進度</a></div>
+    </section>
+</main>
+
+<footer class="page-footer">節奏＝膝蓋伸展最快到手肘伸展最快的時間差（峰值定義），以相機影格時間計算。這個數字的準確度仍在用慢動作影片驗證中，請看自己的變化，不要和別人比。演算法 <span id="algo-version"></span></footer>
+</body>
+</html>

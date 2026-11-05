@@ -69,3 +69,12 @@ test('the adapter calls supabase-js with the expected tables, filters and confli
     const failing={from:()=>({upsert:()=>Promise.resolve({data:null,error:new Error('denied')})})};
     await assert.rejects(Cloud.supabaseApi(failing).upsertSessions([{id:'s'}]),/denied/);
 });
+
+test('shot source survives a round trip through the database row',()=>{
+    const Cl=require('../shared/cloud.js');
+    const session={schemaVersion:'basketball-training-v1',id:'s9',playerCode:'P001',targetShots:5,note:'',drill:'free_throw',position:'center',inputSource:'manual',isDemo:false,
+        startedAt:'2026-11-03T08:00:00.000Z',finishedAt:null,shots:[{id:'a',made:true,recordedAt:'2026-11-03T08:00:05.000Z',source:'voice'},{id:'b',made:false,recordedAt:'2026-11-03T08:00:09.000Z'}]};
+    const row=Cl.toRow(session,'u1');
+    assert.deepEqual(row.shots[0],{id:'a',made:true,recordedAt:'2026-11-03T08:00:05.000Z',source:'voice'});
+    assert.deepEqual(Cl.fromRow(row).shots,session.shots);
+});

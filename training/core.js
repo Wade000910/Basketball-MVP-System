@@ -25,7 +25,7 @@
         if(value.finishedAt!==null && (typeof value.finishedAt!=='string' || !Number.isFinite(Date.parse(value.finishedAt)) || Date.parse(value.finishedAt)<Date.parse(value.startedAt))) throw new Error('訓練結束時間不符。');
         const ids=new Set();
         for(const shot of value.shots) {
-            if(!shot || typeof shot.id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(shot.id) || ids.has(shot.id) || typeof shot.made!=='boolean' || typeof shot.recordedAt!=='string' || !Number.isFinite(Date.parse(shot.recordedAt))) throw new Error('逐球紀錄格式不符。');
+            if(!shot || typeof shot.id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(shot.id) || ids.has(shot.id) || typeof shot.made!=='boolean' || typeof shot.recordedAt!=='string' || !Number.isFinite(Date.parse(shot.recordedAt)) || (shot.source!==undefined && !SHOT_SOURCES.includes(shot.source))) throw new Error('逐球紀錄格式不符。');
             ids.add(shot.id);
         }
         if(value.analysisRuns!==undefined){
@@ -35,17 +35,21 @@
         }
         return value;
     }
-    function addShot(session,made,id,now=new Date().toISOString()) {
+    // How a make/miss was entered; absent means a tap on the training page ('manual').
+    const SHOT_SOURCES=['manual','voice','teammate','corrected'];
+    const shotOf=s=>{const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
+    function addShot(session,made,id,now=new Date().toISOString(),source='manual') {
         validateSession(session);
         if(session.finishedAt) throw new Error('這組已結束，請開始新一組。');
         if(typeof made!=='boolean' || typeof id!=='string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id) || session.shots.some(s=>s.id===id) || typeof now!=='string' || !Number.isFinite(Date.parse(now))) throw new Error('投籃紀錄不符。');
         if(session.shots.length>=200) throw new Error('每組最多記錄 200 球。');
-        return {...session,shots:[...session.shots,{id,made,recordedAt:now}]};
+        if(!SHOT_SOURCES.includes(source)) throw new Error('投籃紀錄不符。');
+        return {...session,shots:[...session.shots,shotOf({id,made,recordedAt:now,source})]};
     }
     function correctShot(session,id,made) {
         validateSession(session);
         if(typeof made!=='boolean' || !session.shots.some(s=>s.id===id)) throw new Error('找不到要修正的球。');
-        return {...session,shots:session.shots.map(s=>s.id===id?{...s,made}:s)};
+        return {...session,shots:session.shots.map(s=>s.id===id?(s.made===made?s:{...s,made,source:'corrected'}):s)};
     }
     function removeShot(session,id) {
         validateSession(session);
@@ -96,7 +100,7 @@
         if(value.isDemo)throw new Error('示範報告不會匯入訓練紀錄。');
         const s=createSession({...value,now:value.startedAt});
         s.finishedAt=value.finishedAt;
-        s.shots=value.shots.map(t=>({id:t.id,made:t.made,recordedAt:t.recordedAt}));
+        s.shots=value.shots.map(shotOf);
         if(value.analysisRuns)s.analysisRuns=Analysis.merge([],value.analysisRuns);
         return s;
     }
@@ -149,5 +153,5 @@
         });
         return {points,positions};
     }
-    return {SCHEMA,DRILLS,POSITIONS,positionOf,trend,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
+    return {SCHEMA,DRILLS,POSITIONS,SHOT_SOURCES,positionOf,trend,progress,createSession,validateSession,addShot,correctShot,removeShot,finishSession,summarize,previousSession,csv,parseStore,demoSession,cleanSession,parseBackup,mergeBackup};
 });

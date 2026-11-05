@@ -21,7 +21,30 @@
     }
     function motion(sessions){
         const pairs=sessions.filter(s=>s.drill==='free_throw' && s.analysisRuns?.length).flatMap(s=>Analysis.pair(s.shots,s.analysisRuns));
-        return Analysis.pairedSummary(pairs);
+        // Onset definition (research page and player page) plus the peak definition, which
+        // only the player page records.
+        return {...Analysis.pairedSummary(pairs),peak:Analysis.pairedSummary(pairs,'dtPeak')};
+    }
+    // One row per shot for export: who, when, result, how it was entered, and its timing.
+    const SHOT_COLUMNS=['player','sessionId','date','drill','position','shotOrder','made','source','motionStatus','dtPeakMs','dtOnsetMs','pairing','recordedAt'];
+    function shotRows(roster,sessions){
+        const names=new Map(roster.map(m=>[m.user_id,m.display_name]));
+        const rows=[];
+        for(const s of [...sessions].filter(finished).sort((a,b)=>Date.parse(a.startedAt)-Date.parse(b.startedAt))){
+            const pairs=s.drill==='free_throw'&&s.analysisRuns?.length?Analysis.pair(s.shots,s.analysisRuns):s.shots.map(x=>({shotId:x.id,trial:null}));
+            s.shots.forEach((shot,i)=>{
+                const t=pairs[i]?.trial;
+                rows.push({player:names.get(s.userId)||'',sessionId:s.id,date:s.startedAt.slice(0,10),drill:DRILLS[s.drill]||s.drill,position:s.position||'',shotOrder:i+1,
+                    made:shot.made?1:0,source:shot.source||'manual',motionStatus:t?t.trialStatus:'',
+                    dtPeakMs:t&&t.trialStatus==='accepted'&&Number.isFinite(t.dtPeak)?t.dtPeak:'',dtOnsetMs:t&&t.trialStatus==='accepted'&&Number.isFinite(t.dt)?t.dt:'',
+                    pairing:t?(t.linked?'linked':'time'):'',recordedAt:shot.recordedAt});
+            });
+        }
+        return rows;
+    }
+    function shotCsv(roster,sessions){
+        const q=v=>{const x=String(v??'');return /^[=+\-@\t\r]/.test(x)&&typeof v==='string'?'"\''+x.replace(/"/g,'""')+'"':'"'+x.replace(/"/g,'""')+'"';};
+        return '\uFEFF'+[SHOT_COLUMNS.join(','),...shotRows(roster,sessions).map(r=>SHOT_COLUMNS.map(c=>q(r[c])).join(','))].join('\r\n');
     }
     // sessions: local-schema sessions each carrying userId. roster: [{user_id,display_name,role}].
     function teamReport(roster,sessions,now=new Date(),{weeks=4,inactiveDays=7}={}){
@@ -81,5 +104,5 @@
         }
         return {team:{id:'demo-team',name:'示範球隊（合成資料）',invite_code:'DEMO2026',role:'coach'},roster,sessions};
     }
-    return {DRILLS,teamReport,demoData};
+    return {DRILLS,SHOT_COLUMNS,teamReport,demoData,shotRows,shotCsv};
 });

@@ -79,3 +79,42 @@ test('pairing stays fast for a full 200-shot set',()=>{
     assert.equal(pairs.filter(p=>p.trial).length,200);
     assert.ok(Date.now()-start<500,'alignment too slow');
 });
+
+test('explicit shot links win over time alignment, and the rest is still aligned by time',()=>{
+    // Trial 1 names shot c although its timing would suit shot a.
+    const linked={...trial(1,10,80),shotId:'c',dtPeak:110};
+    const pairs=A.pair([shot('a',13,true),shot('b',33,false),shot('c',53,true)],[run([linked,trial(2,30,120)])]);
+    assert.equal(pairs[2].trial.trialOrder,1);
+    assert.equal(pairs[2].trial.linked,true);
+    assert.equal(pairs[2].trial.dtPeak,110);
+    assert.equal(pairs[0].trial,null);
+    assert.equal(pairs[1].trial.trialOrder,2);
+});
+test('a link to a shot that no longer exists is not reused for another shot',()=>{
+    const pairs=A.pair([shot('a',13,true)],[run([{...trial(1,10,80),shotId:'gone'}])]);
+    assert.equal(pairs[0].trial,null);
+});
+test('peak-definition summary uses dtPeak',()=>{
+    const r=run([{...trial(1,10,80),shotId:'a',dtPeak:100},{...trial(2,30,90),shotId:'b',dtPeak:140}]);
+    const s=A.pairedSummary(A.pair([shot('a',13,true),shot('b',33,false)],[r]),'dtPeak');
+    assert.equal(s.made.meanDt,100);assert.equal(s.missed.meanDt,140);assert.equal(s.metric,'dtPeak');
+});
+test('optional trial fields are kept and checked',()=>{
+    const ok=A.normalize(run([{...trial(1,10,80),shotId:'a',dtPeak:100,timestampSource:'camera-frame',measuredFps:29.7}]));
+    assert.deepEqual(Object.keys(ok.trials[0]).sort(),['dt','dtPeak','measuredFps','reasonCode','shotId','timestamp','timestampSource','trialOrder','trialStatus']);
+    assert.throws(()=>A.normalize(run([{...trial(1,10,80),timestampSource:'wall'}])));
+    assert.throws(()=>A.normalize(run([{...trial(1,10,80),shotId:'bad id'}])));
+    assert.throws(()=>A.normalize(run([{...trial(1,10,80),dtPeak:'fast'}])));
+});
+test('shots keep how they were entered; a correction is marked',()=>{
+    let s=C.createSession({playerCode:'P001',targetShots:5,id:'s1',now:at(0)});
+    s=C.addShot(s,true,'a',at(5),'voice');
+    s=C.addShot(s,false,'b',at(10));
+    assert.equal(s.shots[0].source,'voice');
+    assert.equal('source' in s.shots[1],false);
+    s=C.correctShot(s,'a',false);
+    assert.equal(s.shots[0].source,'corrected');
+    assert.equal(C.correctShot(s,'b',false).shots[1].source,undefined);
+    assert.throws(()=>C.addShot(s,true,'c',at(15),'guess'));
+    assert.throws(()=>C.validateSession({...s,shots:[{...s.shots[0],source:'guess'}]}));
+});
