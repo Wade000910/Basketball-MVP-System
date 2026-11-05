@@ -17,7 +17,7 @@
         signOut:()=>log('signOut',tx(db=>{db.me=null;})),
         profile:uid=>log('profile',tx(db=>db.profiles[uid]?{id:uid,display_name:db.profiles[uid]}:null)),
         saveProfile:(uid,name)=>log('saveProfile',tx(db=>{if(uid!==me(db))throw new Error('denied');db.profiles[uid]=name;})),
-        upsertSessions:rows=>log('upsertSessions',tx(db=>{for(const r of rows){if(r.user_id!==me(db))throw new Error('denied');const old=db.sessions[r.id];if(old&&old.user_id!==r.user_id)throw new Error('denied');db.sessions[r.id]={...r,made_shots:r.shots.filter(s=>s.made).length,total_shots:r.shots.length};}})),
+        upsertSessions:rows=>log('upsertSessions',tx(db=>{for(const r of rows){if(r.user_id!==me(db))throw new Error('denied');const old=db.sessions[r.id];if(old&&old.user_id!==r.user_id)throw new Error('denied');db.sessions[r.id]={...old,...r,made_shots:r.shots.filter(s=>s.made).length,total_shots:r.shots.length};}})),
         ownSessions:uid=>log('ownSessions',tx(db=>Object.values(db.sessions).filter(s=>s.user_id===uid).sort((a,b)=>b.started_at.localeCompare(a.started_at)))),
         myTeams:uid=>log('myTeams',tx(db=>db.members.filter(m=>m.user_id===uid).map(m=>({role:m.role,...db.teams.find(t=>t.id===m.team_id)})))),
         createTeam:name=>log('createTeam',tx(db=>{const t={id:'team-'+(db.teams.length+1),name,invite_code:'TEAMCODE'.slice(0,7)+(db.teams.length+2)};db.teams.push(t);db.members.push({team_id:t.id,user_id:me(db),role:'coach',joined_at:new Date().toISOString()});return t;})),

@@ -44,3 +44,21 @@ test('demo data is deterministic, valid and clearly labelled synthetic',()=>{
     assert.ok(r.inactive.length>=1,'demo shows the check-in list');
     assert.ok(r.players[0].motion.usable>20,'demo shows motion timing');
 });
+
+test('per-shot export lists every shot with its source and linked peak timing',()=>{
+    const CC=require('../coach/core.js'),A2=require('../training/analysis-store.js');
+    const s={schemaVersion:'basketball-training-v1',id:'set1',playerCode:'P1',targetShots:2,note:'',drill:'free_throw',position:'center',inputSource:'manual',isDemo:false,
+        startedAt:'2026-11-05T08:00:00.000Z',finishedAt:'2026-11-05T08:05:00.000Z',userId:'u1',
+        shots:[{id:'a',made:true,recordedAt:'2026-11-05T08:00:10.000Z',source:'voice'},{id:'b',made:false,recordedAt:'2026-11-05T08:00:30.000Z'}],
+        analysisRuns:[{schemaVersion:A2.SCHEMA,id:'r',participantId:'P1',sessionId:'set1',blockId:'SHOOT',condition:'auditory',shootingSide:'right',startedAt:'2026-11-05T08:00:00.000Z',stoppedAt:'2026-11-05T08:05:00.000Z',
+            trials:[{trialOrder:1,trialStatus:'accepted',dt:80,dtPeak:118,shotId:'a',timestamp:'2026-11-05T08:00:08.000Z',reasonCode:''}]}]};
+    const rows=CC.shotRows([{user_id:'u1',display_name:'=阿峻'}],[s]);
+    assert.equal(rows.length,2);
+    assert.deepEqual([rows[0].source,rows[0].dtPeakMs,rows[0].pairing],['voice',118,'linked']);
+    assert.deepEqual([rows[1].source,rows[1].dtPeakMs,rows[1].motionStatus],['manual','','']);
+    const csv=CC.shotCsv([{user_id:'u1',display_name:'=阿峻'}],[s]);
+    assert.ok(csv.startsWith('﻿player,sessionId'));
+    assert.match(csv,/"'=阿峻"/,'spreadsheet formulas are neutralised');
+    const report=CC.teamReport([{user_id:'u1',display_name:'阿峻',role:'player'}],[s],new Date('2026-11-06T00:00:00Z'));
+    assert.equal(report.players[0].motion.peak.made.meanDt,118);
+});

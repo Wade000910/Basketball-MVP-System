@@ -186,7 +186,7 @@
         setTimeout(()=>feedback(trial),1000);
     }
     function feedback(trial){
-        const dt=$('last-dt');dt.className='';
+        const dt=$('last-dt');dt.className='';dt.dataset.count=String(Number(dt.dataset.count||0)+1);
         if(trial.status!=='accepted'){dt.textContent='-- ms';$('last-note').textContent='這球沒量到：'+reason(trial.reasonCode);return;}
         const ref=E.personalReference(madePeaks),j=E.judge(trial.dtPeak,ref);
         dt.textContent=Math.round(trial.dtPeak)+' ms';
@@ -206,8 +206,9 @@
         catch(error){message(error.message,'practice-message');return;}
         lastShot={id:shotId,peak:made&&r.trial?.status==='accepted'&&Number.isFinite(r.trial.dtPeak)};
         if(lastShot.peak)madePeaks.push(r.trial.dtPeak);
-        message(source==='teammate'?'隊友記錄：'+(made?'進':'沒進'):'','practice-message');
-        flash(made?'進':'沒進');save();render();
+        flash(made?'進':'沒進');save();
+        const full=render();
+        message([source==='teammate'?'隊友記錄：'+(made?'進':'沒進')+'。':'',full].join(''),'practice-message');
     }
     function flash(text){const f=$('result-flash');f.textContent=text;f.hidden=false;clearTimeout(flashTimer);flashTimer=setTimeout(()=>{f.hidden=true;},900);}
     function render(){
@@ -215,7 +216,7 @@
         $('score-made').textContent=made;$('score-total').textContent=s.shots.length;$('score-target').textContent='/ '+s.targetShots+' 球';
         $('score-pct').textContent=s.shots.length?Math.round(made/s.shots.length*100)+'%':'--';
         $('undo-btn').disabled=!lastShot;
-        if(s.shots.length===s.targetShots)message('已投滿 '+s.targetShots+' 球，可以結束這組，也可以繼續投。','practice-message');
+        return s.shots.length===s.targetShots?'已投滿 '+s.targetShots+' 球，可以結束這組，也可以繼續投。':'';
     }
     $('made-btn').addEventListener('click',()=>handleResult(true,'manual'));
     $('missed-btn').addEventListener('click',()=>handleResult(false,'manual'));
@@ -335,5 +336,5 @@
     loadResume();
     initCloud();
     // For browser checks only.
-    window.ShootApp={handleResult,onTrial,get practice(){return practice;}};
+    window.ShootApp={handleResult,onTrial,stopCamera(){running=false;stream?.getTracks().forEach(t=>t.stop());},get practice(){return practice;}};
 })();
