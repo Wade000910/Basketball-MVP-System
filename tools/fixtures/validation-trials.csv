@@ -1,0 +1,4 @@
+trialOrder,trialStatus,dt,kneePeakPerfMs,elbowOnsetPerfMs,elbowPeakPerfMs,timestamp
+1,accepted,95,1000,1095,1240,2026-11-05T08:00:01Z
+2,accepted,130,2000,2130,2270,2026-11-05T08:00:11Z
+3,low_quality,,,,,2026-11-05T08:00:21Z

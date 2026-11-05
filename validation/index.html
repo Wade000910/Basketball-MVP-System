@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>慢動作對照 · Basketball MVP</title>
+<link rel="stylesheet" href="../offline-review/styles.css"><link rel="stylesheet" href="./styles.css">
+<script src="../offline-review/core.js" defer></script><script src="./core.js" defer></script><script src="./app.js" defer></script>
+</head>
+<body><main>
+<h1>慢動作對照：動作時序準確度</h1>
+<p>用另一支手機以慢動作（建議 240 fps）拍下同一組罰球，在這裡逐格標記，再和分析頁匯出的試次比較，算出系統與人工標記的差距。檔案只在這個頁面處理，不會上傳。拍攝與標記步驟見<a href="https://github.com/Wade000910/Basketball-MVP-System/blob/main/docs/validation-protocol.md">驗證流程</a>。</p>
+
+<section><h2>1. 選取檔案</h2>
+<div class="grid2">
+<label>慢動作影片 <input id="video-file" type="file" accept="video/*"></label>
+<label>分析頁匯出的試次 CSV <input id="trials-file" type="file" accept=".csv"><small>分析頁「下載 CSV」或資料套件中的 <code>_live-trials.csv</code>。</small></label>
+<label>拍攝影格率（fps） <input id="capture-fps" type="number" min="24" max="1000" value="240"><small>iPhone 慢動作通常是 240 或 120。</small></label>
+<label>影片檔影格率（fps） <input id="playback-fps" type="number" min="1" max="1000" value="240"><small>若影片已轉成慢速播放（例如 30 fps 檔案），填 30。</small></label>
+</div>
+<label>載入先前的標記檔 <input id="marks-file" type="file" accept=".json"></label>
+<p id="status" role="status">請選擇慢動作影片。</p>
+</section>
+
+<section id="marking" hidden><h2>2. 逐格標記</h2>
+<video id="video" playsinline preload="auto" muted tabindex="0" aria-label="慢動作影片，左右方向鍵逐格移動"></video>
+<div class="controls">
+<button id="back10" type="button">−10 格</button><button id="back1" type="button">−1 格</button>
+<button id="fwd1" type="button">+1 格</button><button id="fwd10" type="button">+10 格</button>
+<span id="frame-info" aria-live="polite"></span>
+</div>
+<input id="scrub" type="range" min="0" max="0" value="0" step="1" aria-label="影片影格">
+<p class="muted">鍵盤：← → 一格，Shift＋← → 十格；1、2、3、4 依序標記下面四個事件。</p>
+<div class="controls" id="event-buttons">
+<button type="button" data-event="knee_peak">1 膝蓋伸展最快</button>
+<button type="button" data-event="elbow_onset">2 手肘開始伸展</button>
+<button type="button" data-event="elbow_peak">3 手肘伸展最快</button>
+<button type="button" data-event="release">4 球離手</button>
+</div>
+<div class="controls"><label>目前標記第 <select id="shot-picker"></select> 球</label><button id="new-shot" type="button">新增下一球</button><button id="clear-shot" type="button" class="secondary">清除這一球的標記</button></div>
+<p id="shot-marks" aria-live="polite"></p>
+<details><summary>事件判斷說明</summary>
+<ul>
+<li><strong>膝蓋伸展最快</strong>：起跳時膝蓋角度變化最大的那一格，通常在腳跟離地前後。</li>
+<li><strong>手肘開始伸展</strong>：投籃手手肘角度開始變大的第一格（手臂開始往上推）。</li>
+<li><strong>手肘伸展最快</strong>：手臂推出速度最快的那一格，通常在出手前幾格。</li>
+<li><strong>球離手</strong>：球和手指分開的第一格，用來核對每一球是否對齊。</li>
+</ul>
+<p>建議標記時不要先看系統的數字，避免被影響。每格約 4 ms（240 fps），判斷差一兩格是正常的。</p>
+</details>
+</section>
+
+<section id="results" hidden><h2>3. 與系統比較</h2>
+<p id="pair-note" class="muted"></p>
+<div class="table-wrap"><table id="shot-table"><thead><tr><th>球</th><th>對應試次</th><th>系統狀態</th><th>人工 Δt（起始）</th><th>系統 Δt（起始）</th><th>差</th><th>人工 Δt（峰值）</th><th>系統 Δt（峰值）</th><th>差</th><th>排除</th></tr></thead><tbody></tbody></table></div>
+<div id="summary" class="summary"></div>
+<div id="plots" class="grid2"></div>
+<p class="muted">差＝系統－人工。平均差代表系統整體偏早或偏晚；95% 一致性界限代表單一球的誤差大約落在哪個範圍。影格解析度 <span id="resolution"></span> ms。</p>
+<div class="controls"><button id="save-marks" type="button">下載標記檔（JSON）</button><button id="save-csv" type="button" class="secondary">下載比較結果（CSV）</button></div>
+</section>
+</main></body></html>

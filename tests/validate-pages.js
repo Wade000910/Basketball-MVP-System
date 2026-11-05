@@ -14,9 +14,10 @@ assert.equal(fs.existsSync('專題程式/session-capture.js'), true);
 assert.match(fs.readFileSync('專題程式/index.html','utf8'), /下載影片與分析資料/);
 assert.equal(fs.existsSync('.nojekyll'), true);
 assert.match(landing, /href="\.\/coach\/"/);
+assert.match(landing, /href="\.\/validation\/"/);
 const config = fs.readFileSync('shared/cloud-config.js', 'utf8').replace(/\/\/.*$/gm, '');
 assert.doesNotMatch(config, /service_role|sb_secret_/, 'Never ship a secret Supabase key');
-for (const page of ['training/index.html', 'coach/index.html']) {
+for (const page of ['training/index.html', 'coach/index.html', 'validation/index.html']) {
     const html = fs.readFileSync(page, 'utf8');
     for (const [, src] of html.matchAll(/<script src="([^"]+)"/g)) {
         if (/^https:\/\//.test(src)) assert.match(src, /^https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\//, page + ' loads an unexpected remote script');
