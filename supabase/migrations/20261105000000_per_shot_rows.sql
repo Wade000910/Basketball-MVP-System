@@ -116,6 +116,7 @@ begin
     insert into public.shot_marks (session_id, made) values (target, made);
 end $$;
 
-revoke all on function public.open_mark_code(text), public.add_shot_mark(text, boolean) from public;
+revoke all on function public.open_mark_code(text) from public, anon;
+revoke all on function public.add_shot_mark(text, boolean) from public;
 grant execute on function public.open_mark_code(text) to authenticated;
 grant execute on function public.add_shot_mark(text, boolean) to anon, authenticated;
