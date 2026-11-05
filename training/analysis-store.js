@@ -1,14 +1,20 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.TrainingAnalysis=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
     'use strict';
     const KEY='basketball-analysis-v1',SCHEMA='basketball-analysis-run-v1';
+    const TIMESTAMP_SOURCES=['camera-frame','pose-result'];
     const code=(v,max)=>typeof v==='string'&&v.length<=max&&/^[A-Za-z0-9_-]+$/.test(v);
     function normalize(value){
         if(!value || value.schemaVersion!==SCHEMA || !code(value.id,80) || !code(value.participantId,32) || !code(value.sessionId,80) || !code(value.blockId,80) || !['auditory','visual','baseline'].includes(value.condition) || !['left','right'].includes(value.shootingSide) || typeof value.startedAt!=='string' || !Number.isFinite(Date.parse(value.startedAt)) || typeof value.stoppedAt!=='string' || !Number.isFinite(Date.parse(value.stoppedAt)) || Date.parse(value.stoppedAt)<Date.parse(value.startedAt) || !Array.isArray(value.trials) || value.trials.length>200) throw new Error('動作資料格式不符。');
         const seen=new Set();
         const trials=value.trials.map(t=>{
             if(!t || !Number.isInteger(t.trialOrder) || t.trialOrder<1 || seen.has(t.trialOrder) || !['accepted','low_quality','invalid','aborted'].includes(t.trialStatus) || !(t.dt===null || Number.isFinite(t.dt)) || (t.trialStatus==='accepted' && !Number.isFinite(t.dt)) || typeof t.timestamp!=='string' || !Number.isFinite(Date.parse(t.timestamp)) || typeof t.reasonCode!=='string' || t.reasonCode.length>300)throw new Error('動作試次格式不符。');
+            // Optional fields from the player page: an explicit shot link, the peak-definition
+            // interval, which clock timed the samples, and the measured frame rate.
+            if((t.shotId!==undefined && t.shotId!==null && !code(t.shotId,80)) || (t.dtPeak!==undefined && !(t.dtPeak===null || Number.isFinite(t.dtPeak))) || (t.timestampSource!==undefined && !TIMESTAMP_SOURCES.includes(t.timestampSource)) || (t.measuredFps!==undefined && !(t.measuredFps===null || (Number.isFinite(t.measuredFps) && t.measuredFps>0 && t.measuredFps<1000))))throw new Error('動作試次格式不符。');
             seen.add(t.trialOrder);
-            return {trialOrder:t.trialOrder,trialStatus:t.trialStatus,dt:t.dt,timestamp:t.timestamp,reasonCode:t.reasonCode};
+            const out={trialOrder:t.trialOrder,trialStatus:t.trialStatus,dt:t.dt,timestamp:t.timestamp,reasonCode:t.reasonCode};
+            for(const k of ['shotId','dtPeak','timestampSource','measuredFps'])if(t[k]!==undefined && t[k]!==null)out[k]=t[k];
+            return out;
         });
         return {schemaVersion:SCHEMA,id:value.id,participantId:value.participantId,sessionId:value.sessionId,blockId:value.blockId,condition:value.condition,shootingSide:value.shootingSide,startedAt:value.startedAt,stoppedAt:value.stoppedAt,trials};
     }
@@ -25,9 +31,15 @@
     const PAIRING={id:'time-ordered-alignment-v2',leadMs:3000,lagMs:10000,expectedLagMs:2000};
     function pair(shots,runs,options={}){
         const {leadMs,lagMs,expectedLagMs}={...PAIRING,...options};
-        const trials=runs.flatMap(r=>r.trials.map(t=>({...t,runId:r.id,condition:r.condition,time:Date.parse(t.timestamp)})))
+        const all=runs.flatMap(r=>r.trials.map(t=>({...t,runId:r.id,condition:r.condition,time:Date.parse(t.timestamp)})))
             .filter(t=>Number.isFinite(t.time)).sort((a,b)=>a.time-b.time||a.trialOrder-b.trialOrder);
-        const ordered=[...shots].map((s,index)=>({...s,index,time:Date.parse(s.recordedAt)})).sort((a,b)=>a.time-b.time||a.index-b.index);
+        // Trials recorded by the player page name their shot; those links are used as they
+        // are, and only the remaining shots and trials are aligned by time.
+        const matched=new Map(),shotIds=new Set(shots.map(s=>s.id));
+        for(const t of all)if(t.shotId && shotIds.has(t.shotId) && !matched.has(t.shotId))matched.set(t.shotId,{...t,linked:true});
+        const usedTrials=new Set([...matched.values()].map(t=>t.runId+'#'+t.trialOrder));
+        const trials=all.filter(t=>!t.shotId && !usedTrials.has(t.runId+'#'+t.trialOrder));
+        const ordered=[...shots].filter(s=>!matched.has(s.id)).map((s,index)=>({...s,index,time:Date.parse(s.recordedAt)})).sort((a,b)=>a.time-b.time||a.index-b.index);
         const n=ordered.length,m=trials.length;
         // best[i][j]: optimal alignment of the first i shots with the first j trials.
         const better=(a,b)=>a.pairs>b.pairs || (a.pairs===b.pairs && a.cost<b.cost);
@@ -45,7 +57,6 @@
             }
             best[i][j]=cell;
         }
-        const matched=new Map();
         for(let i=n,j=m;i>0 || j>0;){
             const move=best[i][j].move;
             if(move==='match'){matched.set(ordered[i-1].id,trials[j-1]);i--;j--;}
@@ -55,7 +66,7 @@
         return shots.map(shot=>{
             const t=matched.get(shot.id);
             if(!t)return {shotId:shot.id,made:shot.made,trial:null};
-            return {shotId:shot.id,made:shot.made,trial:{runId:t.runId,trialOrder:t.trialOrder,trialStatus:t.trialStatus,condition:t.condition,dt:t.dt,lagMs:Date.parse(shot.recordedAt)-t.time}};
+            return {shotId:shot.id,made:shot.made,trial:{runId:t.runId,trialOrder:t.trialOrder,trialStatus:t.trialStatus,condition:t.condition,dt:t.dt,dtPeak:t.dtPeak ?? null,linked:!!t.linked,lagMs:Date.parse(shot.recordedAt)-t.time}};
         });
     }
     function group(values){
@@ -65,10 +76,11 @@
         return {count:values.length,meanDt:Math.round(mean*10)/10,sdDt:sd===null?null:Math.round(sd*10)/10};
     }
     // Only accepted, non-baseline trials contribute timing; baseline stays blind.
-    function pairedSummary(pairs){
-        const usable=pairs.filter(p=>p.trial && p.trial.trialStatus==='accepted' && p.trial.condition!=='baseline' && Number.isFinite(p.trial.dt));
-        return {shots:pairs.length,paired:pairs.filter(p=>p.trial).length,usable:usable.length,
-            made:group(usable.filter(p=>p.made).map(p=>p.trial.dt)),missed:group(usable.filter(p=>!p.made).map(p=>p.trial.dt))};
+    // metric 'dt' is the onset definition; 'dtPeak' the peak definition (player page only).
+    function pairedSummary(pairs,metric='dt'){
+        const usable=pairs.filter(p=>p.trial && p.trial.trialStatus==='accepted' && p.trial.condition!=='baseline' && Number.isFinite(p.trial[metric]));
+        return {metric,shots:pairs.length,paired:pairs.filter(p=>p.trial).length,usable:usable.length,
+            made:group(usable.filter(p=>p.made).map(p=>p.trial[metric])),missed:group(usable.filter(p=>!p.made).map(p=>p.trial[metric]))};
     }
-    return {KEY,SCHEMA,PAIRING,normalize,parse,merge,forSession,summary,pair,pairedSummary};
+    return {KEY,SCHEMA,PAIRING,TIMESTAMP_SOURCES,normalize,parse,merge,forSession,summary,pair,pairedSummary};
 });

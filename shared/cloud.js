@@ -13,13 +13,14 @@
     const LOCAL_LIMIT=30;
 
     // Local session object -> training_sessions row. Demo sessions never sync.
+    const shotOf=s=>{const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
     function toRow(session,userId){
         if(!session || session.isDemo)throw new Error('示範資料不會同步。');
         return {id:session.id,user_id:userId,player_code:session.playerCode,drill:session.drill,
             position:session.position ?? (session.drill==='free_throw'?'center':'unspecified'),
             target_shots:session.targetShots,note:session.note || '',started_at:session.startedAt,
             finished_at:session.finishedAt,
-            shots:session.shots.map(s=>({id:s.id,made:s.made,recordedAt:s.recordedAt})),
+            shots:session.shots.map(shotOf),
             analysis_runs:session.analysisRuns || []};
     }
     // training_sessions row -> local session object in the app's existing schema.
@@ -28,7 +29,7 @@
             targetShots:row.target_shots,note:row.note || '',drill:row.drill,position:row.position,
             inputSource:'manual',isDemo:false,startedAt:new Date(row.started_at).toISOString(),
             finishedAt:row.finished_at?new Date(row.finished_at).toISOString():null,
-            shots:(row.shots || []).map(s=>({id:s.id,made:s.made,recordedAt:s.recordedAt}))};
+            shots:(row.shots || []).map(shotOf)};
         if(Array.isArray(row.analysis_runs) && row.analysis_runs.length)session.analysisRuns=row.analysis_runs;
         return session;
     }

@@ -22,7 +22,49 @@ insert into training_sessions (id, player_code, drill, position, target_shots, s
 select pg_temp.check((select made_shots from training_sessions where id='s-p1') = 2, 'server derives made count from shots');
 select pg_temp.check((select count(*) from teams) = 1, 'player sees the team they joined');
 
+-- Per-shot rows are rebuilt from the set's JSON by the server.
+update training_sessions set analysis_runs = '[{"id":"run1","condition":"auditory","trials":[
+  {"trialOrder":1,"trialStatus":"accepted","dt":80,"dtPeak":120.5,"shotId":"a","timestamp":"2026-11-03T07:59:58Z","reasonCode":"","timestampSource":"camera-frame","measuredFps":29.8},
+  {"trialOrder":2,"trialStatus":"low_quality","dt":null,"timestamp":"2026-11-03T08:00:08Z","reasonCode":"LOW_FPS"}]}]'
+ where id = 's-p1';
+select pg_temp.check((select count(*) from shots where session_id='s-p1') = 3, 'each shot becomes its own row');
+select pg_temp.check((select string_agg(id || ':' || made::text, ',' order by shot_order) from shots where session_id='s-p1') = 'a:true,b:false,c:true', 'shot rows keep order and result');
+select pg_temp.check((select dt_peak_ms from motion_trials where session_id='s-p1' and trial_order=1) = 120.5, 'motion trial keeps peak timing');
+select pg_temp.check((select shot_id from motion_trials where session_id='s-p1' and trial_order=1) = 'a', 'motion trial keeps its shot link');
+select pg_temp.check((select count(*) from motion_trials where session_id='s-p1') = 2, 'rejected trials are kept with their reason');
+update training_sessions set shots = shots - 2 where id = 's-p1';
+select pg_temp.check((select count(*) from shots where session_id='s-p1') = 2, 'a corrected set replaces its shot rows');
+select pg_temp.check((select made_shots from training_sessions where id='s-p1') = 1, 'made count follows the correction');
+do $$ begin
+  begin insert into shots values ('x', 's-p1', auth.uid(), 9, true, 'manual', now());
+        raise exception 'FAIL: direct shot insert allowed';
+  exception when insufficient_privilege then raise notice 'ok - shot rows cannot be written directly'; end;
+end $$;
+do $$ begin
+  begin update training_sessions set shots = '[{"id":"z","made":"maybe","recordedAt":"2026-11-03T08:00:00Z"}]' where id='s-p1';
+        raise exception 'FAIL: malformed shot accepted';
+  exception when invalid_text_representation then raise notice 'ok - malformed shot data is rejected'; end;
+end $$;
+select pg_temp.check((select count(*) from shots where session_id='s-p1') = 2, 'a rejected write leaves rows unchanged');
+
+-- Teammate marking with a short code.
+create temp table mark on commit preserve rows as select open_mark_code('s-p1') as code;
+grant select on mark to authenticated, anon;
+select pg_temp.check((select code from mark) ~ '^[A-HJ-NP-Z2-9]{6}$', 'shooter opens a 6-character mark code');
+
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a2');
+select add_shot_mark((select lower(code) from mark), true);
+select pg_temp.check((select count(*) from shot_marks) = 0, 'teammate can mark but cannot read the shooter''s marks');
+do $$ begin
+  begin perform open_mark_code('s-p1'); raise exception 'FAIL: opened code for another user''s set';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if; raise notice 'ok - cannot open a mark code for someone else''s set'; end;
+end $$;
+do $$ begin
+  begin perform add_shot_mark('ZZZZZZ', true); raise exception 'FAIL: bad mark code accepted';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if; raise notice 'ok - unknown mark code is rejected'; end;
+end $$;
 insert into profiles values (auth.uid(), 'P2');
 select join_team((select invite_code from team_code));
 insert into training_sessions (id, player_code, drill, position, target_shots, started_at, shots)
@@ -78,7 +120,21 @@ do $$ begin
   begin perform count(*) from training_sessions; raise exception 'FAIL: anon read';
   exception when insufficient_privilege then raise notice 'ok - signed-out visitors cannot read sessions'; end;
 end $$;
+select add_shot_mark((select code from mark), false);
 reset role; set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+select pg_temp.check((select string_agg(made::text, ',' order by id) from shot_marks) = 'true,false', 'shooter reads marks from a teammate and a signed-out phone');
+update training_sessions set mark_code_opened_at = now() - interval '13 hours' where id = 's-p1';
+do $$ begin
+  begin perform add_shot_mark((select code from mark), true); raise exception 'FAIL: expired code accepted';
+  exception when raise_exception then
+    if sqlerrm like 'FAIL%' then raise; end if; raise notice 'ok - mark code expires after 12 hours'; end;
+end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check((select count(*) from shots) = 2 and (select count(*) from motion_trials) = 2, 'coach reads members'' per-shot rows');
+select pg_temp.check((select count(*) from shot_marks) = 0, 'coach does not read raw teammate marks');
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000f');
+select pg_temp.check((select count(*) from shots) = 0 and (select count(*) from motion_trials) = 0, 'outsider reads no per-shot rows');
 
 -- Leaving ends coach access immediately; the player's own data stays.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
