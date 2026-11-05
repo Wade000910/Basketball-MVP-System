@@ -228,44 +228,10 @@
     <script src="./diagnostics.js"></script>
     <script src="./camera-controls.js"></script>
     <script src="./session-capture.js"></script>
+    <script src="./motion-core.js"></script>
     <script>
-        class ButterworthFilter {
-            constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
-            update(fc, fs) {
-                if (fc >= fs / 2) fc = fs / 2 - 0.1;
-                const w = 2 * Math.PI * (fc / fs);
-                const K = Math.tan(w / 2);
-                const Q = 1 / Math.SQRT2;
-                const norm = 1 / (1 + K / Q + K * K);
-                this.b0 = K * K * norm; this.b1 = 2 * this.b0; this.b2 = this.b0;
-                this.a1 = 2 * (K * K - 1) * norm; this.a2 = (1 - K / Q + K * K) * norm;
-            }
-            init(v) { this.x1=this.x2=this.y1=this.y2=v; this.x1b=this.x2b=this.y1b=this.y2b=v; this.initialized=true; }
-            filter(v) {
-                if (!this.initialized) this.init(v);
-                let y1 = this.b0 * v + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
-                this.x2 = this.x1; this.x1 = v; this.y2 = this.y1; this.y1 = y1;
-                let y2 = this.b0 * y1 + this.b1 * this.x1b + this.b2 * this.x2b - this.a1 * this.y1b - this.a2 * this.y2b;
-                this.x2b = this.x1b; this.x1b = y1; this.y2b = this.y1b; this.y1b = y2;
-                return y2;
-            }
-        }
-
-        function createSpline(x, y) {
-            let n = x.length; let a = y; let h = new Float64Array(n-1); let alpha = new Float64Array(n-1);
-            for(let i=0; i<n-1; i++) h[i] = x[i+1]-x[i];
-            for(let i=1; i<n-1; i++) alpha[i] = (3/h[i])*(a[i+1]-a[i])-(3/h[i-1])*(a[i]-a[i-1]);
-            let l=new Float64Array(n), mu=new Float64Array(n), z=new Float64Array(n), c=new Float64Array(n), b=new Float64Array(n), d=new Float64Array(n);
-            l[0]=1; mu[0]=0; z[0]=0;
-            for(let i=1; i<n-1; i++) { l[i]=2*(x[i+1]-x[i-1])-h[i-1]*mu[i-1]; mu[i]=h[i]/l[i]; z[i]=(alpha[i]-h[i-1]*z[i-1])/l[i]; }
-            l[n-1]=1; z[n-1]=0; c[n-1]=0;
-            for(let j=n-2; j>=0; j--) { c[j]=z[j]-mu[j]*c[j+1]; b[j]=(a[j+1]-a[j])/h[j]-h[j]*(c[j+1]+2*c[j])/3; d[j]=(c[j+1]-c[j])/(3*h[j]); }
-            return (xi) => {
-                if(xi<=x[0]) return a[0]; if(xi>=x[n-1]) return a[n-1];
-                let i=0, j=n-1; while(i<=j) { let k=Math.floor((i+j)/2); if(x[k]<xi) i=k+1; else j=k-1; }
-                let idx=j, dx=xi-x[idx]; return a[idx]+b[idx]*dx+c[idx]*dx*dx+d[idx]*dx*dx*dx;
-            };
-        }
+        // Timing algorithm lives in motion-core.js (unchanged arithmetic, testable in Node).
+        const {ButterworthFilter, createSpline, calculateAngle} = MotionCore;
 
         const {TIMING_DEFINITION, calculateSD, sameExperimentalBlock, qualityFlags, rowsToCsv, maskForBaseline, hasRaisedArm} = ExperimentCore;
 
@@ -470,54 +436,17 @@
             sDisp.className = `font-bold text-lg text-${color}-700 text-center`; sDisp.innerText = main; subDisp.innerText = sub;
         }
 
-        function calculateAngle(a, b, c) {
-            const v1 = {x: a.x - b.x, y: a.y - b.y, z: a.z - b.z};
-            const v2 = {x: c.x - b.x, y: c.y - b.y, z: c.z - b.z};
-            const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-            const m1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
-            const m2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
-            return Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) * 180 / Math.PI;
-        }
-
         function processData() {
             timingReason='';
             timingEvents=null;
-            const invalid=reason=>{timingReason=reason;return null;};
-            if(shotData.length < 10) return invalid('INSUFFICIENT_SAMPLES');
-            if(shotData.some(d=>![d.t,d.kn,d.eb].every(Number.isFinite))) return invalid('NONFINITE_SAMPLE');
-            if(shotData.some((d,i)=>i>0 && d.t<=shotData[i-1].t)) return invalid('INVALID_TIMESTAMPS');
-            const ts = shotData.map(d=>d.t), kns = shotData.map(d=>d.kn), ebs = shotData.map(d=>d.eb);
-            const sKn = createSpline(ts, kns), sEb = createSpline(ts, ebs);
-            let start = Math.ceil(ts[0]), end = Math.floor(ts[ts.length-1]);
-            let maxKv = -1e9, tK = -1, maxEv = -1e9, pE = -1;
-
-            let chartK = [], chartE = [], chartLabels = [];
-            for(let t=start; t<=end; t++) {
-                let kv = (sKn(t)-sKn(t-1))/0.001; if(kv>maxKv){ maxKv=kv; tK=t; }
-                let ev = (sEb(t)-sEb(t-1))/0.001; if(ev>maxEv){ maxEv=ev; pE=t; }
-                chartK.push(kv); chartE.push(ev); chartLabels.push(t);
-            }
-
-            if(!chartK.every(Number.isFinite) || !chartE.every(Number.isFinite)) return invalid('NONFINITE_VELOCITY');
-            if(maxKv<=0) return invalid('KNEE_EXTENSION_NOT_FOUND');
-            if(maxEv<=10) return invalid('ELBOW_EXTENSION_NOT_FOUND');
-            // Tied maxima can start earlier yet remain truncated at the end.
-            // Allow only floating-point roundoff, not a biomechanical tolerance.
-            const peakReachesEnd=(values,max)=>values[values.length-1]>=max-4096*Number.EPSILON*Math.max(1,Math.abs(max));
-            if(peakReachesEnd(chartK,maxKv) || peakReachesEnd(chartE,maxEv)) return invalid('PEAK_AT_WINDOW_END');
-            let tE = null;
-            // Require an observed crossing; exclude the spline's artificial boundary extension.
-            for(let t=pE; t>start; t--){ if((sEb(t)-sEb(t-1))/0.001 <= 10){ tE=t; break; } }
-            if(tE===null) return invalid('ELBOW_ONSET_NOT_FOUND');
-            // Estimates on the pose-result performance.now() clock, not video PTS.
-            timingEvents={kneePeakPerfMs:tK,elbowOnsetPerfMs:tE,elbowPeakPerfMs:pE};
-
-            velocityChart.data.labels = chartLabels;
-            velocityChart.data.datasets[0].data = chartK;
-            velocityChart.data.datasets[1].data = chartE;
+            const result=MotionCore.detectTiming(shotData,createSpline);
+            if(result.reason){timingReason=result.reason;return null;}
+            timingEvents=result.events;
+            velocityChart.data.labels = result.chart.labels;
+            velocityChart.data.datasets[0].data = result.chart.knee;
+            velocityChart.data.datasets[1].data = result.chart.elbow;
             velocityChart.update('none');
-
-            return tE - tK;
+            return result.dt;
         }
 
         function onResults(res) {

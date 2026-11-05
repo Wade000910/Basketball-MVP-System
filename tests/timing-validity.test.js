@@ -7,8 +7,10 @@ const core=require('../專題程式/experiment-core.js');
 const html=fs.readFileSync(path.join(__dirname,'../專題程式/index.html'),'utf8');
 function runtime() {
     const c={shotData:Array.from({length:11},(_,i)=>({t:i*10,kn:90,eb:90})),timingReason:'',velocityChart:{data:{datasets:[{},{}]},update(){}}};
+    c.MotionCore=require('../專題程式/motion-core.js');
     vm.createContext(c);
-    vm.runInContext(html.slice(html.indexOf('function createSpline'),html.indexOf('const {TIMING_DEFINITION')),c);
+    // The page binds createSpline from MotionCore; a var lets tests replace it.
+    vm.runInContext('var createSpline=MotionCore.createSpline;',c);
     vm.runInContext(html.slice(html.indexOf('function processData'),html.indexOf('function onResults')),c);
     return c;
 }

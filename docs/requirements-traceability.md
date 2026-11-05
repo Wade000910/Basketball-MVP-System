@@ -7,7 +7,7 @@
 | 編號 | 需求 | 設計與參數 | 依據 | 實作 | 驗證 |
 | --- | --- | --- | --- | --- | --- |
 | REQ-01 | 不登入即可記錄練習：逐球命中、撤回、趨勢、位置統計、報告與備份 | 資料先存在本機瀏覽器；本機保留最近 30 組 | 球場網路不穩，不能依賴連線 | `training/core.js`、`training/app.js` | `tests/training*.test.js`、瀏覽器流程檢查 |
-| REQ-02 | 估計罰球的膝→肘動作時序 Δt | MediaPipe Pose 於手機端推論；角度經濾波後以三次樣條在 **1 ms 計算格點**上找事件（不代表 1000 Hz 取樣）；Δt＝手肘開始伸展－膝伸展最快，同時記錄手肘伸展最快的時間 | [1]、[10]；審查修正見 `revised-method-after-review.md` | `專題程式/index.html`、`專題程式/experiment-core.js` | `tests/timing-validity.test.js` 等 |
+| REQ-02 | 估計罰球的膝→肘動作時序 Δt | MediaPipe Pose 於手機端推論；角度經濾波後以三次樣條在 **1 ms 計算格點**上找事件（不代表 1000 Hz 取樣）；Δt＝手肘開始伸展－膝伸展最快，同時記錄手肘伸展最快的時間 | [1]、[10]；審查修正見 `revised-method-after-review.md` | `專題程式/motion-core.js`、`專題程式/index.html` | `tests/motion-core.test.js`、`tests/timing-validity.test.js`；[模擬實驗](./simulation-study.md) |
 | REQ-03 | 只有量得到的試次才算數，無效試次保留原因 | 可見度、影格間隔、投籃側鎖定、峰值位置等品質旗標；無效時記錄理由碼，不補值 | [5]（拍攝角度影響姿勢估計） | `專題程式/index.html` | 品質判定相關測試 |
 | REQ-04 | 每一球的命中結果能對到該球的動作 | 依時間的保序配對（`time-ordered-alignment-v2`），每次動作只用一次；報告分開列出命中與未中的 Δt | [9]、[10]（研究動作與命中的關係） | `training/analysis-store.js` | `tests/shot-pairing.test.js` |
 | REQ-05 | 雲端備份、換手機還原；影片不上傳 | Supabase；只上傳訓練摘要；同步失敗時保留本機資料 | 隱私與儲存成本 | `shared/cloud.js`、`training/cloud-ui.js` | `tests/cloud.test.js`、瀏覽器雲端流程 |

@@ -65,7 +65,7 @@
 
 ## 準確度驗證（慢動作對照）
 
-[慢動作對照頁](https://wade000910.github.io/Basketball-MVP-System/validation/) 用另一支手機的 240 fps 慢動作影片當對照：逐格標記膝、肘與出手事件，載入分析頁匯出的試次 CSV，頁面會逐球配對並計算平均差、95% 一致性界限與 Bland-Altman 圖，同時比較「起始」與「峰值」兩種時序定義。拍攝與標記步驟見 [驗證流程](./docs/validation-protocol.md)；系隊試用與問卷見 [試用計畫](./docs/field-trial-protocol.md)。
+[慢動作對照頁](https://wade000910.github.io/Basketball-MVP-System/validation/) 用另一支手機的 240 fps 慢動作影片當對照：逐格標記膝、肘與出手事件，載入分析頁匯出的試次 CSV，頁面會逐球配對並計算平均差、95% 一致性界限與 Bland-Altman 圖，同時比較「起始」與「峰值」兩種時序定義。另有 [模擬實驗](./docs/simulation-study.md)（`node tools/simulate-timing.cjs`）以已知答案的模擬資料比較各種處理方式。拍攝與標記步驟見 [驗證流程](./docs/validation-protocol.md)；系隊試用與問卷見 [試用計畫](./docs/field-trial-protocol.md)。
 
 ## 換裝置與備份還原
 
