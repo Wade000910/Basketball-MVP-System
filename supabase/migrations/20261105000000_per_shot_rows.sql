@@ -31,6 +31,7 @@ create table public.motion_trials (
     dt_peak_ms double precision,
     timestamp_source text,
     measured_fps double precision,
+    algorithm_version text,
     recorded_at timestamptz not null,
     primary key (session_id, run_id, trial_order)
 );
@@ -47,11 +48,12 @@ begin
 
     delete from public.motion_trials where session_id = new.id;
     insert into public.motion_trials (session_id, run_id, trial_order, user_id, shot_id, status, reason_code,
-        feedback_mode, dt_onset_ms, dt_peak_ms, timestamp_source, measured_fps, recorded_at)
+        feedback_mode, dt_onset_ms, dt_peak_ms, timestamp_source, measured_fps, algorithm_version, recorded_at)
     select new.id, r.value->>'id', (t.value->>'trialOrder')::int, new.user_id, nullif(t.value->>'shotId', ''),
            t.value->>'trialStatus', coalesce(t.value->>'reasonCode', ''), r.value->>'condition',
            (t.value->>'dt')::double precision, (t.value->>'dtPeak')::double precision,
-           t.value->>'timestampSource', (t.value->>'measuredFps')::double precision, (t.value->>'timestamp')::timestamptz
+           t.value->>'timestampSource', (t.value->>'measuredFps')::double precision, t.value->>'algorithmVersion',
+           (t.value->>'timestamp')::timestamptz
     from jsonb_array_elements(new.analysis_runs) as r(value),
          jsonb_array_elements(r.value->'trials') as t(value);
     return null;

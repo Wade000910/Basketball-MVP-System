@@ -10,10 +10,10 @@
             if(!t || !Number.isInteger(t.trialOrder) || t.trialOrder<1 || seen.has(t.trialOrder) || !['accepted','low_quality','invalid','aborted'].includes(t.trialStatus) || !(t.dt===null || Number.isFinite(t.dt)) || (t.trialStatus==='accepted' && !Number.isFinite(t.dt)) || typeof t.timestamp!=='string' || !Number.isFinite(Date.parse(t.timestamp)) || typeof t.reasonCode!=='string' || t.reasonCode.length>300)throw new Error('動作試次格式不符。');
             // Optional fields from the player page: an explicit shot link, the peak-definition
             // interval, which clock timed the samples, and the measured frame rate.
-            if((t.shotId!==undefined && t.shotId!==null && !code(t.shotId,80)) || (t.dtPeak!==undefined && !(t.dtPeak===null || Number.isFinite(t.dtPeak))) || (t.timestampSource!==undefined && !TIMESTAMP_SOURCES.includes(t.timestampSource)) || (t.measuredFps!==undefined && !(t.measuredFps===null || (Number.isFinite(t.measuredFps) && t.measuredFps>0 && t.measuredFps<1000))))throw new Error('動作試次格式不符。');
+            if((t.shotId!==undefined && t.shotId!==null && !code(t.shotId,80)) || (t.dtPeak!==undefined && !(t.dtPeak===null || Number.isFinite(t.dtPeak))) || (t.timestampSource!==undefined && !TIMESTAMP_SOURCES.includes(t.timestampSource)) || (t.measuredFps!==undefined && !(t.measuredFps===null || (Number.isFinite(t.measuredFps) && t.measuredFps>0 && t.measuredFps<1000))) || (t.algorithmVersion!==undefined && !code(t.algorithmVersion,40)))throw new Error('動作試次格式不符。');
             seen.add(t.trialOrder);
             const out={trialOrder:t.trialOrder,trialStatus:t.trialStatus,dt:t.dt,timestamp:t.timestamp,reasonCode:t.reasonCode};
-            for(const k of ['shotId','dtPeak','timestampSource','measuredFps'])if(t[k]!==undefined && t[k]!==null)out[k]=t[k];
+            for(const k of ['shotId','dtPeak','timestampSource','measuredFps','algorithmVersion'])if(t[k]!==undefined && t[k]!==null)out[k]=t[k];
             return out;
         });
         return {schemaVersion:SCHEMA,id:value.id,participantId:value.participantId,sessionId:value.sessionId,blockId:value.blockId,condition:value.condition,shootingSide:value.shootingSide,startedAt:value.startedAt,stoppedAt:value.stoppedAt,trials};

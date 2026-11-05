@@ -25,6 +25,9 @@
         leaveTeam:(team,uid)=>log('leaveTeam',tx(db=>{db.members=db.members.filter(m=>!(m.team_id===team&&m.user_id===uid&&uid===me(db)));})),
         removeMember:(team,uid)=>log('removeMember',tx(db=>{const coach=db.members.some(m=>m.team_id===team&&m.user_id===me(db)&&m.role==='coach');db.members=db.members.filter(m=>!(coach&&m.team_id===team&&m.user_id===uid&&m.role==='player'));})),
         roster:team=>log('roster',tx(db=>db.members.filter(m=>m.team_id===team).map(m=>({...m,display_name:db.profiles[m.user_id] || '未命名球員'})))),
+        openMarkCode:sid=>log('openMarkCode',tx(db=>{const s=db.sessions[sid];if(!s||s.user_id!==me(db))throw new Error('session not found');s.mark_code='MARK'+String(++n).padStart(2,'2').replace(/[01]/g,'2');s.mark_opened=Date.now();return s.mark_code;})),
+        addShotMark:(code,made)=>{try{return log('addShotMark',tx(db=>{const s=Object.values(db.sessions).find(x=>x.mark_code===String(code).trim().toUpperCase()&&Date.now()-x.mark_opened<12*3600e3);if(!s)throw new Error('mark code not found');db.marks=db.marks||[];db.marks.push({id:db.marks.length+1,session_id:s.id,made,created_at:new Date().toISOString()});}));}catch(e){return Promise.reject(e);}},
+        shotMarks:(sid,after=0)=>log('shotMarks',tx(db=>{const s=db.sessions[sid];if(!s||s.user_id!==me(db))return [];return (db.marks||[]).filter(m=>m.session_id===sid&&m.id>after).map(({id,made,created_at})=>({id,made,created_at}));})),
         teamSessions:(ids,since)=>log('teamSessions',tx(db=>Object.values(db.sessions).filter(s=>ids.includes(s.user_id)&&s.started_at>=since&&(s.user_id===me(db)||coachOf(db,me(db),s.user_id)))))
     };
 })();

@@ -54,6 +54,7 @@
         if(/already registered|already been registered/i.test(text))return '這個信箱已註冊，請直接登入。';
         if(/Password should be/i.test(text))return '密碼至少需要 6 個字元。';
         if(/invite code not found/i.test(text))return '找不到這個邀請碼，請向教練確認。';
+        if(/mark code not found/i.test(text))return '記錄碼不存在或已過期，請投籃者重新產生。';
         if(/Failed to fetch|NetworkError|network/i.test(text))return '連不上雲端，請檢查網路後再試。';
         return text || '雲端操作未完成，請稍後再試。';
     }
@@ -85,6 +86,10 @@
                 const names=new Map(profiles.map(p=>[p.id,p.display_name]));
                 return members.map(m=>({...m,display_name:names.get(m.user_id) || '未命名球員'}));
             },
+            // Teammate marking (supabase/migrations/20261105000000_per_shot_rows.sql).
+            async openMarkCode(sessionId){return must(await client.rpc('open_mark_code',{session:sessionId}));},
+            async addShotMark(code,made){must(await client.rpc('add_shot_mark',{code,made}));},
+            async shotMarks(sessionId,afterId=0){return must(await client.from('shot_marks').select('id,made,created_at').eq('session_id',sessionId).gt('id',afterId).order('id').limit(50));},
             async teamSessions(userIds,sinceIso){
                 if(!userIds.length)return [];
                 return must(await client.from('training_sessions').select(SESSION_COLUMNS).in('user_id',userIds).gte('started_at',sinceIso).order('started_at',{ascending:false}).limit(2000));
