@@ -63,6 +63,10 @@
 
 在罰球練習中同時開啟動作分析時，訓練室會把每一球依記錄時間對到一次動作：保持先後順序、同一次動作只用一次，誤觸發或漏判會跳過而不會讓後面的球全部錯位。報告會分開列出命中與未中時的平均時序差與標準差，CSV 也會附上每一球對應的動作狀態與時序。球數少時差異可能只是偶然，只供回看參考。
 
+## 準確度驗證（慢動作對照）
+
+[慢動作對照頁](https://wade000910.github.io/Basketball-MVP-System/validation/) 用另一支手機的 240 fps 慢動作影片當對照：逐格標記膝、肘與出手事件，載入分析頁匯出的試次 CSV，頁面會逐球配對並計算平均差、95% 一致性界限與 Bland-Altman 圖，同時比較「起始」與「峰值」兩種時序定義。拍攝與標記步驟見 [驗證流程](./docs/validation-protocol.md)；系隊試用與問卷見 [試用計畫](./docs/field-trial-protocol.md)。
+
 ## 換裝置與備份還原
 
 登入雲端後會自動同步，換手機登入即可還原。未登入時可用以下方式手動備份：
@@ -89,6 +93,7 @@
 ```bash
 npm test                 # Node 單元測試、HTML 與頁面檢查
 supabase/tests/run.sh    # 資料庫權限測試（需 PostgreSQL 16）
+node tools/validation-browser-check.cjs  # 慢動作對照頁（需 ffmpeg 與 Playwright）
 ```
 
 瀏覽器流程檢查需 Node.js 22 以上及 Chrome／Chromium，設定 BROWSER_BIN 後執行：
@@ -99,6 +104,6 @@ node tools/training-browser-smoke.cjs
 
 瀏覽器流程檢查包含雲端登入、加入球隊、同步、換裝置還原與教練總覽，以記憶體版後端（`tools/cloud-fake.js`）模擬 Supabase。
 
-程式入口： [training/](./training/) · [coach/](./coach/) · [專題程式/](./專題程式/) · [offline-review/](./offline-review/) · [shared/cloud.js](./shared/cloud.js) · [supabase/](./supabase/)
+程式入口： [training/](./training/) · [coach/](./coach/) · [validation/](./validation/) · [專題程式/](./專題程式/) · [offline-review/](./offline-review/) · [shared/cloud.js](./shared/cloud.js) · [supabase/](./supabase/)
 
 開發紀錄與技術資料保存在 [docs/](./docs/)，歷史版本可由 Git 記錄查閱。
