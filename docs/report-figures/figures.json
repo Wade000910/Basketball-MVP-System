@@ -1,0 +1,131 @@
+{
+  "generatedAt": "2026-11-09T06:49:55.989Z",
+  "figures": [
+    {
+      "file": "ui-home.png",
+      "chapter": "4",
+      "caption": "系統首頁（手機畫面）",
+      "source": "/",
+      "number": "4.1"
+    },
+    {
+      "file": "ui-shoot-setup.png",
+      "chapter": "4",
+      "caption": "罰球投籃頁：設定與拍攝引導（手機畫面）",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.2"
+    },
+    {
+      "file": "ui-shoot-practice.png",
+      "chapter": "4",
+      "caption": "罰球投籃頁：練習中，顯示上一球節奏、比分與語音記錄（測試資料）",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.3"
+    },
+    {
+      "file": "ui-shoot-teammate.png",
+      "chapter": "4",
+      "caption": "隊友幫記頁：輸入記錄碼後按「進／沒進」",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.4"
+    },
+    {
+      "file": "ui-shoot-summary.png",
+      "chapter": "4",
+      "caption": "結束一組：命中率、平均節奏與逐球修正（測試資料）",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.5"
+    },
+    {
+      "file": "ui-shoot-landscape.png",
+      "chapter": "4",
+      "caption": "罰球投籃頁橫放版面（測試資料）",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.6"
+    },
+    {
+      "file": "ui-training-home.png",
+      "chapter": "4",
+      "caption": "球員首頁：開始訓練與雲端備份入口（手機畫面）",
+      "source": "/training/",
+      "number": "4.7"
+    },
+    {
+      "file": "ui-coach-demo.png",
+      "chapter": "4",
+      "caption": "教練總覽（示範資料，非真實結果）",
+      "source": "/coach/?demo=1",
+      "number": "4.8"
+    },
+    {
+      "file": "ui-research.png",
+      "chapter": "4",
+      "caption": "研究模式：完整角度、速度曲線與實驗分組",
+      "source": "/專題程式/",
+      "number": "4.9"
+    },
+    {
+      "file": "test-unit.png",
+      "chapter": "4",
+      "caption": "自動化單元測試結果（依測試檔彙整，共 120 項全部通過）",
+      "source": "npm test",
+      "number": "4.10"
+    },
+    {
+      "file": "test-rls.png",
+      "chapter": "4",
+      "caption": "資料庫權限（RLS）測試：41 個情境全部通過",
+      "source": "supabase/tests/run.sh",
+      "number": "4.11"
+    },
+    {
+      "file": "test-equivalence.png",
+      "chapter": "4",
+      "caption": "球員版偵測器與研究頁判斷邏輯比對：300 種模擬情境結果完全相同",
+      "source": "tools/research-equivalence-check.cjs",
+      "number": "4.12"
+    },
+    {
+      "file": "test-shoot-flow.png",
+      "chapter": "4",
+      "caption": "罰球投籃頁與隊友幫記的瀏覽器流程測試",
+      "source": "tools/shoot-browser-check.cjs",
+      "number": "4.13"
+    },
+    {
+      "file": "test-training-flow.png",
+      "chapter": "4",
+      "caption": "球員首頁、場邊記錄與雲端流程的瀏覽器測試（36 項）",
+      "source": "tools/training-browser-smoke.cjs",
+      "number": "4.14"
+    },
+    {
+      "file": "sim-onset-sd.png",
+      "chapter": "5",
+      "caption": "模擬實驗：起始定義的誤差標準差與影格率、時間抖動的關係",
+      "source": "tools/simulate-timing.cjs",
+      "number": "5.1"
+    },
+    {
+      "file": "sim-peak-sd.png",
+      "chapter": "5",
+      "caption": "模擬實驗：峰值定義的誤差標準差與影格率、時間抖動的關係",
+      "source": "tools/simulate-timing.cjs",
+      "number": "5.2"
+    },
+    {
+      "file": "sim-peak-camera.png",
+      "chapter": "5",
+      "caption": "模擬實驗：改用相機影格時間後的峰值定義誤差",
+      "source": "tools/simulate-timing.cjs",
+      "number": "5.3"
+    },
+    {
+      "file": "ui-validation.png",
+      "chapter": "5",
+      "caption": "慢動作對照頁：逐格標記事件，與系統試次比較",
+      "source": "/validation/",
+      "number": "5.4"
+    }
+  ]
+}
