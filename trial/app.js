@@ -26,7 +26,6 @@
         const msg=$('survey-message');msg.hidden=true;$('done-note').hidden=true;
         const sus=answers('sus'),product=answers('product');
         if(sus.includes(null)||product.includes(null)){
-            const first=document.querySelector('.q:has(input[name]:not(:checked))');
             msg.textContent='還有題目沒回答，請把 A 和 B 的每一題都選一個分數。';msg.hidden=false;return;
         }
         try{

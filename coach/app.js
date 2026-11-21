@@ -95,7 +95,7 @@
         const since=new Date(Date.now()-SINCE_DAYS*86400000).toISOString();
         roster=await api.roster(team.id);
         const rows=await api.teamSessions(roster.filter(m=>m.role==='player').map(m=>m.user_id),since);
-        sessions=rows.map(r=>({...Cloud.fromRow(r),userId:r.user_id}));
+        sessions=rows.map(r=>({row:Cloud.fromRow(r),userId:r.user_id})).filter(x=>x.row).map(x=>({...x.row,userId:x.userId}));
         if(selected && !roster.some(m=>m.user_id===selected))selected=null;
         render();
     }

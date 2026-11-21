@@ -13,7 +13,7 @@
     const LOCAL_LIMIT=30;
 
     // Local session object -> training_sessions row. Demo sessions never sync.
-    const shotOf=s=>{const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
+    const shotOf=s=>{s=s&&typeof s==='object'?s:{};const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
     function toRow(session,userId){
         if(!session || session.isDemo)throw new Error('示範資料不會同步。');
         return {id:session.id,user_id:userId,player_code:session.playerCode,drill:session.drill,
@@ -24,12 +24,17 @@
             analysis_runs:session.analysisRuns || []};
     }
     // training_sessions row -> local session object in the app's existing schema.
+    // A row that cannot be read (not an object, an impossible date) gives null, so one bad row never stops a sync.
     function fromRow(row){
+        try{return convertRow(row);}catch{return null;}
+    }
+    function convertRow(row){
+        if(!row || typeof row!=='object' || Number.isNaN(Date.parse(row.started_at)) || (row.finished_at && Number.isNaN(Date.parse(row.finished_at))))return null;
         const session={schemaVersion:'basketball-training-v1',id:row.id,playerCode:row.player_code,
             targetShots:row.target_shots,note:row.note || '',drill:row.drill,position:row.position,
             inputSource:'manual',isDemo:false,startedAt:new Date(row.started_at).toISOString(),
             finishedAt:row.finished_at?new Date(row.finished_at).toISOString():null,
-            shots:(row.shots || []).map(shotOf)};
+            shots:(Array.isArray(row.shots)?row.shots:[]).map(shotOf)};
         if(Array.isArray(row.analysis_runs) && row.analysis_runs.length)session.analysisRuns=row.analysis_runs;
         return session;
     }

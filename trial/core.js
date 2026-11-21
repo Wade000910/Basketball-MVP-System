@@ -59,7 +59,8 @@
         });
         return {responses,skipped};
     }
-    const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+    // Text that starts like a spreadsheet formula gets a leading apostrophe, so opening the CSV never runs it.
+    const q=v=>{const x=String(v);return '"'+(/^[=+\-@\t\r]/.test(x)?"'":'')+x.replace(/"/g,'""')+'"';};
     function toCsv(responses){
         const head=['code','susScore',...SUS_ITEMS.map((_,i)=>'sus'+(i+1)),...PRODUCT_ITEMS.map((_,i)=>'product'+(i+1)),...OPEN_ITEMS.map((_,i)=>'open'+(i+1)),'device','submittedAt'];
         const rows=latestPerCode(responses).map(r=>[r.code,r.susScore,...r.sus,...r.product,...r.open.map(q),q(r.device),r.submittedAt]);

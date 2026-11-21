@@ -16,3 +16,6 @@ echo "RLS tests passed"
 "${psql[@]}" -c "reset role; truncate auth.users, public.teams cascade"
 "${psql[@]}" -f "$here/admin.test.sql" -o /dev/null 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 echo "Admin function tests passed"
+"${psql[@]}" -c "reset role; truncate auth.users, public.teams cascade"
+"${psql[@]}" -f "$here/abuse.test.sql" -o /dev/null 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+echo "Abuse tests passed"

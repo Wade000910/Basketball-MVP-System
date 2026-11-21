@@ -86,3 +86,13 @@ test('a file with far too many answers is capped instead of freezing the page', 
     assert.equal(r.responses.length, T.MAX_RESPONSES);
     assert.ok(r.skipped.some(s => /上限/.test(s.reason)));
 });
+
+test('free text that looks like a spreadsheet formula is neutralised in the CSV', () => {
+    for (const evil of ['=HYPERLINK("http://x","y")', '+1+1', '-2+3', '@SUM(A1)', '\t=1', '\r=1']) {
+        const r = T.buildResponse({code: 'P1', sus: [5, 1, 5, 1, 5, 1, 5, 1, 5, 1], product: [5, 5, 5, 5, 5], open: [evil, evil, evil], device: evil}, '2026-11-21T10:00:00Z');
+        const csv = T.toCsv([r]);
+        const cells = csv.trim().split('\n').slice(1).join('\n');
+        assert.ok(!new RegExp('(^|,)"?' + evil.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\t/g, '\\t').replace(/\r/g, '\\r')).test(cells), `formula start survives for ${JSON.stringify(evil)}`);
+        assert.ok(cells.includes('\'' ), 'a leading apostrophe marks it as text');
+    }
+});

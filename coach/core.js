@@ -12,6 +12,16 @@
         const total=sessions.reduce((n,s)=>n+s.shots.length,0),made=sessions.reduce((n,s)=>n+s.shots.filter(x=>x.made).length,0);
         return {made,total,percentage:pct(made,total)};
     }
+    // Any team member can write rows straight to the database, so what arrives is checked before use: motion runs
+    // that do not pass the same validation as on the player's own page are dropped, one at a time, and a session
+    // without a usable list of shots counts as having none. One bad row never stops the whole team view.
+    function cleanRuns(runs){
+        if(!Array.isArray(runs))return [];
+        const out=[];
+        for(const r of runs.slice(0,30)){try{out.push(Analysis.normalize(r));}catch{/* dropped */}}
+        return out;
+    }
+    const safe=s=>({...s,shots:Array.isArray(s.shots)?s.shots.filter(x=>x&&typeof x==='object'):[],analysisRuns:cleanRuns(s.analysisRuns)});
     // Weeks end today; index 0 is the oldest of `weeks` weeks.
     function weekly(sessions,now,weeks){
         return Array.from({length:weeks},(_,i)=>{
@@ -28,6 +38,7 @@
     // One row per shot for export: who, when, result, how it was entered, and its timing.
     const SHOT_COLUMNS=['player','sessionId','date','drill','position','shotOrder','made','source','motionStatus','dtPeakMs','dtOnsetMs','pairing','recordedAt'];
     function shotRows(roster,sessions){
+        sessions=sessions.filter(s=>s&&typeof s==='object').map(safe);
         const names=new Map(roster.map(m=>[m.user_id,m.display_name]));
         const rows=[];
         for(const s of [...sessions].filter(finished).sort((a,b)=>Date.parse(a.startedAt)-Date.parse(b.startedAt))){
@@ -48,6 +59,7 @@
     }
     // sessions: local-schema sessions each carrying userId. roster: [{user_id,display_name,role}].
     function teamReport(roster,sessions,now=new Date(),{weeks=4,inactiveDays=7}={}){
+        sessions=sessions.filter(x=>x&&typeof x==='object').map(safe);
         const players=roster.filter(m=>m.role==='player').map(member=>{
             const own=sessions.filter(s=>s.userId===member.user_id && finished(s)).sort((a,b)=>Date.parse(a.startedAt)-Date.parse(b.startedAt));
             const recent=own.filter(s=>now-Date.parse(s.startedAt)<=7*DAY);
@@ -55,7 +67,7 @@
             const daysSince=last===null?null:Math.floor((now-Date.parse(last))/DAY);
             const byDrill=Object.fromEntries(Object.keys(DRILLS).map(d=>[d,rate(own.filter(s=>s.drill===d))]));
             const trend=own.filter(s=>s.drill==='free_throw').slice(-10).map(s=>({startedAt:s.startedAt,...rate([s])}));
-            return {userId:member.user_id,name:member.display_name,joinedAt:member.joined_at || null,
+            return {userId:member.user_id,name:String(member.display_name ?? '未命名球員'),joinedAt:member.joined_at || null,
                 sessions:own.length,sessions7:recent.length,shots7:recent.reduce((n,s)=>n+s.shots.length,0),
                 lastPracticeAt:last,daysSince,inactive:daysSince===null || daysSince>=inactiveDays,
                 overall:rate(own),byDrill,trend,weekly:weekly(own,now,weeks),motion:motion(own)};

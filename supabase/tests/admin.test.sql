@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 -- Management functions: coaches run their team, players control their own account.
 -- Users: C coach, P1 and P2 players.
+drop table if exists pg_temp.team_ref;
+drop table if exists pg_temp.new_code;
 insert into auth.users values
  ('00000000-0000-0000-0000-00000000000c'),('00000000-0000-0000-0000-0000000000a1'),('00000000-0000-0000-0000-0000000000a2');
 create or replace function pg_temp.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, false) $$;

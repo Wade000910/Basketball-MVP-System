@@ -25,7 +25,7 @@
         try{
             const store=TrainingApp.snapshot();
             await api.upsertSessions(Cloud.uploadRows(store,user.id,TrainingApp.withAnalysis));
-            const remote=(await api.ownSessions(user.id)).map(Cloud.fromRow);
+            const remote=(await api.ownSessions(user.id)).map(Cloud.fromRow).filter(Boolean);
             const restored=TrainingApp.applyRemote(remote);
             status('已同步 '+time()+' · 雲端共 '+remote.length+' 組'+(restored?'，已還原 '+restored+' 組到這台裝置':'')+'。','已登入');
         }catch(error){status('同步失敗：'+Cloud.friendlyError(error)+' 紀錄仍保存在這台裝置。','未同步');}
