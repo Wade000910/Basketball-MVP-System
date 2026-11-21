@@ -65,7 +65,7 @@ test('browser tests', {skip}, async t => {
     const browser = await chromium.launch({args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']});
     t.after(async () => { await browser.close(); server.close(); });
 
-    const PAGES = ['', 'coach/', 'coach/?demo=1', 'offline-review/', 'shoot/', 'shoot/mark.html', 'training/', 'validation/', '專題程式/'];
+    const PAGES = ['', 'coach/', 'coach/?demo=1', 'offline-review/', 'shoot/', 'shoot/mark.html', 'training/', 'validation/', 'trial/', 'trial/#summary', '專題程式/'];
     const PROFILES = {'phone upright': devices['iPhone 13'], 'phone on its side': devices['iPhone 13 landscape'], desktop: {viewport: {width: 1280, height: 800}}};
 
     for (const [pname, profile] of Object.entries(PROFILES)) {
@@ -219,7 +219,7 @@ test('browser tests', {skip}, async t => {
     await t.test('accessibility: no WCAG AA violations on the main pages (needs axe-core)', {skip: axeSource ? false : 'axe-core is not installed'}, async () => {
         const context = await browser.newContext({...devices['iPhone 13']});
         const found = [];
-        for (const url of ['', 'coach/?demo=1', 'shoot/', 'shoot/mark.html', 'training/', 'offline-review/', 'validation/', '專題程式/']) {
+        for (const url of ['', 'coach/?demo=1', 'shoot/', 'shoot/mark.html', 'training/', 'offline-review/', 'validation/', 'trial/', 'trial/#summary', '專題程式/']) {
             const page = await context.newPage();
             await page.goto(base + url);
             await page.waitForTimeout(400);
@@ -321,6 +321,46 @@ test('browser tests', {skip}, async t => {
         assert.equal(await page.textContent('#score-made'), '1', 'with the tapped hoop, the ball dropping through is a make');
         await page.click('#rim-btn');
         assert.equal(await page.evaluate(() => ShootApp.hoop()), null, 'the hoop can be set again');
+        await context.close();
+    });
+    await t.test('trial survey: a participant fills it in and downloads an answer file, then the lead sums two files', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], acceptDownloads: true});
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'trial/');
+        // submitting with nothing filled in is refused with a clear message
+        await page.fill('#code', 'P101');
+        await page.click('#finish-btn');
+        assert.match(await page.textContent('#survey-message'), /沒回答/);
+        const fill = async (name, values) => { for (let i = 0; i < values.length; i++) await page.check(`input[name="${name}${i}"][value="${values[i]}"]`, {force: true}); };
+        await fill('sus', [5, 1, 5, 1, 5, 1, 5, 1, 5, 1]);
+        await fill('product', [5, 4, 3, 4, 5]);
+        await page.fill('#open0', '記錄很快');
+        const [d1] = await Promise.all([page.waitForEvent('download'), page.click('#finish-btn')]);
+        assert.equal(d1.suggestedFilename(), 'trial-P101.json');
+        const file1 = await d1.createReadStream().then(s => new Promise(r => { let x = ''; s.on('data', c => x += c); s.on('end', () => r(x)); }));
+        const answer1 = JSON.parse(file1);
+        assert.equal(answer1.susScore, 100);
+        assert.equal(answer1.code, 'P101');
+        // a second participant with a middling score, built the same way
+        const answer2 = {...answer1, code: 'P102', susScore: 50, sus: Array(10).fill(3), open: ['', '同步慢', '']};
+        // the lead loads both files and a broken one
+        await page.click('#tab-sum');
+        await page.setInputFiles('#files', [
+            {name: 'a.json', mimeType: 'application/json', buffer: Buffer.from(file1)},
+            {name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(answer2))},
+            {name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{oops')}
+        ]);
+        await page.waitForSelector('#summary-result:not([hidden])');
+        assert.equal(await page.textContent('#sum-n'), '2');
+        assert.equal(await page.textContent('#sum-mean'), '75');
+        assert.match(await page.textContent('#summary-message'), /略過 1/);
+        assert.match(await page.textContent('#sum-target'), /達到目標/);
+        assert.match(await page.textContent('#open-answers'), /同步慢/);
+        const [csv] = await Promise.all([page.waitForEvent('download'), page.click('#csv-btn')]);
+        assert.equal(csv.suggestedFilename(), 'trial-answers.csv');
+        assert.deepEqual(errors, []);
         await context.close();
     });
 });
