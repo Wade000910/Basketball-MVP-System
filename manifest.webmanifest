@@ -3,7 +3,7 @@
   "short_name": "MVP 投籃",
   "description": "個人與球隊的投籃訓練系統：記錄每一球、罰球動作節奏、教練總覽。",
   "lang": "zh-Hant",
-  "start_url": "./",
+  "start_url": "./shoot/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#11241d",

@@ -4,86 +4,13 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#11241d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="MVP 投籃"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-    <title>Basketball MVP｜球員訓練室</title>
-    <style>
-        :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif; --bg: #11241d; --card: #1b3a2f; --card-hi: #24503f; --line: #2f5c4a; --text: #f1f6f3; --muted: #a9c2b6; --accent: #e8742a; }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; height: 100%; }
-        body { background: var(--bg); color: var(--text); }
-        .app { height: 100dvh; display: flex; flex-direction: column; gap: .75rem; max-width: 40rem; margin: 0 auto; padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); overflow-y: auto; }
-        header { display: flex; align-items: center; gap: .8rem; flex: none; }
-        header img { width: 3rem; height: 3rem; border-radius: .8rem; }
-        h1 { margin: 0; font-size: 1.3rem; line-height: 1.2; }
-        header p { margin: .15rem 0 0; font-size: .85rem; color: var(--muted); }
-        .tiles { display: grid; gap: .6rem; flex: 1 1 auto; min-height: 0; grid-template-columns: 1fr; grid-auto-rows: minmax(4.2rem, 1fr); }
-        .tile { display: flex; flex-direction: column; justify-content: center; gap: .15rem; padding: .7rem 1rem; border-radius: 1rem; background: var(--card); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
-        .tile:active, .tile:hover { background: var(--card-hi); }
-        .tile b { font-size: 1.15rem; }
-        .tile span { font-size: .82rem; color: var(--muted); }
-        .tile.main { background: var(--accent); border-color: var(--accent); color: #1c0f05; }
-        .tile.main span { color: #3b2410; }
-        .tile.main:active, .tile.main:hover { background: #f08a45; }
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; flex: none; }
-        .row .tile { padding: .6rem .9rem; }
-        .row .tile b { font-size: 1rem; }
-        details { flex: none; border: 1px solid var(--line); border-radius: 1rem; padding: .1rem .9rem; }
-        summary { padding: .65rem 0; font-weight: 700; cursor: pointer; }
-        details .links { display: grid; gap: .5rem; padding-bottom: .8rem; }
-        details .links a { color: var(--text); text-decoration: none; padding: .55rem .7rem; border-radius: .7rem; background: var(--card); }
-        details .links small { display: block; color: var(--muted); font-weight: 400; }
-        #install-hint { flex: none; display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border-radius: .9rem; background: #16302a; border: 1px dashed var(--line); font-size: .82rem; color: var(--muted); }
-        #install-hint[hidden] { display: none; }
-        #install-hint p { margin: 0; flex: 1; }
-        #install-hint button { font: inherit; font-weight: 700; border: 0; border-radius: .6rem; padding: .45rem .8rem; background: var(--accent); color: #1c0f05; }
-        #install-hint button.quiet { background: transparent; color: var(--muted); padding: .45rem .5rem; }
-        footer { flex: none; font-size: .75rem; line-height: 1.5; color: var(--muted); }
-        footer a { color: var(--muted); }
-        @media (display-mode: standalone) { #install-hint, footer .links-out { display: none; } }
-        @media (min-width: 34rem) and (min-height: 40rem) { .tiles { grid-template-columns: 1fr 1fr 1fr; } .tile { text-align: center; align-items: center; } }
-        @media (orientation: landscape) and (max-height: 32rem) { .app { gap: .5rem; padding-top: .6rem; } header img { width: 2.2rem; height: 2.2rem; } h1 { font-size: 1.05rem; } header p { display: none; } .tiles { grid-template-columns: 1fr 1fr 1fr; grid-auto-rows: minmax(3.2rem, 1fr); } .tile { padding: .4rem .7rem; } footer, #install-hint { display: none; } }
-    </style>
+    <title>Basketball MVP</title>
+    <meta http-equiv="refresh" content="0; url=./shoot/">
+    <link rel="stylesheet" href="./shared/app-skin.css">
+    <script src="./shared/tabbar.js"></script>
 </head>
-<body>
-<div class="app">
-    <header>
-        <img src="./icons/icon-192.png" alt="" width="48" height="48">
-        <div>
-            <h1>Basketball MVP</h1>
-            <p>球員訓練室 · 每一球都有累積</p>
-        </div>
-    </header>
-
-    <nav class="tiles" aria-label="主要功能">
-        <a class="tile main" href="./shoot/"><b>罰球投籃</b><span>相機看你的出力節奏，進沒進用說的</span></a>
-        <a class="tile" href="./training/"><b>球員訓練室</b><span>記錄每一球、看進度與訓練報告</span></a>
-        <a class="tile" href="./coach/"><b>教練總覽</b><span>全隊練習量、命中率與需要關心的球員</span></a>
-    </nav>
-
-    <div class="row">
-        <a class="tile" href="./coach/?demo=1"><b>示範球隊</b><span>合成資料，先看看長相</span></a>
-        <a class="tile" href="./trial/"><b>試用問卷</b><span>用完告訴我們感覺</span></a>
-    </div>
-
-    <details>
-        <summary>研究與驗證工具</summary>
-        <div class="links">
-            <a href="./validation/">慢動作對照<small>用另一支手機拍慢動作，逐格比對誤差</small></a>
-            <a href="./專題程式/">罰球動作分析（研究模式）<small>完整角度、速度曲線與影片，給實驗使用</small></a>
-            <a href="./offline-review/">影片回看<small>逐格回看已下載的分析資料</small></a>
-        </div>
-    </details>
-
-    <div id="install-hint" hidden>
-        <p id="install-text"></p>
-        <button type="button" id="install-btn" hidden>安裝</button>
-        <button type="button" id="install-close" class="quiet" aria-label="關閉提示">✕</button>
-    </div>
-
-    <footer>
-        請勿輸入真實姓名，使用自訂學員代碼即可。未登入時紀錄只保存在此裝置，影片一律不會上傳；動作分析需要相機與網路。
-        <span class="links-out"><a href="https://github.com/Wade000910/Basketball-MVP-System#開始使用">使用說明</a> · <a href="https://github.com/Wade000910/Basketball-MVP-System">GitHub</a></span>
-    </footer>
-</div>
-<script src="./home.js" defer></script>
+<body class="app">
+<main><p class="muted" style="margin-top:3rem;text-align:center">正在進入練投…<a href="./shoot/">沒有自動跳轉請按這裡</a></p></main>
+<script src="./redirect.js"></script>
 </body>
 </html>

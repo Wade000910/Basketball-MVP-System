@@ -1,21 +1,21 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const landing = fs.readFileSync('index.html', 'utf8');
+const landing = fs.readFileSync('training/index.html', 'utf8');   // the me pane holds the links to every tool
+const root = fs.readFileSync('index.html', 'utf8');
 
 assert.match(landing, /<meta name="viewport"/);
-assert.match(landing, /href="\.\/專題程式\/"/);
+assert.match(root, /url=\.\/shoot\//, 'the root opens straight into practice');
+assert.match(landing, /href="\.\.\/專題程式\/"/);
 assert.match(landing, /球員訓練室/);
-assert.match(landing, /href="\.\/training\/"/);
-assert.match(landing, /href="\.\/offline-review\/"/);
-assert.match(landing, /請勿輸入真實姓名/);
+assert.match(landing, /href="\.\.\/offline-review\/"/);
 assert.equal(fs.existsSync('專題程式/index.html'), true);
 assert.equal(fs.existsSync('專題程式/session-capture.js'), true);
 assert.match(fs.readFileSync('專題程式/index.html','utf8'), /下載影片與分析資料/);
 assert.equal(fs.existsSync('.nojekyll'), true);
-assert.match(landing, /href="\.\/coach\/"/);
-assert.match(landing, /href="\.\/validation\/"/);
-assert.match(landing, /href="\.\/shoot\/"/);
+assert.match(landing, /href="\.\.\/coach\/"/);
+assert.match(landing, /href="\.\.\/validation\/"/);
+assert.match(fs.readFileSync('shared/tabbar.js', 'utf8'), /shoot\//);
 const config = fs.readFileSync('shared/cloud-config.js', 'utf8').replace(/\/\/.*$/gm, '');
 assert.doesNotMatch(config, /service_role|sb_secret_/, 'Never ship a secret Supabase key');
 for (const page of ['training/index.html', 'coach/index.html', 'validation/index.html', 'shoot/index.html', 'shoot/mark.html']) {

@@ -12,7 +12,7 @@ const manifest = JSON.parse(read('manifest.webmanifest'));
 
 test('the manifest describes a standalone app that starts at the home page', () => {
     assert.equal(manifest.display, 'standalone');
-    assert.equal(manifest.start_url, './');
+    assert.equal(manifest.start_url, './shoot/', 'the app opens straight into practice');
     assert.equal(manifest.scope, './');
     assert.ok(manifest.name && manifest.short_name && manifest.short_name.length <= 12);
     assert.match(manifest.theme_color, /^#[0-9a-f]{6}$/i);
@@ -84,12 +84,25 @@ test('nothing registers a service worker or caches the site, so updates always a
     }
 });
 
-test('the home page links every tool, has no scrolling-length text, and shows the install hint only outside the app', () => {
-    const html = read('index.html');
-    for (const target of ['./training/', './shoot/', './coach/', './coach/?demo=1', './trial/', './validation/', './專題程式/', './offline-review/']) {
-        assert.ok(html.includes(`href="${target}"`), `home does not link ${target}`);
+test('the root page hands over to practice, and the me pane links every tool and shows the install hint', () => {
+    assert.match(read('index.html'), /url=\.\/shoot\//);
+    assert.match(read('redirect.js'), /location\.replace\('\.\/shoot\/'/);
+    const html = read('training/index.html');
+    for (const target of ['../trial/', '../coach/', '../coach/?demo=1', '../validation/', '../專題程式/', '../offline-review/']) {
+        assert.ok(html.includes(`href="${target}"`), `the me pane does not link ${target}`);
     }
     assert.match(html, /id="install-hint"/);
     assert.match(read('home.js'), /standalone/);
     assert.match(read('home.js'), /beforeinstallprompt/);
+});
+
+test('the four tabs point at real pages and every tab page loads the bar', () => {
+    const bar = read('shared/tabbar.js');
+    for (const target of ["'shoot/'", "'training/#records'", "'training/#team'", "'training/#me'"]) assert.ok(bar.includes(target), target);
+    for (const [file, tab] of [['shoot/index.html', 'shoot'], ['training/index.html', 'panes'], ['coach/index.html', 'team']]) {
+        const html = read(file);
+        assert.match(html, new RegExp(`<body class="app" data-tab="${tab}">`), file);
+        assert.match(html, /shared\/tabbar\.js/, file);
+        assert.match(html, /shared\/app-skin\.css/, file);
+    }
 });
