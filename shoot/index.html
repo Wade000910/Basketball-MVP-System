@@ -16,6 +16,7 @@
     <script src="../shared/cloud.js" defer></script>
     <script src="./engine.js" defer></script>
     <script src="./perf.js" defer></script>
+    <script src="./gauge.js" defer></script>
     <script src="./voice.js" defer></script>
     <script src="./practice.js" defer></script>
     <script src="./app.js" defer></script>
@@ -79,6 +80,8 @@
     <section class="panel">
         <div class="score"><div><strong id="score-made">0</strong><span>進</span></div><div><strong id="score-total">0</strong><span id="score-target">/ 20 球</span></div><div><strong id="score-pct">--</strong><span>命中率</span></div></div>
         <div class="last"><span class="muted">上一球節奏</span><strong id="last-dt">-- ms</strong><span id="last-note" class="muted">等待第一球</span></div>
+        <div id="rhythm" class="rhythm" hidden aria-hidden="true"><span class="band"></span><span class="mark"></span></div>
+        <p id="rhythm-text" class="rhythm-text muted" hidden></p>
         <p id="voice-line" class="voice-line" hidden></p>
         <div class="shot-buttons"><button id="made-btn" type="button" class="made">進</button><button id="missed-btn" type="button" class="missed">沒進</button></div>
         <p id="practice-message" class="practice-message" role="status"></p>

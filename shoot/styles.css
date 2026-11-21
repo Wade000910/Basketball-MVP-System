@@ -35,3 +35,10 @@ body.practicing .page-footer{display:none}
 .text-like{border:0;background:none;color:#816142;text-decoration:underline;padding:4px;font-size:13px}
 
 .lite-btn{position:absolute;left:10px;right:10px;top:52px;background:#b8571f;color:#fff;border:0;border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px}
+.rhythm{position:relative;height:14px;margin:12px 2px 2px;border-radius:7px;background:#e3e9df}
+.rhythm .band{position:absolute;top:0;bottom:0;border-radius:7px;background:#b9d98f}
+.rhythm .mark{position:absolute;top:-5px;width:6px;height:24px;margin-left:-3px;border-radius:3px;background:#174f39;transition:left .25s ease}
+.rhythm.off .mark{background:#b8571f}
+.rhythm.clipped .mark{border-radius:3px 3px 3px 3px;outline:2px solid #b8571f}
+.rhythm-text{margin:4px 2px 0;font-size:13px}
+@media (prefers-reduced-motion:reduce){.rhythm .mark{transition:none}}
