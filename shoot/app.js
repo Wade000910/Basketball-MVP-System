@@ -117,7 +117,7 @@
     let modelComplexity=1;
     $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
     async function startCamera(){
-        running=true;
+        running=true;perf=ShootPerf.createPerfMonitor();$('lite-btn').hidden=true;
         try{
             stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
             const video=$('video');video.srcObject=stream;await video.play();
