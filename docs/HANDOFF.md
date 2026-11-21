@@ -37,3 +37,4 @@
 - 是否關掉 Supabase 註冊時的 email 確認。
 
 > 2026-11-21：PR #44 合併後 GitHub Pages 部署連續失敗（Deployment failed, try again later），以新的小提交重新部署。
+> 2026-11-21：PR #47 合併後 GitHub Pages 部署再次出現「找不到 github-pages 檔案」的暫時性錯誤（與 PR #44 相同），以新提交重新部署。
