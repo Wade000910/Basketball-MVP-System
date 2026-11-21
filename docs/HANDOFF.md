@@ -35,3 +35,5 @@
 - 介面風格參考、亮色或暗色。
 - 展覽、口試、交報告的日期。
 - 是否關掉 Supabase 註冊時的 email 確認。
+
+> 2026-11-21：PR #44 合併後 GitHub Pages 部署連續失敗（Deployment failed, try again later），以新的小提交重新部署。
