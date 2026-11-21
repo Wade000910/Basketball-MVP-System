@@ -498,4 +498,99 @@ test('browser tests', {skip}, async t => {
         assert.deepEqual(errors, []);
         await context.close();
     });
+    await t.test('the training page survives a full storage, a blocked storage and a clock set far from now', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        // storage that throws on every use, as in some private windows
+        const blocked = await context.newPage();
+        const blockedErrors = [];
+        blocked.on('pageerror', e => blockedErrors.push(e.message));
+        await blocked.addInitScript(() => {
+            const boom = () => { throw new DOMException('blocked', 'SecurityError'); };
+            Object.defineProperty(window, 'localStorage', {get: boom});
+        });
+        await blocked.goto(base + 'training/');
+        await blocked.waitForTimeout(500);
+        assert.deepEqual(blockedErrors, [], 'blocked storage must not break the page');
+        await blocked.close();
+        // storage that is full: saving fails with a quota error
+        const full = await context.newPage();
+        const fullErrors = [];
+        full.on('pageerror', e => fullErrors.push(e.message));
+        await full.addInitScript(() => { Storage.prototype.setItem = () => { throw new DOMException('full', 'QuotaExceededError'); }; });
+        await full.goto(base + 'training/');
+        await full.fill('#player-code', 'P401');
+        await full.click('#setup-form button[type=submit]');
+        await full.waitForTimeout(500);
+        assert.deepEqual(fullErrors, [], 'a full disk is reported, not thrown');
+        await full.close();
+        // a clock in the year 2099 and one in 1970
+        for (const iso of ['2099-01-01T00:00:00Z', '1970-01-01T00:00:00Z']) {
+            const fresh = await browser.newContext({...devices['iPhone 13']});   // each clock starts with empty storage
+            const p = await fresh.newPage();
+            const errs = [];
+            p.on('pageerror', e => errs.push(e.message));
+            await p.addInitScript(fake => { const real = Date, offset = new real(fake).getTime() - real.now(); globalThis.Date = class extends real { constructor(...a) { a.length ? super(...a) : super(real.now() + offset); } static now() { return real.now() + offset; } }; }, iso);
+            await p.goto(base + 'training/');
+            await p.fill('#player-code', 'P402');
+            await p.click('#setup-form button[type=submit]');
+            await p.waitForSelector('#session-panel:not([hidden])');
+            await p.click('#made-btn');
+            await p.click('#finish-btn').catch(() => {});
+            await p.waitForTimeout(300);
+            assert.deepEqual(errs, [], `clock ${iso}`);
+            await fresh.close();
+        }
+        await context.close();
+    });
+
+    await t.test('hostile names and notes are shown as text, never run', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        await context.addInitScript(() => {
+            const evil = '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>';
+            globalThis.__evil = evil;
+            const db = {teams: [{id: 't1', name: evil, invite_code: 'ABCDEFGH', role: 'coach'}]};
+            globalThis.CloudApiOverride = {
+                async currentUser() { return {id: 'u1', email: 'c@example.com'}; }, onAuthChange() {},
+                async signIn() { return {id: 'u1', email: 'c@example.com'}; }, async signOut() {},
+                async profile() { return {id: 'u1', display_name: evil}; }, async saveProfile() {},
+                async myTeams() { return db.teams; },
+                async roster() { return [{user_id: 'u1', role: 'coach', display_name: evil}, {user_id: 'u2', role: 'player', display_name: evil}]; },
+                async teamSessions() { return [{id: 's1', user_id: 'u2', player_code: 'P1', drill: 'free_throw', position: 'center', target_shots: 10, note: evil, started_at: new Date().toISOString(), finished_at: new Date().toISOString(), shots: [{id: 'a', made: true, recordedAt: new Date().toISOString()}], analysis_runs: []}]; },
+                async removeMember() {}, async leaveTeam() {}, async renameTeam() {}, async regenerateInviteCode() {}, async deleteTeam() {}
+            };
+        });
+        const page = await context.newPage();
+        await page.goto(base + 'coach/');
+        await page.waitForSelector('#coach-dashboard:not([hidden])');
+        await page.locator('.roster tbody tr').first().click();
+        await page.waitForTimeout(500);
+        assert.equal(await page.evaluate(() => globalThis.__xss), undefined, 'no script from a name ran');
+        assert.equal(await page.locator('img[src="x"]').count(), 0, 'no image element was created from a name');
+        const tp = await context.newPage();
+        await tp.goto(base + 'training/');
+        await tp.waitForTimeout(500);
+        assert.equal(await tp.evaluate(() => globalThis.__xss), undefined);
+        await context.close();
+    });
+    await t.test('two tabs of the training page never overwrite each other\'s finished sets', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const a = await context.newPage(), b = await context.newPage();
+        const errors = [];
+        for (const p of [a, b]) { p.on('dialog', d => d.accept()); p.on('pageerror', e => errors.push(e.message)); await p.goto(base + 'training/'); }
+        const run = async (p, code) => {
+            await p.fill('#player-code', code);
+            await p.click('#setup-form button[type=submit]');
+            await p.waitForSelector('#session-panel:not([hidden])');
+            await p.click('#made-btn');
+            await p.click('#finish-btn');
+            await p.waitForSelector('#report-panel:not([hidden])');
+        };
+        await run(a, 'PAAA');
+        await run(b, 'PBBB');   // this tab was opened before PAAA existed
+        const store = JSON.parse(await a.evaluate(() => localStorage.getItem('basketball-training-v1')));
+        const codes = [...store.history.map(s => s.playerCode), store.active && store.active.playerCode].filter(Boolean);
+        assert.ok(codes.includes('PAAA') && codes.includes('PBBB'), 'both sets are kept, got ' + codes);
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
 });

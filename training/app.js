@@ -3,6 +3,10 @@
     const C=TrainingCore, A=TrainingAnalysis, KEY='basketball-training-v1';
     const $=id=>document.getElementById(id);
     let active=null,history=[],loadFailed=false;
+    // The text this tab last read from or wrote to storage. If storage holds something else when this tab saves,
+    // another tab changed the records in between, and those sets are merged in instead of being overwritten.
+    let lastText=null;
+    const mergeHistory=(mine,theirs)=>[...new Map([...theirs,...mine].map(x=>[x.id,x])).values()].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)).slice(0,30);
     let lastRecordAt=-Infinity,lastRecordSession=null;
     const uid=()=>globalThis.crypto.randomUUID();
     const formatDate=value=>new Date(value).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -14,7 +18,10 @@
         if(active?.finishedAt) history=[active,...history.filter(s=>s.id!==active.id)].sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt)).slice(0,30);
         try {
             if(loadFailed) throw new Error('尚有無法讀取的舊資料');
-            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active,history}));
+            const stored=localStorage.getItem(KEY);
+            if(stored!==null && stored!==lastText) { try { history=mergeHistory(history,C.parseStore(stored).history); } catch { /* unreadable: keep this tab's copy */ } }
+            const text=JSON.stringify({schemaVersion:C.SCHEMA,active,history});
+            localStorage.setItem(KEY,text);lastText=text;
             $('storage-status').textContent='已儲存於此裝置的瀏覽器 · 清除網站資料會刪除紀錄，請下載報告備份或登入雲端備份。';
             window.dispatchEvent(new CustomEvent('training:saved'));
         } catch(error) {
@@ -238,19 +245,25 @@
             const current={schemaVersion:C.SCHEMA,active:active?.isDemo?store.active:active,history};
             if(saved && JSON.stringify(store)!==JSON.stringify(current))throw new Error('紀錄已在其他分頁變更，請重新整理後再匯入。');
             const next=C.mergeBackup(current,incoming);
-            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:next.active,history:next.history}));
+            {const text=JSON.stringify({schemaVersion:C.SCHEMA,active:next.active,history:next.history});localStorage.setItem(KEY,text);lastText=text;}
             active=next.active;history=next.history;
             $('dashboard-player').value=active?.playerCode || history[0]?.playerCode || '';
             render();$('import-status').textContent='匯入完成：新增 '+next.added+' 組，保留既有版本 '+next.skipped+' 組。';
         }catch(error){$('import-status').textContent='未匯入：'+(error.message || '檔案無法讀取');}
         finally{input.disabled=false;input.value='';}
     });
-    window.addEventListener('storage',event=>{if(event.key===A.KEY && active)renderAnalysis();});
+    window.addEventListener('storage',event=>{
+        if(event.key===A.KEY && active)renderAnalysis();
+        // Another tab saved: take in its sets so this tab shows them and never writes over them.
+        if(event.key===KEY && event.newValue!==null && !loadFailed){
+            try{history=mergeHistory(history,C.parseStore(event.newValue).history);lastText=event.newValue;render();}catch{/* unreadable: leave as is */}
+        }
+    });
     window.addEventListener('focus',()=>{if(active)renderAnalysis();});
     $('clear-history').addEventListener('click',()=>perform(()=>{
         if(active && !active.finishedAt)throw new Error('請先結束目前練習並下載報告，再清除紀錄。');
         if(!confirm('永久清除此裝置的全部訓練紀錄？請先下載需要的報告。'))return;
-        localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
+        localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;lastText=null;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
     }));
     // Interface for the optional cloud layer (shared/cloud.js + training/cloud-ui.js).
     window.TrainingApp={
@@ -265,7 +278,7 @@
             const result=Cloud.mergeRemote({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history},clean);
             if(!result.restored)return 0;
             history=result.store.history;
-            localStorage.setItem(KEY,JSON.stringify({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history}));
+            {const text=JSON.stringify({schemaVersion:C.SCHEMA,active:active?.isDemo?null:active,history});localStorage.setItem(KEY,text);lastText=text;}
             if(!$('dashboard-player').value)$('dashboard-player').value=history[0]?.playerCode || '';
             render();
             return result.restored;
@@ -273,7 +286,7 @@
     };
     try {
         const saved=localStorage.getItem(KEY);
-        if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;}
+        if(saved){const data=C.parseStore(saved);history=data.history;active=data.active;lastText=saved;}
     }catch(error){loadFailed=true;$('storage-status').textContent='無法讀取本機紀錄；舊資料保留，暫停自動儲存。仍可練習並下載報告。';}
     $('dashboard-player').value=active?.isDemo?'':(active?.playerCode || history[0]?.playerCode || '');
     if(active)$('trend-drill').value=active.drill;
