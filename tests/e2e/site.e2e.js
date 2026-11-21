@@ -231,4 +231,49 @@ test('browser tests', {skip}, async t => {
         await context.close();
         assert.deepEqual(found, []);
     });
+    await t.test('camera make/miss (experimental): a scripted detector makes the page record a make, a miss, and ask when unsure', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(() => {
+            // a scripted detector: the next shot's ball path is chosen by the test
+            const HOOP = {cx: 0.5, cy: 0.3, w: 0.12};
+            const paths = {make: [[0.45, 0.12], [0.49, 0.2], [0.5, 0.27], [0.5, 0.33], [0.5, 0.42]], miss: [[0.3, 0.1], [0.34, 0.2], [0.36, 0.28], [0.37, 0.36], [0.37, 0.5]], none: []};
+            let step = 0;
+            globalThis.__script = {path: 'none', arm(name) { this.path = name; step = 0; }};
+            globalThis.BallDetectorOverride = {
+                async available() { return true; },
+                async detect() {
+                    const p = paths[globalThis.__script.path][step++];
+                    return {ball: p ? {x: p[0], y: p[1], r: 0.025} : null, hoop: HOOP};
+                }
+            };
+        });
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'shoot/');
+        await page.waitForFunction(() => !document.getElementById('camera-on').disabled);
+        await page.check('#camera-on');
+        await page.fill('#player-code', 'P555');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => document.getElementById('video').videoWidth > 0, null, {timeout: 20000});
+        const release = () => page.evaluate(() => ShootApp.onTrial({status: 'accepted', reasonCode: '', dt: 80, dtPeak: 120, measuredFps: 29.5, timestampSource: 'camera-frame', algorithmVersion: 'player-peak-v1'}));
+        await page.waitForTimeout(1500);
+        await page.evaluate(() => globalThis.__script.arm('make'));
+        await release();
+        await page.waitForFunction(() => document.getElementById('score-total').textContent === '1', null, {timeout: 8000});
+        assert.equal(await page.textContent('#score-made'), '1', 'the ball dropping through the hoop is recorded as a make');
+        await page.waitForTimeout(3300);
+        await page.evaluate(() => globalThis.__script.arm('miss'));
+        await release();
+        await page.waitForFunction(() => document.getElementById('score-total').textContent === '2', null, {timeout: 8000});
+        assert.equal(await page.textContent('#score-made'), '1', 'a ball beside the rim is a miss');
+        await page.waitForTimeout(3300);
+        await page.evaluate(() => globalThis.__script.arm('none'));
+        await release();
+        await page.waitForFunction(() => /請按進或沒進/.test(document.getElementById('last-note').textContent), null, {timeout: 8000});
+        assert.equal(await page.textContent('#score-total'), '2', 'an unclear shot is not recorded by the camera');
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
 });

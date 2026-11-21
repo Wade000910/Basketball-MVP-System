@@ -75,6 +75,31 @@
     }
     $('player-code').value=lastPlayerCode();
     if(!V.supported()){$('voice-on').checked=false;$('voice-on').disabled=true;$('voice-on').nextElementSibling.querySelector('small').textContent='這個瀏覽器不支援語音辨識，請用按鈕記錄。';}
+    // ---------- camera make/miss (experimental) ----------
+    function makeDetector(){return globalThis.BallDetectorOverride||ShootBallDetector.createBallDetector();}
+    makeDetector().available().then(ok=>{
+        if(!ok)return;
+        $('camera-on').disabled=false;$('camera-note').textContent='球和籃框都拍進畫面時，球出手後約 2.5 秒自動判斷進或沒進；沒看清楚的球請按進或沒進。實驗功能，準確度還沒驗證。';
+    }).catch(()=>{});
+    function startHoopWatch(){
+        hoopWatch=null;ballDetector=null;
+        if(!$('camera-on').checked||$('camera-on').disabled)return;
+        ballDetector=makeDetector();hoopWatch=ShootHoopWatch.createHoopWatch();
+    }
+    function lookForBall(video,now){
+        if(!ballDetector||hoopBusy)return;
+        const watching=hoopWatchActive||hoopWatch.hoop()===null;
+        if(!watching&&now-lastHoopLook<2000)return;
+        hoopBusy=true;lastHoopLook=now;
+        ballDetector.detect(video).then(res=>hoopWatch.push(performance.now(),res)).catch(()=>{}).finally(()=>{hoopBusy=false;});
+    }
+    function settleHoopWatch(){
+        if(!hoopWatch)return;
+        const r=hoopWatch.finish(performance.now());
+        if(!r)return;hoopWatchActive=false;
+        if(r.result==='unknown'){$('last-note').textContent='相機沒看清楚這球（'+r.reason+'），請按進或沒進。';return;}
+        handleResult(r.result==='made','camera');
+    }
     function loadResume(){
         const saved=store.get(P.KEY);if(!saved)return;
         try{
@@ -105,6 +130,7 @@
         message('');
         show('practice-view');
         log=E.createResultLog();detector=null;tsSource=null;lastShot=null;
+        startHoopWatch();
         madePeaks=[...P.pastMadePeaks(practice.session.playerCode,store.get(P.TRAINING_KEY),store.get(A.KEY)),...linkedMadePeaks(practice)];
         render();
         $('last-note').textContent='站進畫面，下蹲準備投籃';
@@ -114,7 +140,7 @@
         if(practice.markCode)openTeammatePanel(practice.markCode);
         await startCamera();
     }
-    let modelComplexity=1;
+    let modelComplexity=1,hoopWatch=null,ballDetector=null,hoopBusy=false,lastHoopLook=0,hoopWatchActive=false;
     $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
     function fitStage(){
         const v=$('video'),w=v.videoWidth,h=v.videoHeight,view=$('practice-view');
@@ -153,6 +179,7 @@
         if(!running)return;
         perf.offered();
         const video=$('video');
+        if(hoopWatch){settleHoopWatch();if(video.readyState>=2)lookForBall(video,performance.now());}
         if(!busy&&video.readyState>=2&&video.videoWidth){
             const camera=meta&&Number.isFinite(meta.mediaTime)&&meta.mediaTime>0;
             const src=camera?'camera-frame':'pose-result',t=camera?meta.mediaTime*1000:performance.now();
@@ -194,6 +221,7 @@
             practice=r.practice;log.trial({...trial,trialOrder:r.trialOrder},Date.now());save();
         }catch(error){message(error.message,'practice-message');return;}
         if(trial.status==='aborted'){$('last-note').textContent='這球中斷了：'+reason(trial.reasonCode);return;}
+        if(hoopWatch){hoopWatch.start(performance.now());hoopWatchActive=true;}
         // The detector already waits about 1 s after release, as on the research page.
         feedback(trial);
     }
@@ -222,7 +250,7 @@
     function handleResult(made,source){
         if(!practice||$('practice-view').hidden)return;
         const r=log.result(made,source,Date.now());
-        if(!r.accepted){message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
+        if(!r.accepted){if(source==='camera')return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
         const shotId=newId('s');
         try{practice=P.addResult(practice,{made,source,shotId,trialOrder:r.trial?.trialOrder ?? null});}
         catch(error){message(error.message,'practice-message');return;}
@@ -316,7 +344,7 @@
         if(!s.measured)parts.push('沒有量到節奏時，命中紀錄仍會保存。');
         $('sum-compare').textContent=parts.join('');
         const list=$('sum-rows');list.replaceChildren();
-        const SOURCE={manual:'按鈕',voice:'語音',teammate:'隊友',corrected:'已修正'};
+        const SOURCE={manual:'按鈕',voice:'語音',teammate:'隊友',camera:'相機',corrected:'已修正'};
         for(const r of s.rows){
             const li=document.createElement('li'),n=document.createElement('span'),info=document.createElement('div'),res=document.createElement('span'),meta=document.createElement('span'),btns=document.createElement('div');
             n.textContent='#'+r.order;res.className=r.made?'made-tag':'missed-tag';res.textContent=r.made?'進':'沒進';

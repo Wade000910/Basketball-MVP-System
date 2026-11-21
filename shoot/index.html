@@ -18,6 +18,10 @@
     <script src="./perf.js" defer></script>
     <script src="./gauge.js" defer></script>
     <script src="./layout.js" defer></script>
+    <script src="./hoop.js" defer></script>
+    <script src="./hoop-watch.js" defer></script>
+    <script src="./yolo.js" defer></script>
+    <script src="./ball-detector.js" defer></script>
     <script src="./voice.js" defer></script>
     <script src="./practice.js" defer></script>
     <script src="./app.js" defer></script>
@@ -49,6 +53,7 @@
         </fieldset>
         <fieldset><legend>回饋與記錄</legend>
             <label class="check"><input id="sound-on" type="checkbox" checked><span>聲音回饋<small>出手 1 秒後：節奏和你進球時一樣是「叮」，偏離是「嗡」。先累積 5 顆有量到的進球才會開始判斷。</small></span></label>
+            <label class="check"><input id="camera-on" type="checkbox" disabled><span>用鏡頭偵測進球（實驗）<small id="camera-note">偵測模型還沒安裝，暫時不能使用。要同時拍到你和籃框；沒看清楚的球會請你按進或沒進。</small></span></label>
             <label class="check"><input id="voice-on" type="checkbox" checked><span>用說的記錄進球<small>投完說「進」或「沒進」。需要麥克風權限；說不清楚時可以點按鈕。</small></span></label>
         </fieldset>
         <details class="placement">

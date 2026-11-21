@@ -23,6 +23,10 @@ insert into profiles values (auth.uid(), 'P1');
 select join_team((select invite_code from team_ref));
 insert into training_sessions (id, player_code, drill, position, target_shots, started_at, finished_at, shots)
  values ('s-p1', 'P001', 'free_throw', 'center', 10, now() - interval '1 hour', now(), '[{"id":"a","made":true,"recordedAt":"2026-11-03T08:00:00Z"}]');
+insert into training_sessions (id, player_code, drill, position, target_shots, started_at, finished_at, shots)
+ values ('s-cam', 'P001', 'free_throw', 'center', 10, now() - interval '2 hours', now() - interval '1 hour',
+  '[{"id":"c1","made":true,"source":"camera","recordedAt":"2026-11-03T09:00:00Z"}]');
+select pg_temp.check((select count(*) from shots where session_id = 's-cam' and source = 'camera') = 1, 'a camera-detected shot is stored with its source');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a2');
 insert into profiles values (auth.uid(), 'P2');
 select join_team((select invite_code from team_ref));
