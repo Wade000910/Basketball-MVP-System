@@ -74,3 +74,5 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
 select delete_my_account();
 reset role;
 select pg_temp.check((select count(*) from auth.users where id = '00000000-0000-0000-0000-00000000000c') = 0, 'coach with no team members can delete the account');
+select pg_temp.check(not has_function_privilege('anon', 'public.is_team_coach(uuid)', 'execute') and has_function_privilege('authenticated', 'public.is_team_coach(uuid)', 'execute'), 'helper functions are for signed-in users only');
+select pg_temp.check(has_function_privilege('anon', 'public.add_shot_mark(text, boolean)', 'execute'), 'a teammate can still mark a shot without an account');

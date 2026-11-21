@@ -59,7 +59,7 @@ Supabase（Postgres + Auth）
 
 ## 繳交前待辦
 
-1. **上線雲端**（2026-11-21 查到：`shared/cloud-config.js` 設定的 Supabase 專案網址已經解析不到，專案可能已暫停或刪除，需要先到 Supabase 儀表板恢復或重建）：建立 Supabase 專案並執行資料表設定（見 [supabase/README.md](./supabase/README.md)），填入 `shared/cloud-config.js`，部署 GitHub Pages。
+1. **上線雲端**（2026-11-21 已確認：Supabase 專案 `basketball-mvp` 運作正常，資料表、權限與管理函式都已套用，並在雲端以測試帳號跑過建隊、加入、改名、換邀請碼、刪除的完整流程，測試資料已復原；本檔先前寫的「連不上」是當時這台機器的網路查詢失敗，不是專案問題）：建立 Supabase 專案並執行資料表設定（見 [supabase/README.md](./supabase/README.md)），填入 `shared/cloud-config.js`，部署 GitHub Pages。
 2. **手機實測**：iPhone Safari 與 Android Chrome 登入、加入球隊、練習一組、教練端看到資料。罰球投籃頁另依 [實測清單](./docs/shoot-field-test.md) 量語音辨識正確率，以及開／關語音時的 fps。
 3. **準確度驗證**：依 [驗證流程](./docs/validation-protocol.md) 拍 2–3 組（40–60 球），用慢動作對照頁算出誤差，並「選定」起始或峰值定義。
 4. **系隊試用**：依 [試用計畫](./docs/field-trial-protocol.md) 進行約 2 週，收集使用數據與問卷。
