@@ -37,6 +37,9 @@
     }
     // One row per shot for export: who, when, result, how it was entered, and its timing.
     const SHOT_COLUMNS=['player','sessionId','date','drill','position','shotOrder','made','source','motionStatus','dtPeakMs','dtOnsetMs','pairing','recordedAt'];
+    // The date as the person using the page sees it (a Taipei morning is the day before in UTC).
+    const pad=n=>String(n).padStart(2,'0');
+    const localDate=d=>{const x=new Date(d);return Number.isNaN(x.getTime())?'':x.getFullYear()+'-'+pad(x.getMonth()+1)+'-'+pad(x.getDate());};
     function shotRows(roster,sessions){
         sessions=sessions.filter(s=>s&&typeof s==='object').map(safe);
         const names=new Map(roster.map(m=>[m.user_id,m.display_name]));
@@ -45,7 +48,7 @@
             const pairs=s.drill==='free_throw'&&s.analysisRuns?.length?Analysis.pair(s.shots,s.analysisRuns):s.shots.map(x=>({shotId:x.id,trial:null}));
             s.shots.forEach((shot,i)=>{
                 const t=pairs[i]?.trial;
-                rows.push({player:names.get(s.userId)||'',sessionId:s.id,date:s.startedAt.slice(0,10),drill:DRILLS[s.drill]||s.drill,position:s.position||'',shotOrder:i+1,
+                rows.push({player:names.get(s.userId)||'',sessionId:s.id,date:localDate(s.startedAt),drill:DRILLS[s.drill]||s.drill,position:s.position||'',shotOrder:i+1,
                     made:shot.made?1:0,source:shot.source||'manual',motionStatus:t?t.trialStatus:'',
                     dtPeakMs:t&&t.trialStatus==='accepted'&&Number.isFinite(t.dtPeak)?t.dtPeak:'',dtOnsetMs:t&&t.trialStatus==='accepted'&&Number.isFinite(t.dt)?t.dt:'',
                     pairing:t?(t.linked?'linked':'time'):'',recordedAt:shot.recordedAt});
@@ -116,5 +119,5 @@
         }
         return {team:{id:'demo-team',name:'示範球隊（合成資料）',invite_code:'DEMO2026',role:'coach'},roster,sessions};
     }
-    return {DRILLS,SHOT_COLUMNS,teamReport,demoData,shotRows,shotCsv};
+    return {DRILLS,SHOT_COLUMNS,teamReport,demoData,shotRows,shotCsv,localDate};
 });

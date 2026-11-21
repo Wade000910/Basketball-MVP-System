@@ -231,7 +231,7 @@
         const realActive=active?.isDemo?null:active;
         const store={schemaVersion:C.SCHEMA,active:realActive?withAnalysis(realActive):null,history:history.map(withAnalysis)};
         const backup={schemaVersion:'basketball-training-backup-v1',exportedAt:new Date().toISOString(),store};
-        download(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'basketball-backup-'+new Date().toISOString().slice(0,10)+'.json');
+        download(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),'basketball-backup-'+(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())+'.json');
     }));
     $('import-backup').addEventListener('change',async()=>{
         const input=$('import-backup'),file=input.files[0];if(!file)return;

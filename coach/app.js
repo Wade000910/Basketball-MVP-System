@@ -116,7 +116,7 @@
     $('print-btn').addEventListener('click',()=>window.print());
     $('csv-btn').addEventListener('click',()=>{
         const blob=new Blob([CoachCore.shotCsv(roster,sessions)],{type:'text/csv;charset=utf-8'});
-        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(demo?'DEMO-':'')+'team-shots-'+new Date().toISOString().slice(0,10)+'.csv';
+        const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(demo?'DEMO-':'')+'team-shots-'+CoachCore.localDate(new Date())+'.csv';
         document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     });
     function showAdmin(){
