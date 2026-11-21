@@ -12,6 +12,7 @@ Included runtime files:
 
 - `pose.js`
 - `pose_landmark_full.tflite`
+- `pose_landmark_lite.tflite` (used by the "lighter analysis" switch on the shooting page; same package version)
 - `pose_solution_packed_assets_loader.js`
 - `pose_solution_packed_assets.data`
 - `pose_solution_simd_wasm_bin.data`
