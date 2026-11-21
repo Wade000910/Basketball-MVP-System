@@ -150,9 +150,11 @@
         madePeaks=[...P.pastMadePeaks(practice.session.playerCode,store.get(P.TRAINING_KEY),store.get(A.KEY)),...linkedMadePeaks(practice)];
         render();
         $('last-note').textContent='站進畫面，下蹲準備投籃';
-        await ensureAudio();
+        // None of these may hold up the camera: some browsers leave audio resume() and the screen-lock request
+        // pending forever without a gesture. Audio is asked for synchronously here, inside the tap that started the set.
+        ensureAudio();
         startVoice();
-        try{wakeLock=await navigator.wakeLock?.request('screen');}catch{wakeLock=null;}
+        try{Promise.resolve(navigator.wakeLock?.request('screen')).then(l=>{wakeLock=l||null;},()=>{wakeLock=null;});}catch{wakeLock=null;}
         if(practice.markCode)openTeammatePanel(practice.markCode);
         await startCamera();
     }
@@ -165,11 +167,21 @@
     }
     $('video').addEventListener('loadedmetadata',fitStage);
     $('video').addEventListener('resize',fitStage);
+    // MediaPipe draws with WebGL. Without it (some headless or very old browsers) the analysis cannot run, and the
+    // player should be told in plain words and still be able to record by hand.
+    function webglAvailable(){
+        try{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'));}catch{return false;}
+    }
     async function startCamera(){
         running=true;perf=ShootPerf.createPerfMonitor();$('lite-btn').hidden=true;
         try{
             stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
             const video=$('video');video.srcObject=stream;await video.play();
+            if(!pose&&!webglAvailable()){
+                running=false;$('state-badge').textContent='無法分析動作';
+                message('這個瀏覽器無法執行動作分析（缺少 WebGL）。請改用手機的 Safari 或 Chrome；這組仍可用按鈕或語音記錄進球。','practice-message');
+                return;
+            }
             if(!pose){
                 $('state-badge').textContent='載入分析模型…';
                 pose=new Pose({locateFile:f=>'../專題程式/vendor/mediapipe-pose/'+f});
@@ -202,7 +214,7 @@
             if(tsSource===null){tsSource=src;detector=E.createDetector({side:practice.run.shootingSide,timestampSource:src});}
             if(src===tsSource){
                 busy=true;frameT=t;perf.started(performance.now());
-                pose.send({image:video}).catch(error=>{message('動作分析停止：'+(error?.message||error),'practice-message');running=false;}).finally(()=>{busy=false;});
+                pose.send({image:video}).catch(error=>{message('動作分析停止，這組仍可用按鈕或語音記錄進球。（原因：'+(error?.message||error)+'）','practice-message');running=false;}).finally(()=>{busy=false;});
             }
         }
         nextFrame();
