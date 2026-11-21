@@ -38,3 +38,12 @@
 
 > 2026-11-21：PR #44 合併後 GitHub Pages 部署連續失敗（Deployment failed, try again later），以新的小提交重新部署。
 > 2026-11-21：PR #47 合併後 GitHub Pages 部署再次出現「找不到 github-pages 檔案」的暫時性錯誤（與 PR #44 相同），以新提交重新部署。
+
+
+## App shell (2026-11-21)
+
+The site is now an installable app with four bottom tabs: practice (`shoot/`), records, team and me (the last three are panes of `training/`, switched by `#records`, `#team`, `#me`). `manifest.webmanifest` starts at `./shoot/`; the root page only redirects. Shared look and the tab bar: `shared/app-skin.css`, `shared/tabbar.js` (theme choice lives there too). No service worker on purpose, so a site update reaches the next launch.
+
+New this round: first-run guide (`shoot/onboarding.js`), optional per-set video kept only on the phone (`shoot/recorder.js`, `shared/video-store.js`, playback in `training/video-ui.js`), records filter by period and drill, backup reminder while logged out, light/dark/follow-phone.
+
+Not testable here: iPhone Safari (MediaRecorder format, camera inside the installed app). Check on a real iPhone before relying on video.

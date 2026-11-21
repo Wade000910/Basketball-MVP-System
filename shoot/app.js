@@ -58,13 +58,13 @@
     window.addEventListener('online',()=>upload());
 
     async function initCloud(){
-        if(!api){$('cloud-pill').textContent='本機';$('cloud-line').textContent='紀錄存在這支手機，結束後會出現在球員首頁。';return;}
+        if(!api){$('cloud-pill').textContent='本機';$('cloud-line').textContent='紀錄存在這支手機，結束後會出現在「紀錄」。';return;}
         try{user=await api.currentUser();}catch{user=null;}
         $('cloud-pill').textContent=user?'已登入':'未登入';
         $('cloud-line').innerHTML='';
         const text=document.createTextNode(user?'已登入：每一球會即時上傳，教練端看得到。':'未登入：紀錄先存在這支手機。要上傳或讓隊友幫記，請先到 ');
         $('cloud-line').appendChild(text);
-        if(!user){const a=document.createElement('a');a.href='../training/';a.textContent='球員首頁登入';$('cloud-line').append(a,'。');}
+        if(!user){const a=document.createElement('a');a.href='../training/#me';a.textContent='到「我的」登入';$('cloud-line').append(a,'。');}
     }
 
     // ---------- setup ----------
@@ -73,7 +73,23 @@
         try{const t=store.get(P.TRAINING_KEY);if(t){const s=TrainingCore.parseStore(t);return s.active?.playerCode||s.history[0]?.playerCode||'';}}catch{/* ignore */}
         return '';
     }
-    $('player-code').value=lastPlayerCode();
+    // A new player starts without typing anything: a short random code is filled in and can be changed.
+    $('player-code').value=lastPlayerCode()||'P'+String(Math.floor(Math.random()*900)+100);
+    function settingsLine(){
+        const side=document.querySelector('input[name=side]:checked');
+        const parts=[$('target-shots').value+' 球',side&&side.value==='left'?'左手':'右手',$('sound-on').checked?'聲音開':'聲音關',$('voice-on').checked?'語音記球':'按鈕記球'];
+        if($('video-on').checked)parts.push('錄影');
+        $('settings-line').textContent='· '+parts.join(' · ');
+        $('setup-line').textContent='罰球 · '+$('target-shots').value+' 球';
+    }
+    const recorder=ShootRecorder.createRecorder();
+    {
+        const VIDEO_PREF='bmvp-video-pref';
+        if(!recorder.supported()){$('video-on').disabled=true;$('video-on').checked=false;$('video-on').nextElementSibling.querySelector('small').textContent='這個瀏覽器不能錄影。';}
+        else{try{$('video-on').checked=localStorage.getItem(VIDEO_PREF)==='1';}catch{/* off */}}
+        $('video-on').addEventListener('change',()=>{try{localStorage.setItem(VIDEO_PREF,$('video-on').checked?'1':'0');}catch{/* ignore */}});
+    }
+    $('setup-form').addEventListener('change',settingsLine);settingsLine();
     if(!V.supported()){$('voice-on').checked=false;$('voice-on').disabled=true;$('voice-on').nextElementSibling.querySelector('small').textContent='這個瀏覽器不支援語音辨識，請用按鈕記錄。';}
     // ---------- camera make/miss (experimental) ----------
     function makeDetector(){return globalThis.BallDetectorOverride||ShootBallDetector.createBallDetector();}
@@ -177,6 +193,8 @@
         try{
             stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
             const video=$('video');video.srcObject=stream;await video.play();
+            // Optional: keep this set's video on this phone. A recorder problem never stops the practice.
+            if($('video-on').checked&&recorder.supported()&&!recorder.active()){try{recorder.start(stream);}catch{/* practice goes on without a video */}}
             if(!pose&&!webglAvailable()){
                 running=false;$('state-badge').textContent='無法分析動作';
                 message('這個瀏覽器無法執行動作分析（缺少 WebGL）。請改用手機的 Safari 或 Chrome；這組仍可用按鈕或語音記錄進球。','practice-message');
@@ -339,7 +357,7 @@
     }
     $('teammate-btn').addEventListener('click',async()=>{
         if(!api){message('雲端尚未設定，隊友幫記需要雲端。','practice-message');return;}
-        if(!user){message('請先到球員首頁登入，才能讓隊友幫記。','practice-message');return;}
+        if(!user){message('請先到「我的」登入，才能讓隊友幫記。','practice-message');return;}
         if(practice.markCode){openTeammatePanel(practice.markCode);return;}
         $('teammate-btn').disabled=true;
         try{
@@ -351,8 +369,10 @@
     });
 
     // ---------- end and summary ----------
+    let pendingVideo=null,videoReady=null,videoSettling=false;
     function stopAll(){
         running=false;
+        pendingVideo=recorder.active()?recorder.stop():null;
         stream?.getTracks().forEach(t=>t.stop());stream=null;
         voice?.stop();voice=null;
         clearInterval(markTimer);
@@ -361,6 +381,18 @@
     $('end-btn').addEventListener('click',()=>{stopAll();showSummary();});
     function showSummary(){
         show('summary-view');
+        $('discard-btn').hidden=false;$('discard-btn').textContent='丟掉這組';
+        $('keep-video-row').hidden=true;videoReady=null;
+        // The save button waits (a moment) until the recorder has handed over the video, so a quick tap cannot lose it.
+        videoSettling=!!pendingVideo;
+        // A recorder that never answers must not hold the save button: give up on the video after 4 seconds.
+        if(pendingVideo)Promise.race([pendingVideo,new Promise(r=>setTimeout(()=>r(null),4000))]).then(v=>{
+            videoSettling=false;
+            if(practice&&!$('summary-view').hidden&&$('again-btn').dataset.mode==='save')renderSummary();
+            if(!v||!practice||$('summary-view').hidden||$('again-btn').dataset.mode!=='save')return;
+            videoReady=v;$('keep-video').checked=true;$('keep-video-row').hidden=false;
+            $('keep-video-info').textContent=VideoStore.durationText(v.durationMs)+' · '+VideoStore.sizeText(v.blob.size)+'。只存在這支手機，不會上傳。';
+        });
         $('sum-save').textContent='';$('again-btn').textContent='儲存這組';$('again-btn').dataset.mode='save';
         renderSummary();
     }
@@ -387,7 +419,7 @@
             del.onclick=()=>{practice=P.remove(practice,r.id);save();renderSummary();};
             btns.append(toggle,del);li.append(n,info,btns);list.appendChild(li);
         }
-        $('again-btn').disabled=$('again-btn').dataset.mode==='save'&&!s.total;
+        $('again-btn').disabled=$('again-btn').dataset.mode==='save'&&(!s.total||videoSettling);
         if(!s.total){
             $('sum-save').textContent='';
             const back=document.createElement('button');back.type='button';back.className='secondary';back.textContent='放棄這組';
@@ -395,6 +427,11 @@
             $('sum-save').appendChild(back);
         }
     }
+    // Two presses, so a thumb slip cannot throw a set away.
+    $('discard-btn').addEventListener('click',()=>{
+        if($('discard-btn').textContent==='丟掉這組'){$('discard-btn').textContent='確定丟掉？再按一次';return;}
+        store.remove(P.KEY);practice=null;videoReady=null;location.href=location.pathname;
+    });
     $('again-btn').addEventListener('click',async()=>{
         if($('again-btn').dataset.mode!=='save'){location.href=location.pathname;return;}
         try{
@@ -403,10 +440,16 @@
             const finalRun=A.parse(out.analysis).find(r=>r.id===run.id)||run;
             practice={...practice,session:out.session,run:finalRun};
             $('sum-rows').querySelectorAll('button').forEach(b=>{b.disabled=true;});
-            let text='已存到這支手機的球員首頁。';
-            if(user){text+=(await upload())?' 也已上傳雲端。':' 雲端稍後會在球員首頁自動同步。';}
+            let text='已存到這支手機的「紀錄」。';
+            if(videoReady&&$('keep-video').checked){
+                try{await VideoStore.put(out.session.id,videoReady.blob,{durationMs:videoReady.durationMs});text+=' 影片也存好了。';}
+                catch(error){text+=' 影片沒有存成：'+error.message;}
+            }
+            videoReady=null;$('keep-video-row').hidden=true;
+            if(user){text+=(await upload())?' 也已上傳雲端。':' 雲端稍後會自動同步。';}
             $('sum-save').textContent=text;
             $('again-btn').textContent='再投一組';$('again-btn').dataset.mode='again';
+            $('discard-btn').hidden=true;
         }catch(error){$('sum-save').textContent=error.message;}
     });
     document.addEventListener('visibilitychange',async()=>{

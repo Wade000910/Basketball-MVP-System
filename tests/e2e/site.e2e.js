@@ -73,6 +73,15 @@ test('browser tests', {skip}, async t => {
         : {args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']});
     if (ENGINE === 'firefox') { const real = browser.newContext.bind(browser); browser.newContext = o => { const {permissions, ...rest} = o || {}; return real(rest); }; }
     t.after(async () => { await browser.close(); server.close(); });
+    // The first-run guide covers the page; tests start with it already seen unless they ask for it.
+    {
+        const real = browser.newContext.bind(browser);
+        browser.newContext = async (options, {guide = false} = {}) => {
+            const context = await real(options);
+            if (!guide) await context.addInitScript(() => { try { localStorage.setItem('bmvp-onboarded', '1'); } catch { /* ignore */ } });
+            return context;
+        };
+    }
 
     const PAGES = ['', 'coach/', 'coach/?demo=1', 'offline-review/', 'shoot/', 'shoot/mark.html', 'training/', 'validation/', 'trial/', 'trial/#summary', '專題程式/'];
     const PROFILES = {'phone upright': devices['iPhone 13'], 'phone on its side': devices['iPhone 13 landscape'], desktop: {viewport: {width: 1280, height: 800}}};
@@ -134,6 +143,93 @@ test('browser tests', {skip}, async t => {
         await context.close();
     });
 
+    await t.test('practice video: recorded when asked for, kept on the phone, tagged in the records and played back; deleting removes it', {skip: noPose || (ENGINE !== 'chromium' && 'only Chromium records the fake camera here')}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P888');
+        await page.click('#settings summary');
+        await page.check('#video-on');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => document.getElementById('video').videoWidth > 0, null, {timeout: 20000});
+        await page.waitForTimeout(2500);
+        await page.click('#made-btn');
+        await page.click('#end-btn');
+        await page.waitForSelector('#keep-video-row:not([hidden])', {timeout: 8000});
+        assert.match(await page.textContent('#keep-video-info'), /\d+:\d\d · .*不會上傳/);
+        await page.click('#again-btn');
+        await page.waitForFunction(() => /影片也存好了/.test(document.getElementById('sum-save').textContent), null, {timeout: 8000});
+        assert.equal(await page.isHidden('#keep-video-row'), true);
+
+        await page.goto(base + 'training/#records');
+        await page.waitForSelector('#history-list .history-item .video-tag');
+        await page.click('#history-list .history-item');
+        await page.waitForSelector('#session-video:not([hidden])');
+        assert.ok(await page.evaluate(() => document.getElementById('video-player').src.startsWith('blob:')), 'the video plays from this phone');
+        await page.click('#video-delete');
+        assert.match(await page.textContent('#video-delete'), /確定刪除/);
+        await page.click('#history-list .history-item');   // opening a set again cancels a half-pressed delete
+        assert.equal(await page.textContent('#video-delete'), '刪除這段影片');
+        await page.click('#video-delete');
+        await page.click('#video-delete');
+        await page.waitForSelector('#session-video', {state: 'hidden'});
+        assert.equal(await page.evaluate(() => VideoStore.list().then(r => r.length)), 0, 'deleted from the phone');
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
+
+    await t.test('a set recorded without the video option never asks to keep one', {skip: noPose}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P889');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.click('#made-btn');
+        await page.click('#end-btn');
+        await page.waitForSelector('#summary-view:not([hidden])');
+        await page.waitForTimeout(600);
+        assert.equal(await page.isHidden('#keep-video-row'), true);
+        await context.close();
+    });
+
+    await t.test('records filter: by period and by drill, nothing is deleted', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const page = await context.newPage();
+        await page.goto(base + 'training/#records');
+        await page.evaluate(() => {
+            const C = TrainingCore, day = 864e5, now = Date.now();
+            const make = (id, drill, ago) => {
+                const at = new Date(now - ago * day).toISOString();
+                let s = C.createSession({playerCode: 'P1', targetShots: 10, drill, position: drill === 'free_throw' ? 'center' : 'left', id, now: at});
+                s = C.addShot(s, true, id + '-a', at); s = C.addShot(s, false, id + '-b', at);
+                return C.finishSession(s, at);
+            };
+            const history = [make('s-today', 'free_throw', 0), make('s-ten', 'free_throw', 10), make('s-fifty', 'free_throw', 50), make('s-three', 'three_point', 2)];
+            localStorage.setItem('basketball-training-v1', JSON.stringify({schemaVersion: C.SCHEMA, active: null, history}));
+        });
+        await page.reload();
+        const count = () => page.locator('#history-list .history-item').count();
+        assert.equal(await count(), 4, 'all by default');
+        await page.click('#history-filter [data-days="7"]');
+        assert.equal(await count(), 2);
+        await page.click('#history-filter [data-days="30"]');
+        assert.equal(await count(), 3);
+        await page.selectOption('#history-drill', 'three_point');
+        assert.equal(await count(), 1);
+        await page.selectOption('#history-drill', 'mid_range');
+        assert.equal(await count(), 0);
+        assert.match(await page.textContent('#history-list'), /沒有紀錄/);
+        await page.click('#history-filter [data-days="all"]');
+        await page.selectOption('#history-drill', 'all');
+        assert.equal(await count(), 4, 'the filter hides, it never deletes');
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('basketball-training-v1')).history.length), 4);
+        await context.close();
+    });
+
     await t.test('coach demo: summary, roster detail, CSV download, no team admin', async () => {
         const context = await browser.newContext({...devices['iPhone 13'], acceptDownloads: true});
         const page = await context.newPage();
@@ -151,21 +247,66 @@ test('browser tests', {skip}, async t => {
     });
 
     for (const [label, viewport] of [['small phone', {width: 360, height: 640}], ['iPhone', {width: 390, height: 844}], ['phone on its side', {width: 844, height: 390}]]) {
-        await t.test(`home page fits one screen without scrolling on a ${label}`, async () => {
+        await t.test(`the start button and the tab bar are on screen without scrolling on a ${label}`, async () => {
             const context = await browser.newContext({viewport});
+            await context.addInitScript(() => { try { localStorage.setItem('bmvp-onboarded', '1'); } catch { /* ignore */ } });
             const page = await context.newPage();
-            await page.goto(base);
-            const m = await page.evaluate(() => { const a = document.querySelector('.app'); return {scroll: a.scrollHeight - a.clientHeight, page: document.documentElement.scrollHeight - innerHeight, tiles: [...document.querySelectorAll('.tile')].map(e => { const r = e.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, h: r.height}; })}; });
-            assert.ok(m.scroll <= 1 && m.page <= 1, `home scrolls by ${m.scroll}px`);
-            for (const tile of m.tiles) assert.ok(tile.top >= 0 && tile.bottom <= viewport.height && tile.h >= 44, 'every tile is on screen and big enough to tap');
+            await page.goto(base + 'shoot/');
+            const box = async sel => page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return {top: r.top, bottom: r.bottom, h: r.height}; }, sel);
+            const start = await box('#start-btn'), bar = await box('.tabbar');
+            assert.ok(start.top >= 0 && start.bottom <= bar.top + 1, `start button is cut off (${JSON.stringify(start)} vs bar ${bar.top})`);
+            assert.ok(bar.bottom <= viewport.height + 1 && bar.h >= 40);
+            assert.equal(await page.locator('.tabbar a').count(), 4);
             await context.close();
         });
     }
 
-    await t.test('home page install hint: shown for iPhone Safari, closable, remembered, hidden once installed', async () => {
+    await t.test('the first-run guide shows once, can be skipped, and ?guide=1 brings it back', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']}, {guide: true});
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        assert.equal(await page.isVisible('#onboarding'), true);
+        assert.equal(await page.textContent('#ob-next'), '下一步');
+        await page.click('#ob-next'); await page.click('#ob-next');
+        assert.equal(await page.textContent('#ob-next'), '開始練投');
+        await page.click('#ob-next');
+        assert.equal(await page.isVisible('#onboarding'), false);
+        await page.reload();
+        assert.equal(await page.isVisible('#onboarding'), false, 'seen once, stays closed');
+        await page.goto(base + 'shoot/?guide=1');
+        assert.equal(await page.isVisible('#onboarding'), true);
+        await page.click('#ob-skip');
+        assert.equal(await page.isVisible('#onboarding'), false);
+        await context.close();
+    });
+
+    await t.test('tabs switch panes on the training page without reloading, and the tab bar marks the current one', async () => {
         const context = await browser.newContext({...devices['iPhone 13']});
         const page = await context.newPage();
-        await page.goto(base);
+        await page.goto(base + 'training/#records');
+        await page.evaluate(() => { window.__same = true; });
+        const current = async () => { await page.waitForTimeout(150); return page.evaluate(() => document.querySelector('.tabbar a[aria-current=page]').dataset.tab); };
+        assert.equal(await current(), 'records');
+        assert.equal(await page.isVisible('#player-home'), true);
+        assert.equal(await page.isVisible('#cloud-panel'), false);
+        await page.click('.tabbar a[data-tab=team]');
+        assert.equal(await current(), 'team');
+        assert.equal(await page.isVisible('#team-panel'), true);
+        assert.equal(await page.isVisible('#player-home'), false);
+        await page.click('.tabbar a[data-tab=me]');
+        assert.equal(await current(), 'me');
+        assert.equal(await page.isVisible('#cloud-panel'), true);
+        assert.equal(await page.isVisible('#backup-banner'), true, 'logged out: the backup reminder shows');
+        assert.equal(await page.evaluate(() => window.__same), true, 'same page, no reload');
+        await page.click('.tabbar a[data-tab=shoot]');
+        await page.waitForURL(/shoot\//);
+        await context.close();
+    });
+
+    await t.test('the me pane: install hint on iPhone Safari is closable and remembered, and hidden inside the installed app', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const page = await context.newPage();
+        await page.goto(base + 'training/#me');
         assert.equal(await page.isVisible('#install-hint'), true);
         assert.match(await page.textContent('#install-text'), /分享鈕.*加入主畫面/);
         await page.click('#install-close');
@@ -177,9 +318,25 @@ test('browser tests', {skip}, async t => {
         const installed = await browser.newContext({...devices['iPhone 13']});
         await installed.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
         const app = await installed.newPage();
-        await app.goto(base);
+        await app.goto(base + 'training/#me');
         assert.equal(await app.isVisible('#install-hint'), false, 'no hint inside the installed app');
         await installed.close();
+    });
+
+    await t.test('theme choice: dark, light and follow-the-phone are applied and remembered', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], colorScheme: 'dark'});
+        const page = await context.newPage();
+        await page.goto(base + 'training/#me');
+        const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        const dark = await bg();
+        await page.click('#theme-choice [data-theme-value=light]');
+        const light = await bg();
+        assert.notEqual(dark, light);
+        await page.reload();
+        assert.equal(await bg(), light, 'remembered');
+        await page.click('#theme-choice [data-theme-value=system]');
+        assert.equal(await bg(), dark, 'follows the phone again');
+        await context.close();
     });
 
     await t.test('the manifest and icon are served', async () => {
@@ -220,7 +377,7 @@ test('browser tests', {skip}, async t => {
         await context.addInitScript(FAKE_CLOUD);
         const page = await context.newPage();
         page.on('dialog', d => d.accept());
-        await page.goto(base + 'training/');
+        await page.goto(base + 'training/#me');
         await page.fill('#cloud-email', 'p@example.com');
         await page.fill('#cloud-password', 'secret1');
         await page.click('#cloud-signin-btn');
@@ -304,6 +461,7 @@ test('browser tests', {skip}, async t => {
         page.on('pageerror', e => errors.push(e.message));
         await page.goto(base + 'shoot/');
         await page.waitForFunction(() => !document.getElementById('camera-on').disabled);
+        await page.click('#settings summary');   // the options are folded away until asked for
         await page.check('#camera-on');
         await page.fill('#player-code', 'P555');
         await page.click('#start-btn');
@@ -350,6 +508,7 @@ test('browser tests', {skip}, async t => {
         const page = await context.newPage();
         await page.goto(base + 'shoot/');
         await page.waitForFunction(() => !document.getElementById('camera-on').disabled);
+        await page.click('#settings summary');   // the options are folded away until asked for
         await page.check('#camera-on');
         await page.fill('#player-code', 'P556');
         await page.click('#start-btn');
@@ -536,6 +695,7 @@ test('browser tests', {skip}, async t => {
         await page.click('#setup-form button[type=submit]');
         await page.waitForSelector('#session-panel:not([hidden])');
         await page.click('#made-btn');
+        await page.click('.tabbar a[data-tab=me]');
         await page.fill('#cloud-email', 'p@example.com');
         await page.fill('#cloud-password', 'secret1');
         await page.click('#cloud-signin-btn');

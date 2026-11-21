@@ -79,12 +79,17 @@
             box.appendChild(note);
         }
     }
+    // Records filter: a period and a drill. The list below only shows what matches; nothing is deleted.
+    const historyFilter={days:null,drill:'all'};
+    const inFilter=session=>(historyFilter.days===null||Date.now()-Date.parse(session.startedAt)<=historyFilter.days*864e5)&&(historyFilter.drill==='all'||session.drill===historyFilter.drill);
     function renderHistory() {
         const parent=$('history-list');parent.replaceChildren();
+        const shown=history.filter(inFilter);
         if(!history.length) {const p=document.createElement('p');p.className='muted';p.textContent='第一組練習完成後，報告會出現在這裡。';parent.appendChild(p);}
-        history.forEach(session=>{
+        else if(!shown.length) {const p=document.createElement('p');p.className='muted';p.textContent='這個條件下沒有紀錄，換個期間或類型看看。';parent.appendChild(p);}
+        shown.forEach(session=>{
             const stats=C.summarize(session),button=document.createElement('button');
-            button.type='button';button.className='history-item';
+            button.type='button';button.className='history-item';button.dataset.id=session.id;
             const info=document.createElement('span'),title=document.createElement('strong'),date=document.createElement('small'),score=document.createElement('span');
             title.textContent=session.playerCode+' · '+C.DRILLS[session.drill]+(session.drill==='free_throw'?'':' · '+C.POSITIONS[C.positionOf(session)]);date.textContent=formatDate(session.startedAt)+' · '+stats.made+'/'+stats.total+' 命中';score.textContent=rate(stats);
             info.append(title,date);button.append(info,score);
@@ -93,6 +98,7 @@
                 setActive(session);$('session-panel').scrollIntoView({behavior:'smooth',block:'start'});
             }));parent.appendChild(button);
         });
+        document.dispatchEvent(new CustomEvent('history-rendered'));
     }
     function renderDashboard() {
         const code=$('dashboard-player').value.trim(),data=C.progress(history,code);
@@ -141,7 +147,9 @@
         $('setup-panel').hidden=!!active;$('session-panel').hidden=!active;
         for(const id of ['step-setup','step-train','step-report']) $(id).removeAttribute('aria-current');
         $(active?(active.finishedAt?'step-report':'step-train'):'step-setup').setAttribute('aria-current','step');
-        renderHistory();if(!active)return;
+        renderHistory();
+        document.dispatchEvent(new CustomEvent('session-shown',{detail:{id:active&&!active.isDemo?active.id:null}}));
+        if(!active)return;
         renderAnalysis();
         const stats=C.summarize(active),finished=!!active.finishedAt;
         $('session-label').textContent=active.isDemo?'SYNTHETIC DEMO / 合成示範':'SHOOTING / 人工紀錄';
@@ -265,6 +273,12 @@
         if(!confirm('永久清除此裝置的全部訓練紀錄？請先下載需要的報告。'))return;
         localStorage.removeItem(A.KEY);localStorage.removeItem(KEY);history=[];active=null;loadFailed=false;lastText=null;persist();render();message('此裝置的訓練紀錄與動作摘要已清除。');
     }));
+    for(const chip of document.querySelectorAll('#history-filter [data-days]'))chip.addEventListener('click',()=>{
+        historyFilter.days=chip.dataset.days==='all'?null:Number(chip.dataset.days);
+        document.querySelectorAll('#history-filter [data-days]').forEach(c=>c.setAttribute('aria-pressed',String(c===chip)));
+        renderHistory();
+    });
+    $('history-drill').addEventListener('change',()=>{historyFilter.drill=$('history-drill').value;renderHistory();});
     // Interface for the optional cloud layer (shared/cloud.js + training/cloud-ui.js).
     window.TrainingApp={
         snapshot(){

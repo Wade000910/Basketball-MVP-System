@@ -68,7 +68,7 @@ test('training entry references real local assets and all application element ID
     assert.equal(new Set(ids).size,ids.length);
     for(const [,id] of js.matchAll(/\$\('([^']+)'\)/g))assert.ok(ids.includes(id),'Missing element '+id);
     for(const asset of ['core.js','app.js','styles.css'])assert.ok(fs.existsSync('training/'+asset));
-    assert.match(fs.readFileSync('index.html','utf8'),/href="\.\/training\/"/);
+    assert.match(fs.readFileSync('index.html','utf8'),/url=\.\/shoot\//);
     assert.doesNotMatch(js,/innerHTML|\bfetch\s*\(|XMLHttpRequest|sendBeacon/);
 });
 
