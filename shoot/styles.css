@@ -44,3 +44,5 @@ body.practicing .page-footer{display:none}
 @media (prefers-reduced-motion:reduce){.rhythm .mark{transition:none}}
 
 .practice.portrait .stage{max-height:50vh}
+
+.hoop-hint{top:auto;bottom:14px;background:#b8571fe6;color:#fff;font-weight:700}

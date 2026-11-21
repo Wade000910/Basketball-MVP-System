@@ -21,6 +21,8 @@
     <script src="./hoop.js" defer></script>
     <script src="./hoop-watch.js" defer></script>
     <script src="./yolo.js" defer></script>
+    <script src="./yolox.js" defer></script>
+    <script src="./camera-config.js" defer></script>
     <script src="./ball-detector.js" defer></script>
     <script src="./voice.js" defer></script>
     <script src="./practice.js" defer></script>
@@ -81,6 +83,7 @@
         <div class="stage-top"><span id="state-badge" class="badge">準備中</span><span id="fps" class="fps"></span></div>
         <button id="lite-btn" class="lite-btn" type="button" hidden>手機有點吃力，改用較輕的分析</button>
         <p id="guide" class="guide"></p>
+        <p id="hoop-hint" class="guide hoop-hint" hidden></p>
         <div id="result-flash" class="flash" hidden></div>
     </div>
     <section class="panel">
@@ -94,6 +97,7 @@
         <div class="actions">
             <button id="teammate-btn" type="button" class="secondary">隊友幫記</button>
             <button id="undo-btn" type="button" class="secondary">取消上一球</button>
+            <button id="rim-btn" type="button" class="secondary" hidden>重標籃框</button>
             <button id="end-btn" type="button" class="secondary">結束這組</button>
         </div>
         <div id="teammate-panel" class="teammate" hidden>

@@ -79,13 +79,28 @@
     function makeDetector(){return globalThis.BallDetectorOverride||ShootBallDetector.createBallDetector();}
     makeDetector().available().then(ok=>{
         if(!ok)return;
-        $('camera-on').disabled=false;$('camera-note').textContent='球和籃框都拍進畫面時，球出手後約 2.5 秒自動判斷進或沒進；沒看清楚的球請按進或沒進。每球請間隔約 3 秒。實驗功能，準確度還沒驗證。';
+        $('camera-on').disabled=false;$('camera-note').textContent='開始練習後先在畫面上點籃框的左右邊緣；球和籃框都拍進畫面時，球出手後約 2.5 秒自動判斷進或沒進；沒看清楚的球請按進或沒進。每球請間隔約 3 秒。實驗功能，準確度還沒驗證。';
     }).catch(()=>{});
+    let rimTaps=[];
+    function hoopHint(text){const el=$('hoop-hint');el.textContent=text||'';el.hidden=!text;}
     function startHoopWatch(){
-        hoopWatch=null;ballDetector=null;
+        hoopWatch=null;ballDetector=null;rimTaps=[];hoopHint('');$('rim-btn').hidden=true;
         if(!$('camera-on').checked||$('camera-on').disabled)return;
         ballDetector=makeDetector();hoopWatch=ShootHoopWatch.createHoopWatch();
+        $('rim-btn').hidden=false;hoopHint('點籃框的左邊緣，再點右邊緣');
     }
+    // The hoop is not detected: the player taps the left and right edge of the rim on the picture.
+    document.querySelector('.stage').addEventListener('click',event=>{
+        if(!hoopWatch||hoopWatch.hoop()&&rimTaps.length===0)return;
+        const v=$('video'),p=ShootLayout.tapToPicture(document.querySelector('.stage').getBoundingClientRect(),v.videoWidth,v.videoHeight,event.clientX,event.clientY);
+        if(!p)return;
+        rimTaps.push(p);
+        if(rimTaps.length<2){hoopHint('再點籃框的右邊緣');return;}
+        const rim=ShootLayout.hoopFromTaps(rimTaps[0],rimTaps[1]);rimTaps=[];
+        if(!rim){hoopHint('兩點太近了，請重新點籃框的左邊緣和右邊緣');return;}
+        hoopWatch.setHoop(rim);hoopHint('');
+    });
+    $('rim-btn').addEventListener('click',()=>{if(!hoopWatch)return;hoopWatch.setHoop(null);rimTaps=[];hoopHint('點籃框的左邊緣，再點右邊緣');});
     function lookForBall(video,now){
         if(!ballDetector||hoopBusy)return;
         const watching=hoopWatchActive||hoopWatch.hoop()===null;
@@ -180,7 +195,7 @@
         if(!running)return;
         perf.offered();
         const video=$('video');
-        if(hoopWatch){settleHoopWatch();if(video.readyState>=2)lookForBall(video,performance.now());}
+        if(hoopWatch){settleHoopWatch();if(hoopWatch.hoop()&&rimTaps.length===0)hoopHint('');if(video.readyState>=2)lookForBall(video,performance.now());}
         if(!busy&&video.readyState>=2&&video.videoWidth){
             const camera=meta&&Number.isFinite(meta.mediaTime)&&meta.mediaTime>0;
             const src=camera?'camera-frame':'pose-result',t=camera?meta.mediaTime*1000:performance.now();
@@ -197,6 +212,8 @@
         const c=$('overlay'),v=$('video'),ctx=c.getContext('2d');
         if(c.width!==v.videoWidth||c.height!==v.videoHeight){c.width=v.videoWidth||640;c.height=v.videoHeight||480;}
         ctx.clearRect(0,0,c.width,c.height);
+        const rim=hoopWatch&&hoopWatch.hoop();
+        if(rim){ctx.save();ctx.lineWidth=Math.max(3,c.width/160);ctx.strokeStyle='#da743c';ctx.beginPath();ctx.moveTo((rim.cx-rim.w/2)*c.width,rim.cy*c.height);ctx.lineTo((rim.cx+rim.w/2)*c.width,rim.cy*c.height);ctx.stroke();ctx.restore();}
         if(!landmarks)return;
         ctx.lineWidth=Math.max(3,c.width/160);ctx.strokeStyle='#c9e996';ctx.fillStyle='#da743c';
         for(const [a,b] of BONES(practice.run.shootingSide)){const p=landmarks[a],q=landmarks[b];if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*c.width,p.y*c.height);ctx.lineTo(q.x*c.width,q.y*c.height);ctx.stroke();}
@@ -388,5 +405,5 @@
     loadResume();
     initCloud();
     // For browser checks only.
-    window.ShootApp={handleResult,onTrial,stopCamera(){running=false;stream?.getTracks().forEach(t=>t.stop());},get practice(){return practice;}};
+    window.ShootApp={handleResult,onTrial,stopCamera(){running=false;stream?.getTracks().forEach(t=>t.stop());},get practice(){return practice;},hoop(){return hoopWatch?hoopWatch.hoop():null;}};
 })();
