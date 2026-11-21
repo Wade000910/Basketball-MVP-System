@@ -90,7 +90,7 @@
     }
 
     async function loadTeam(){
-        message();
+        message();showAdmin();
         if(demo)return render();
         const since=new Date(Date.now()-SINCE_DAYS*86400000).toISOString();
         roster=await api.roster(team.id);
@@ -118,6 +118,22 @@
         const blob=new Blob([CoachCore.shotCsv(roster,sessions)],{type:'text/csv;charset=utf-8'});
         const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(demo?'DEMO-':'')+'team-shots-'+new Date().toISOString().slice(0,10)+'.csv';
         document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    });
+    function showAdmin(){
+        $('team-admin').hidden=demo;if(demo||!team)return;
+        $('rename-input').value=team.name;$('invite-code').textContent=team.invite_code||'—';
+    }
+    $('rename-form').addEventListener('submit',event=>{
+        event.preventDefault();
+        api.renameTeam(team.id,$('rename-input').value).then(t=>{team.name=t.name;const o=[...$('team-picker').options].find(x=>x.value===team.id);if(o)o.textContent=t.name;return loadTeam();}).catch(fail);
+    });
+    $('rotate-code').addEventListener('click',()=>{
+        if(!confirm('換一組新的邀請碼？舊的碼會立刻失效，已在球隊的球員不受影響。'))return;
+        api.regenerateInviteCode(team.id).then(code=>{team.invite_code=code;showAdmin();}).catch(fail);
+    });
+    $('delete-team').addEventListener('click',()=>{
+        if(!confirm('刪除「'+team.name+'」？球隊會解散，你將看不到球員的紀錄。球員自己的資料與帳號不會刪除，這個動作無法復原。'))return;
+        api.deleteTeam(team.id).then(()=>signedIn(user)).catch(fail);
     });
     $('refresh-btn').addEventListener('click',()=>loadTeam().catch(fail));
     $('team-picker').addEventListener('change',()=>{team=teams.find(t=>t.id===$('team-picker').value);selected=null;loadTeam().catch(fail);});

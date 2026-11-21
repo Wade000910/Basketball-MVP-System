@@ -53,6 +53,13 @@
             <div class="roster-wrap"><table class="roster"><thead><tr><th scope="col">球員</th><th scope="col" class="num">近 7 天組數</th><th scope="col" class="num">近 7 天出手</th><th scope="col" class="num">罰球</th><th scope="col" class="num">中距離</th><th scope="col" class="num">三分</th><th scope="col">罰球趨勢</th><th scope="col">最近練習</th></tr></thead><tbody id="roster-rows"></tbody></table></div>
             <p class="muted">命中率為近 4 週該類型總命中／總出手。點選球員查看詳細。</p>
         </section>
+        <section id="team-admin" class="card no-print">
+            <div class="section-head"><div><p class="eyebrow">TEAM</p><h2>球隊管理</h2></div></div>
+            <form id="rename-form" class="inline-form"><label>球隊名稱<input id="rename-input" maxlength="60" required></label><button type="submit" class="secondary">儲存名稱</button></form>
+            <p class="muted">邀請碼：<strong id="invite-code">—</strong>　把它給球員，他們在訓練室輸入就能加入。</p>
+            <div class="actions"><button id="rotate-code" type="button" class="secondary">換一組邀請碼</button><button id="delete-team" type="button" class="secondary">刪除球隊</button></div>
+            <p class="muted">換邀請碼後舊的碼不能再加入，已在球隊的球員不受影響。刪除球隊只會解散球隊，球員自己的資料與帳號都保留。</p>
+        </section>
         <section id="player-detail" class="card" hidden aria-live="polite">
             <div class="section-head"><div><p class="eyebrow">PLAYER</p><h2 id="detail-name"></h2></div><span id="detail-pill" class="pill"></span></div>
             <div id="detail-weekly"></div>
