@@ -13,3 +13,6 @@ psql=(psql -h "$dir" -p 54329 -U postgres -d postgres -v ON_ERROR_STOP=1 -q -At)
 for f in "$here"/../migrations/*.sql; do "${psql[@]}" -f "$f"; done
 "${psql[@]}" -f "$here/rls.test.sql" -o /dev/null 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 echo "RLS tests passed"
+"${psql[@]}" -c "reset role; truncate auth.users, public.teams cascade"
+"${psql[@]}" -f "$here/admin.test.sql" -o /dev/null 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+echo "Admin function tests passed"

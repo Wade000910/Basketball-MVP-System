@@ -53,6 +53,11 @@
             actions.appendChild(leave);li.append(info,actions);list.appendChild(li);
         }
     }
+    $('cloud-delete-btn').addEventListener('click',async()=>{
+        if(!confirm('刪除你的帳號與所有雲端資料？教練與隊友將看不到你的紀錄，這個動作無法復原。這台裝置上的紀錄會保留。'))return;
+        if(!confirm('再確認一次：真的要刪除帳號嗎？'))return;
+        try{await api.deleteAccount();await api.signOut();status('帳號與雲端資料已刪除。這台裝置上的紀錄仍保留。','未登入');}catch(error){status(Cloud.friendlyError(error));}
+    });
     async function loadTeams(){teams=await api.myTeams(user.id);renderTeams();}
 
     async function signedIn(next){

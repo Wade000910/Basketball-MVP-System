@@ -15,7 +15,7 @@ label{display:block;font-size:14px;font-weight:650}input:not([type=checkbox]):no
 .made,.missed{min-height:96px;border-radius:14px;font-size:28px;font-weight:800;border:1px solid}.made{background:#e7f0dc;color:#245028;border-color:#b2cc96}.missed{background:#f7f1e9;color:#77512e;border-color:#e3ceb2}.shot-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 /* Practice: camera on top, controls below; side by side on landscape phones/tablets. */
 .practice{max-width:none;padding:0;display:grid;grid-template-rows:auto 1fr;min-height:calc(100vh - 54px)}
-.stage{position:relative;background:#0c1712;aspect-ratio:4/3;max-height:58vh;width:100%;overflow:hidden}.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.stage{position:relative;background:#0c1712;aspect-ratio:var(--stage-ratio,4/3);max-height:58vh;width:100%;overflow:hidden}.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .stage-top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center}.badge{background:#11241dd9;color:#fff;border-radius:20px;padding:7px 13px;font-weight:700;font-size:14px}.badge.rec{background:#b8571f}.fps{color:#c9e996;font:12px ui-monospace,monospace;background:#0009;padding:4px 7px;border-radius:6px}
 .guide{position:absolute;left:10px;right:10px;bottom:10px;margin:0;color:#fff;background:#0009;border-radius:10px;padding:8px 12px;font-size:14px;line-height:1.5}
 .flash{position:absolute;inset:auto 0 50% 0;transform:translateY(50%);text-align:center;font-size:clamp(40px,12vw,84px);font-weight:900;color:#fff;text-shadow:0 2px 12px #000a}
@@ -33,3 +33,14 @@ body.practicing .page-footer{display:none}
 @media(orientation:landscape) and (min-width:700px){.practice{grid-template-rows:none;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);align-items:start}.stage{max-height:calc(100vh - 54px);aspect-ratio:auto;height:calc(100vh - 54px)}.panel{overflow:auto;max-height:calc(100vh - 54px)}}
 @media(max-width:520px){.form-grid{grid-template-columns:1fr}.made,.missed{min-height:88px}}
 .text-like{border:0;background:none;color:#816142;text-decoration:underline;padding:4px;font-size:13px}
+
+.lite-btn{position:absolute;left:10px;right:10px;top:52px;background:#b8571f;color:#fff;border:0;border-radius:10px;padding:10px 12px;font-weight:700;font-size:14px}
+.rhythm{position:relative;height:14px;margin:12px 2px 2px;border-radius:7px;background:#e3e9df}
+.rhythm .band{position:absolute;top:0;bottom:0;border-radius:7px;background:#b9d98f}
+.rhythm .mark{position:absolute;top:-5px;width:6px;height:24px;margin-left:-3px;border-radius:3px;background:#174f39;transition:left .25s ease}
+.rhythm.off .mark{background:#b8571f}
+.rhythm.clipped .mark{border-radius:3px 3px 3px 3px;outline:2px solid #b8571f}
+.rhythm-text{margin:4px 2px 0;font-size:13px}
+@media (prefers-reduced-motion:reduce){.rhythm .mark{transition:none}}
+
+.practice.portrait .stage{max-height:50vh}

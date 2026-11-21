@@ -181,3 +181,13 @@ test('practice rejects tampered or mismatched data',()=>{
     assert.throws(()=>P.addResult(p,{made:true,source:'guess',shotId:'x',now:iso(1)}));
     assert.throws(()=>P.finish(p,null,null,iso(2)),/至少記錄一球/);
 });
+
+test('a camera-detected result is accepted as a shot source and kept in the set summary',()=>{
+    const log=E.createResultLog();
+    const r=log.result(true,'camera',1000);
+    assert.equal(r.accepted,true);
+    const session={shots:[{id:'a',made:true,source:'camera'}]};
+    assert.equal(E.setSummary(session,{trials:[]}).rows[0].source,'camera');
+    const C=require('../training/core.js');
+    assert.ok(C.SHOT_SOURCES.includes('camera'));
+});

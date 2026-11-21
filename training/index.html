@@ -76,6 +76,7 @@
             <ul id="cloud-teams" class="team-list"></ul>
             <form id="cloud-join" class="inline-form"><label>加入球隊<input id="cloud-join-code" maxlength="8" autocomplete="off" placeholder="輸入 8 碼邀請碼" required><small>加入後，該隊教練可以看到你的練習紀錄；退出後就看不到。</small></label><button type="submit" class="secondary">加入</button></form>
             <details><summary>我是教練：建立球隊</summary><form id="cloud-create" class="inline-form"><label>球隊名稱<input id="cloud-team-name" maxlength="60" required placeholder="例如：大同資工系隊"></label><button type="submit" class="secondary">建立並取得邀請碼</button></form></details>
+            <p class="danger-zone muted">不想再使用雲端？<button id="cloud-delete-btn" type="button" class="text-button">刪除我的帳號與雲端資料</button>　這台裝置上的紀錄會保留。</p>
         </div>
     </section>
     <section class="card history-card"><div class="section-head"><div><p class="eyebrow">KEEP SHOWING UP</p><h2>最近的訓練</h2></div><button id="clear-history" class="text-button" type="button">清除此裝置紀錄</button></div><p class="muted">同一學員代碼可回看最近紀錄；本機最多保留 30 組；登入後完整紀錄保存在雲端。</p><div id="history-list"></div></section>

@@ -48,6 +48,8 @@ test('cloud errors are explained in plain language',()=>{
     assert.match(Cloud.friendlyError(new Error('Invalid login credentials')),/密碼不正確/);
     assert.match(Cloud.friendlyError({message:'invite code not found'}),/邀請碼/);
     assert.match(Cloud.friendlyError(new TypeError('Failed to fetch')),/網路/);
+    assert.match(Cloud.friendlyError({message:'only a coach can rename the team'}),/教練/);
+    assert.match(Cloud.friendlyError({message:'delete the team or remove its players first'}),/先刪除球隊/);
 });
 test('without configuration the app stays local-only',()=>{
     delete globalThis.CloudApiOverride;globalThis.CloudConfig={url:'',publishableKey:''};
@@ -65,6 +67,10 @@ test('the adapter calls supabase-js with the expected tables, filters and confli
     assert.deepEqual(await api.myTeams('u'),[{role:'coach',id:'t',name:'隊',invite_code:'ABCDEFGH'}]);
     await api.joinTeam('abc');assert.deepEqual(calls.at(-1),['rpc','join_team',{code:'abc'}]);
     await api.createTeam('隊');assert.deepEqual(calls.at(-1),['rpc','create_team',{team_name:'隊'}]);
+    await api.renameTeam('t','新名');assert.deepEqual(calls.at(-1),['rpc','rename_team',{team:'t',new_name:'新名'}]);
+    await api.regenerateInviteCode('t');assert.deepEqual(calls.at(-1),['rpc','regenerate_invite_code',{team:'t'}]);
+    await api.deleteTeam('t');assert.deepEqual(calls.at(-1),['rpc','delete_team',{team:'t'}]);
+    await api.deleteAccount();assert.deepEqual(calls.at(-1),['rpc','delete_my_account',{}]);
     calls.length=0;await api.teamSessions([],'2026-01-01');assert.equal(calls.length,0,'no query for an empty roster');
     const failing={from:()=>({upsert:()=>Promise.resolve({data:null,error:new Error('denied')})})};
     await assert.rejects(Cloud.supabaseApi(failing).upsertSessions([{id:'s'}]),/denied/);

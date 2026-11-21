@@ -54,6 +54,8 @@
         if(/already registered|already been registered/i.test(text))return '這個信箱已註冊，請直接登入。';
         if(/Password should be/i.test(text))return '密碼至少需要 6 個字元。';
         if(/invite code not found/i.test(text))return '找不到這個邀請碼，請向教練確認。';
+        if(/only a coach/i.test(text))return '只有球隊的教練可以做這件事。';
+        if(/delete the team or remove its players first/i.test(text))return '你還是球隊的教練，請先刪除球隊或移出所有球員。';
         if(/mark code not found/i.test(text))return '記錄碼不存在或已過期，請投籃者重新產生。';
         if(/Failed to fetch|NetworkError|network/i.test(text))return '連不上雲端，請檢查網路後再試。';
         return text || '雲端操作未完成，請稍後再試。';
@@ -76,6 +78,10 @@
             async deleteSessions(ids){if(ids.length)must(await client.from('training_sessions').delete().in('id',ids));},
             async myTeams(userId){return must(await client.from('team_members').select('role,team_id,teams(id,name,invite_code)').eq('user_id',userId)).map(m=>({role:m.role,...m.teams}));},
             async createTeam(name){return must(await client.rpc('create_team',{team_name:name}));},
+            async renameTeam(teamId,name){return must(await client.rpc('rename_team',{team:teamId,new_name:name}));},
+            async regenerateInviteCode(teamId){return must(await client.rpc('regenerate_invite_code',{team:teamId}));},
+            async deleteTeam(teamId){must(await client.rpc('delete_team',{team:teamId}));},
+            async deleteAccount(){must(await client.rpc('delete_my_account',{}));},
             async joinTeam(code){return must(await client.rpc('join_team',{code}));},
             async leaveTeam(teamId,userId){must(await client.from('team_members').delete().eq('team_id',teamId).eq('user_id',userId));},
             async removeMember(teamId,userId){must(await client.from('team_members').delete().eq('team_id',teamId).eq('user_id',userId));},

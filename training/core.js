@@ -36,7 +36,7 @@
         return value;
     }
     // How a make/miss was entered; absent means a tap on the training page ('manual').
-    const SHOT_SOURCES=['manual','voice','teammate','corrected'];
+    const SHOT_SOURCES=['manual','voice','teammate','camera','corrected'];
     const shotOf=s=>{const o={id:s.id,made:s.made,recordedAt:s.recordedAt};if(s.source && s.source!=='manual')o.source=s.source;return o;};
     function addShot(session,made,id,now=new Date().toISOString(),source='manual') {
         validateSession(session);
