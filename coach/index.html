@@ -33,6 +33,10 @@
 
     <div id="coach-dashboard" hidden>
         <div id="coach-actions" class="actions no-print" style="margin:0 0 18px"><label id="team-picker-label" hidden>球隊<select id="team-picker"></select></label><button id="refresh-btn" type="button" class="secondary">重新整理</button><button id="print-btn" type="button" class="secondary">列印 / 存成 PDF</button><button id="csv-btn" type="button" class="secondary">下載逐球 CSV</button><button id="signout-btn" type="button" class="secondary">登出</button></div>
+        <section id="alert-card" class="card alert-card">
+            <div class="section-head"><div><p class="eyebrow">CHECK IN</p><h2>需要關心的球員</h2></div></div>
+            <ul id="inactive-list" class="alert-list"></ul>
+        </section>
         <div class="kpis" aria-label="本週全隊摘要">
             <div><strong id="kpi-active">—</strong><span>近 7 天有練習的球員</span></div>
             <div><strong id="kpi-shots">—</strong><span>近 7 天全隊出手</span></div>
@@ -43,10 +47,6 @@
             <div class="section-head"><div><p class="eyebrow">TEAM TREND</p><h2>每週練習量與命中率</h2></div></div>
             <div id="team-weekly"></div>
             <p class="muted">長條為每週全隊出手數，上方數字為該週整體命中率（所有投籃類型合計）。</p>
-        </section>
-        <section id="alert-card" class="card alert-card">
-            <div class="section-head"><div><p class="eyebrow">CHECK IN</p><h2>需要關心的球員</h2></div></div>
-            <ul id="inactive-list" class="alert-list"></ul>
         </section>
         <section class="card">
             <div class="section-head"><div><p class="eyebrow">ROSTER</p><h2>球員一覽</h2></div><span id="roster-count" class="pill"></span></div>
