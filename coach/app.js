@@ -150,6 +150,7 @@
 
     if(demo){
         const data=CoachCore.demoData();
+        showAdmin();
         team=data.team;roster=data.roster;sessions=data.sessions;selected=roster[1].user_id;
         $('demo-note').hidden=false;$('coach-dashboard').hidden=false;$('signout-btn').textContent='離開示範';
         render();return;
