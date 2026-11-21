@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
     <script src="../shared/cloud.js" defer></script>
     <script src="./engine.js" defer></script>
+    <script src="./perf.js" defer></script>
     <script src="./voice.js" defer></script>
     <script src="./practice.js" defer></script>
     <script src="./app.js" defer></script>
@@ -71,6 +72,7 @@
         <video id="video" playsinline muted></video>
         <canvas id="overlay"></canvas>
         <div class="stage-top"><span id="state-badge" class="badge">準備中</span><span id="fps" class="fps"></span></div>
+        <button id="lite-btn" class="lite-btn" type="button" hidden>手機有點吃力，改用較輕的分析</button>
         <p id="guide" class="guide"></p>
         <div id="result-flash" class="flash" hidden></div>
     </div>

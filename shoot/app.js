@@ -13,7 +13,7 @@
 
     const api=Cloud.connect();
     let user=null,practice=null,detector=null,log=null,madePeaks=[],lastShot=null,running=false;
-    let stream=null,pose=null,busy=false,frameT=null,tsSource=null,voice=null,wakeLock=null,markTimer=null,retryTimer=null,uploading=null;
+    let stream=null,pose=null,perf=ShootPerf.createPerfMonitor(),busy=false,frameT=null,tsSource=null,voice=null,wakeLock=null,markTimer=null,retryTimer=null,uploading=null;
     let audioCtx=null,flashTimer=null;
 
     $('algo-version').textContent=E.ALGORITHM_VERSION;
@@ -114,15 +114,17 @@
         if(practice.markCode)openTeammatePanel(practice.markCode);
         await startCamera();
     }
+    let modelComplexity=1;
+    $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
     async function startCamera(){
-        running=true;
+        running=true;perf=ShootPerf.createPerfMonitor();$('lite-btn').hidden=true;
         try{
             stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
             const video=$('video');video.srcObject=stream;await video.play();
             if(!pose){
                 $('state-badge').textContent='載入分析模型…';
                 pose=new Pose({locateFile:f=>'../專題程式/vendor/mediapipe-pose/'+f});
-                pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
+                pose.setOptions({modelComplexity:modelComplexity,smoothLandmarks:true,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
                 pose.onResults(onResults);
             }
             nextFrame();
@@ -142,13 +144,14 @@
     // time the frame is handed to pose analysis is used and recorded as such.
     function onFrame(now,meta){
         if(!running)return;
+        perf.offered();
         const video=$('video');
         if(!busy&&video.readyState>=2&&video.videoWidth){
             const camera=meta&&Number.isFinite(meta.mediaTime)&&meta.mediaTime>0;
             const src=camera?'camera-frame':'pose-result',t=camera?meta.mediaTime*1000:performance.now();
             if(tsSource===null){tsSource=src;detector=E.createDetector({side:practice.run.shootingSide,timestampSource:src});}
             if(src===tsSource){
-                busy=true;frameT=t;
+                busy=true;frameT=t;perf.started(performance.now());
                 pose.send({image:video}).catch(error=>{message('動作分析停止：'+(error?.message||error),'practice-message');running=false;}).finally(()=>{busy=false;});
             }
         }
@@ -167,11 +170,13 @@
     const STATES={IDLE:'準備投籃',RECORDING:'擷取動作',PROCESSING:'計算中',DELAY:'計算中',FEEDBACK:'計算中',COOLDOWN:'下一球準備'};
     function onResults(res){
         if(!running||!detector)return;
+        perf.finished(performance.now());
         draw(res.poseLandmarks);
         const ev=detector.push({t:frameT,landmarks:res.poseLandmarks||null});
         const badge=$('state-badge');
         badge.textContent=STATES[detector.state]||detector.state;badge.classList.toggle('rec',detector.state==='RECORDING');
-        if(detector.fps)$('fps').textContent=Math.round(detector.fps)+' fps';
+        if(detector.fps){const ps=perf.stats();$('fps').textContent=Math.round(detector.fps)+' fps'+(ps.medianMs===null?'':' · 分析 '+ps.medianMs+' ms · 略過 '+ps.dropPct+'%');}
+        if(modelComplexity===1&&perf.suggest()==='lite')$('lite-btn').hidden=false;
         const guide=ShootingGuide.check(res.poseLandmarks,practice.run.shootingSide);
         $('guide').textContent=detector.state==='IDLE'?guide.text:detector.hint;
         if(ev)onTrial(ev.trial);
