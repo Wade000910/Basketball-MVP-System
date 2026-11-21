@@ -9,3 +9,6 @@
 .danger-zone{margin-top:22px;padding-top:16px;border-top:1px solid #e0e8d8}.danger-zone .text-button{color:#9a4a1b;margin:0 4px}
 
 input[type=file]{max-width:100%;min-width:0;box-sizing:border-box}
+
+/* installed-app mode: keep content clear of the notch and the home bar */
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
