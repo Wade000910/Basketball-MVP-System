@@ -115,9 +115,11 @@ test('browser tests', {skip}, async t => {
         await page.click('#undo-btn');
         assert.equal(await page.textContent('#score-total'), '4');
         await page.click('#end-btn');
-        await page.waitForTimeout(800);
-        const stored = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.entries(localStorage))));
-        assert.match(stored, /P777/, 'the finished set is saved on this device');
+        assert.equal(await page.evaluate(() => localStorage.getItem('basketball-training-v1')), null, 'ending a set only shows the summary; nothing is saved to the history yet');
+        await page.click('#again-btn');   // 存起來
+        await page.waitForFunction(() => /已存到/.test(document.getElementById('sum-save').textContent));
+        assert.match(await page.evaluate(() => localStorage.getItem('basketball-training-v1')), /P777/, 'the finished set is saved on this device');
+        assert.equal(await page.evaluate(() => localStorage.getItem('basketball-shoot-active-v1')), null, 'and the unfinished copy is cleared');
         assert.deepEqual(errors, [], 'no script errors during the whole practice');
         await context.close();
     });
@@ -360,6 +362,139 @@ test('browser tests', {skip}, async t => {
         assert.match(await page.textContent('#open-answers'), /同步慢/);
         const [csv] = await Promise.all([page.waitForEvent('download'), page.click('#csv-btn')]);
         assert.equal(csv.suggestedFilename(), 'trial-answers.csv');
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
+    // ---------- hostile and awkward conditions ----------
+    const GARBAGE = ['null', '{', '[]', '"text"', '123', '{"schemaVersion":"basketball-training-v1","active":null,"history":"x"}', '{"schemaVersion":"basketball-training-v1","active":{"id":1},"history":[]}', '{"__proto__":{"polluted":1}}', '\u0000\u0001', 'x'.repeat(200000)];
+    for (const [pageName, url] of [['training', 'training/'], ['shooting', 'shoot/'], ['coach demo', 'coach/?demo=1']]) {
+        await t.test(`corrupted saved data does not break the ${pageName} page`, async () => {
+            const context = await browser.newContext({...devices['iPhone 13']});
+            const problems = [];
+            for (const garbage of GARBAGE) {
+                const page = await context.newPage();
+                page.on('pageerror', e => problems.push(`${garbage.slice(0, 40)} -> ${e.message}`));
+                await page.addInitScript(g => { for (const k of ['basketball-training-v1', 'basketball-analysis-v1', 'basketball-shoot-active-v1', 'basketball-shoot-player']) localStorage.setItem(k, g); }, garbage);
+                await page.goto(base + url, {waitUntil: 'load'});
+                await page.waitForTimeout(500);
+                const visible = await page.evaluate(() => [...document.querySelectorAll('button,input,select,a')].filter(e => !e.hidden && e.offsetParent).length);
+                if (visible < 3) problems.push(`${garbage.slice(0, 40)} -> the page shows almost nothing`);
+                await page.close();
+            }
+            await context.close();
+            assert.deepEqual(problems, []);
+        });
+    }
+
+    await t.test('a camera that is refused still lets the player record by hand', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});   // no camera permission, no fake device
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('denied', 'NotAllowedError')); });
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P321');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => /相機未啟動/.test(document.getElementById('state-badge').textContent));
+        assert.match(await page.textContent('#practice-message'), /仍可用按鈕/);
+        await page.click('#made-btn');
+        assert.equal(await page.textContent('#score-total'), '1');
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
+
+    await t.test('double taps and rapid taps record one shot each, not two', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P322');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.dblclick('#made-btn');
+        await page.waitForTimeout(200);
+        assert.equal(await page.textContent('#score-total'), '1', 'a double tap is one shot');
+        await page.click('#missed-btn');
+        await page.waitForTimeout(100);
+        assert.equal(await page.textContent('#score-total'), '1', 'a conflicting tap right after is not a second shot');
+        await context.close();
+    });
+
+    await t.test('reloading in the middle of a set offers to resume, and nothing is lost', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const page = await context.newPage();
+        page.on('dialog', d => d.accept());
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P323');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.click('#made-btn');
+        await page.waitForTimeout(3300);
+        await page.click('#missed-btn');
+        await page.reload();
+        await page.waitForSelector('#resume-card:not([hidden])');
+        await page.click('#resume-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        assert.equal(await page.textContent('#score-total'), '2');
+        assert.equal(await page.textContent('#score-made'), '1');
+        await page.click('#end-btn');
+        await page.click('#again-btn');
+        await page.waitForFunction(() => /已存到/.test(document.getElementById('sum-save').textContent));
+        const stored = await page.evaluate(() => localStorage.getItem('basketball-training-v1'));
+        assert.match(stored, /P323/);
+        assert.match(stored, /"made":true/, 'the resumed set keeps the shots recorded before the reload');
+        assert.equal(await page.evaluate(() => localStorage.getItem('basketball-shoot-active-v1')), null, 'the unfinished set is cleared after it is saved');
+        await context.close();
+    });
+
+    await t.test('player code and set size are checked before a set starts', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        assert.equal(await page.getAttribute('#player-code', 'maxlength'), '32');
+        for (const bad of ['', 'a b', '<script>', '王小明', '../../etc', 'a;b', 'a\nb']) {
+            await page.fill('#player-code', bad);
+            await page.click('#start-btn');
+            assert.equal(await page.isVisible('#practice-view'), false, `"${bad}" must not start a set`);
+        }
+        await context.close();
+    });
+
+    await t.test('signing in while the network fails keeps local records and explains what happened', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        await context.addInitScript(() => {
+            const real = {online: false, calls: 0};
+            globalThis.__net = real;
+            const down = () => Promise.reject(new TypeError('Failed to fetch'));
+            let user = null; const listeners = [];
+            globalThis.CloudApiOverride = {
+                async currentUser() { return user; }, onAuthChange(fn) { listeners.push(fn); },
+                async signIn(email) { user = {id: 'u1', email}; listeners.forEach(f => f(user)); return user; },
+                async signOut() { user = null; listeners.forEach(f => f(null)); },
+                async profile() { return {id: 'u1', display_name: 'P'}; }, async saveProfile() {},
+                async myTeams() { return []; },
+                async ownSessions() { real.calls++; return real.online ? [] : down(); },
+                async upsertSessions(rows) { real.calls++; return real.online ? undefined : down(); },
+                async deleteSessions() {}
+            };
+        });
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'training/');
+        await page.fill('#player-code', 'P324');
+        await page.click('#setup-form button[type=submit]');
+        await page.waitForSelector('#session-panel:not([hidden])');
+        await page.click('#made-btn');
+        await page.fill('#cloud-email', 'p@example.com');
+        await page.fill('#cloud-password', 'secret1');
+        await page.click('#cloud-signin-btn');
+        await page.waitForSelector('#cloud-account:not([hidden])');
+        await page.waitForFunction(() => /連不上雲端|仍保存在這台裝置/.test(document.getElementById('cloud-status').textContent), null, {timeout: 8000});
+        assert.match(await page.evaluate(() => localStorage.getItem('basketball-training-v1')), /P324/, 'local records are untouched');
+        await page.evaluate(() => { globalThis.__net.online = true; });
+        await page.click('#cloud-sync-btn');
+        await page.waitForFunction(() => /已同步/.test(document.getElementById('cloud-status').textContent), null, {timeout: 8000});
         assert.deepEqual(errors, []);
         await context.close();
     });
