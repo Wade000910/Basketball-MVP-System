@@ -273,6 +273,13 @@ test('browser tests', {skip}, async t => {
         await release();
         await page.waitForFunction(() => /請按進或沒進/.test(document.getElementById('last-note').textContent), null, {timeout: 8000});
         assert.equal(await page.textContent('#score-total'), '2', 'an unclear shot is not recorded by the camera');
+        await page.waitForTimeout(3300);
+        await page.evaluate(() => globalThis.__script.arm('make'));
+        await release();
+        await page.click('#missed-btn'); // the player answers first; the camera must not add a second entry
+        await page.waitForTimeout(4500);
+        assert.equal(await page.textContent('#score-total'), '3', 'one shot is counted once even when the camera also saw it');
+        assert.equal(await page.textContent('#score-made'), '1', 'the player\'s answer wins');
         assert.deepEqual(errors, []);
         await context.close();
     });

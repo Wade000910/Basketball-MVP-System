@@ -97,6 +97,7 @@
         if(!hoopWatch)return;
         const r=hoopWatch.finish(performance.now());
         if(!r)return;hoopWatchActive=false;
+        if(answeredByPlayer)return; // the player, a voice call or a teammate already answered this shot
         if(r.result==='unknown'){$('last-note').textContent='相機沒看清楚這球（'+r.reason+'），請按進或沒進。';return;}
         handleResult(r.result==='made','camera');
     }
@@ -140,7 +141,7 @@
         if(practice.markCode)openTeammatePanel(practice.markCode);
         await startCamera();
     }
-    let modelComplexity=1,hoopWatch=null,ballDetector=null,hoopBusy=false,lastHoopLook=0,hoopWatchActive=false;
+    let modelComplexity=1,hoopWatch=null,ballDetector=null,hoopBusy=false,lastHoopLook=0,hoopWatchActive=false,answeredByPlayer=false;
     $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
     function fitStage(){
         const v=$('video'),w=v.videoWidth,h=v.videoHeight,view=$('practice-view');
@@ -221,7 +222,7 @@
             practice=r.practice;log.trial({...trial,trialOrder:r.trialOrder},Date.now());save();
         }catch(error){message(error.message,'practice-message');return;}
         if(trial.status==='aborted'){$('last-note').textContent='這球中斷了：'+reason(trial.reasonCode);return;}
-        if(hoopWatch){hoopWatch.start(performance.now());hoopWatchActive=true;}
+        if(hoopWatch){hoopWatch.start(performance.now());hoopWatchActive=true;answeredByPlayer=false;}
         // The detector already waits about 1 s after release, as on the research page.
         feedback(trial);
     }
@@ -249,6 +250,7 @@
     }
     function handleResult(made,source){
         if(!practice||$('practice-view').hidden)return;
+        if(source!=='camera'&&hoopWatchActive)answeredByPlayer=true;
         const r=log.result(made,source,Date.now());
         if(!r.accepted){if(source==='camera')return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
         const shotId=newId('s');
