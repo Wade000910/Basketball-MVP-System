@@ -639,4 +639,20 @@ test('browser tests', {skip}, async t => {
         await context.close();
         assert.deepEqual(found, []);
     });
+    await t.test('the pinned cloud library loads on every page that uses it (integrity hash accepted) and no page contacts an unexpected site', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const hosts = new Map(), failures = [];
+        for (const url of ['training/', 'shoot/', 'shoot/mark.html', 'coach/', 'trial/', 'validation/', 'offline-review/']) {
+            const page = await context.newPage();
+            page.on('request', r => { const u = new URL(r.url()); if (!u.hostname.startsWith('127.0.0.1')) hosts.set(u.hostname, (hosts.get(u.hostname) || new Set()).add(url)); });
+            page.on('console', m => { if (/integrity|Failed to find a valid digest|blocked/i.test(m.text())) failures.push(`${url}: ${m.text()}`); });
+            await page.goto(base + url, {waitUntil: 'networkidle'});
+            if (['training/', 'shoot/', 'shoot/mark.html', 'coach/'].includes(url)) assert.equal(await page.evaluate(() => typeof globalThis.supabase?.createClient), 'function', `${url}: the cloud library did not load`);
+            await page.close();
+        }
+        await context.close();
+        assert.deepEqual(failures, []);
+        // the only outside host a normal visit may touch is the CDN that serves the pinned cloud library
+        assert.deepEqual([...hosts.keys()].sort(), ['cdn.jsdelivr.net']);
+    });
 });
