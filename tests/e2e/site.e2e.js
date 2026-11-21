@@ -21,7 +21,7 @@ let axeSource = null;
 try { axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch { /* the accessibility test skips itself */ }
 const skip = chromium ? false : 'playwright is not installed';
 const ROOT = path.join(__dirname, '..', '..');
-const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.png': 'image/png', '.data': 'application/octet-stream', '.binarypb': 'application/octet-stream', '.tflite': 'application/octet-stream'};
+const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.png': 'image/png', '.data': 'application/octet-stream', '.binarypb': 'application/octet-stream', '.tflite': 'application/octet-stream'};
 
 function serve() {
     return new Promise(resolve => {
@@ -147,6 +147,46 @@ test('browser tests', {skip}, async t => {
         const first = page.locator('.roster tbody tr').first();
         await first.click();
         await page.waitForSelector('#player-detail:not([hidden])');
+        await context.close();
+    });
+
+    for (const [label, viewport] of [['small phone', {width: 360, height: 640}], ['iPhone', {width: 390, height: 844}], ['phone on its side', {width: 844, height: 390}]]) {
+        await t.test(`home page fits one screen without scrolling on a ${label}`, async () => {
+            const context = await browser.newContext({viewport});
+            const page = await context.newPage();
+            await page.goto(base);
+            const m = await page.evaluate(() => { const a = document.querySelector('.app'); return {scroll: a.scrollHeight - a.clientHeight, page: document.documentElement.scrollHeight - innerHeight, tiles: [...document.querySelectorAll('.tile')].map(e => { const r = e.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, h: r.height}; })}; });
+            assert.ok(m.scroll <= 1 && m.page <= 1, `home scrolls by ${m.scroll}px`);
+            for (const tile of m.tiles) assert.ok(tile.top >= 0 && tile.bottom <= viewport.height && tile.h >= 44, 'every tile is on screen and big enough to tap');
+            await context.close();
+        });
+    }
+
+    await t.test('home page install hint: shown for iPhone Safari, closable, remembered, hidden once installed', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const page = await context.newPage();
+        await page.goto(base);
+        assert.equal(await page.isVisible('#install-hint'), true);
+        assert.match(await page.textContent('#install-text'), /分享鈕.*加入主畫面/);
+        await page.click('#install-close');
+        assert.equal(await page.isVisible('#install-hint'), false);
+        await page.reload();
+        assert.equal(await page.isVisible('#install-hint'), false, 'a closed hint stays closed');
+        await context.close();
+
+        const installed = await browser.newContext({...devices['iPhone 13']});
+        await installed.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}));
+        const app = await installed.newPage();
+        await app.goto(base);
+        assert.equal(await app.isVisible('#install-hint'), false, 'no hint inside the installed app');
+        await installed.close();
+    });
+
+    await t.test('the manifest and icon are served', async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const page = await context.newPage();
+        assert.equal((await page.goto(base + 'manifest.webmanifest')).status(), 200);
+        assert.equal((await page.request.get(base + 'icons/icon-192.png')).status(), 200);
         await context.close();
     });
 

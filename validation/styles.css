@@ -12,3 +12,6 @@ tr.dim td{color:#98a6b1}
 .grid2>*,.summary>*{min-width:0}
 input[type=file]{max-width:100%;min-width:0;box-sizing:border-box}
 .plot text.line-label{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+
+/* installed-app mode: keep content clear of the notch and the home bar */
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}

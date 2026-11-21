@@ -1,0 +1,16 @@
+{
+  "name": "Basketball MVP 投籃訓練",
+  "short_name": "MVP 投籃",
+  "description": "個人與球隊的投籃訓練系統：記錄每一球、罰球動作節奏、教練總覽。",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#11241d",
+  "theme_color": "#11241d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
