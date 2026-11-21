@@ -6,15 +6,15 @@
     // never a longer sentence that merely contains one. 進來, 進去吧 and 你有沒有看到 are not calls; 進不去 is a miss.
     // Speech engines often hear 進 as homophones; these are accepted as 進.
     const HOMOPHONES='近|緊|盡|金|今|晉|勁|錦|禁';
-    const PREFIX='(?:差一點|我投|我|投|這球|那球|這顆|那顆|這個|那個|這|那)?',SUFFIX='(?:了|啦|囉|喔|耶|喲)?';
-    const MADE_RE=new RegExp('^'+PREFIX+'(?:進球|進去(?:了|啦)|進|有進|有中|中|空心|好球|漂亮|讚|'+HOMOPHONES+')'+SUFFIX+'$');
+    const PREFIX='(?:(?:哇|耶|唉|欸|喔|啊|可惜|太可惜了|差一點)?(?:我投|我|投|這球|那球|這顆|那顆|這個|那個|這|那)?)',SUFFIX='(?:了|啦|囉|喔|耶|喲){0,2}';
+    const MADE_RE=new RegExp('^'+PREFIX+'(?:進球|進去(?:了|啦)|進|有進|有中|中|空心球|空心|好球|漂亮|讚|'+HOMOPHONES+')'+SUFFIX+'$');
     const MISS_RE=new RegExp('^'+PREFIX+'(?:沒進去|沒有進去|沒進|沒有進|沒有中|沒中|進不去|不進|不中|打鐵|麵包|歪|沒)'+SUFFIX+'$');
-    const MADE_WORDS=['made','make','in','yes','good','nice'],MISS_WORDS=['miss','missed','no'];
+    const MADE_WORDS=['made','make','in','yes','good','nice','nice shot','good shot','made it','make it'],MISS_WORDS=['miss','missed','no','missed it'];
     function parse(text){
         const s=String(text||'').toLowerCase().replace(/[\s，。！？、,.!?]/g,'');
         if(!s || s.length>12 || /[嗎呢]$/.test(s))return null; // long phrases or questions are conversation, not a call
-        if(MISS_WORDS.includes(s))return false;
-        if(MADE_WORDS.includes(s))return true;
+        if(MISS_WORDS.map(w=>w.replace(/\s/g,'')).includes(s))return false;
+        if(MADE_WORDS.map(w=>w.replace(/\s/g,'')).includes(s))return true;
         if(MISS_RE.test(s))return false;
         if(MADE_RE.test(s))return true;
         return null;
