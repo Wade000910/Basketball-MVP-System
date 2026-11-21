@@ -116,6 +116,13 @@
     }
     let modelComplexity=1;
     $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
+    function fitStage(){
+        const v=$('video'),w=v.videoWidth,h=v.videoHeight,view=$('practice-view');
+        view.style.setProperty('--stage-ratio',ShootLayout.stageAspect(w,h));
+        view.classList.toggle('portrait',ShootLayout.orientationOf(w,h)==='portrait');
+    }
+    $('video').addEventListener('loadedmetadata',fitStage);
+    $('video').addEventListener('resize',fitStage);
     async function startCamera(){
         running=true;perf=ShootPerf.createPerfMonitor();$('lite-btn').hidden=true;
         try{
