@@ -283,4 +283,44 @@ test('browser tests', {skip}, async t => {
         assert.deepEqual(errors, []);
         await context.close();
     });
+    await t.test('camera make/miss: the player taps the rim edges, and the page uses that hoop', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(() => {
+            const make = [[0.45, 0.12], [0.49, 0.2], [0.5, 0.27], [0.5, 0.33], [0.5, 0.42]];
+            let step = 0;
+            globalThis.__arm = () => { step = 0; };
+            // the detector finds the ball only; the hoop comes from the player's taps
+            globalThis.BallDetectorOverride = {
+                async available() { return true; },
+                async detect() { const p = make[step++]; return {ball: p ? {x: p[0], y: p[1], r: 0.025} : null, hoop: null}; }
+            };
+        });
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        await page.waitForFunction(() => !document.getElementById('camera-on').disabled);
+        await page.check('#camera-on');
+        await page.fill('#player-code', 'P556');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => document.getElementById('video').videoWidth > 0, null, {timeout: 20000});
+        assert.match(await page.textContent('#hoop-hint'), /左邊緣/);
+        const at = (px, py) => page.evaluate(([x, y]) => {
+            const r = document.querySelector('.stage').getBoundingClientRect(), v = document.getElementById('video');
+            const s = Math.min(r.width / v.videoWidth, r.height / v.videoHeight), w = v.videoWidth * s, h = v.videoHeight * s;
+            return {x: r.left + (r.width - w) / 2 + x * w, y: r.top + (r.height - h) / 2 + y * h};
+        }, [px, py]);
+        const left = await at(0.44, 0.3), right = await at(0.56, 0.3);
+        await page.mouse.click(left.x, left.y);
+        assert.match(await page.textContent('#hoop-hint'), /右邊緣/);
+        await page.mouse.click(right.x, right.y);
+        const hoop = await page.evaluate(() => ShootApp.hoop());
+        assert.ok(Math.abs(hoop.cx - 0.5) < 0.01 && Math.abs(hoop.cy - 0.3) < 0.01 && Math.abs(hoop.w - 0.12) < 0.01, JSON.stringify(hoop));
+        assert.equal(await page.isHidden('#hoop-hint'), true);
+        await page.evaluate(() => { globalThis.__arm(); return ShootApp.onTrial({status: 'accepted', reasonCode: '', dt: 80, dtPeak: 120, measuredFps: 29.5, timestampSource: 'camera-frame', algorithmVersion: 'player-peak-v1'}); });
+        await page.waitForFunction(() => document.getElementById('score-total').textContent === '1', null, {timeout: 8000});
+        assert.equal(await page.textContent('#score-made'), '1', 'with the tapped hoop, the ball dropping through is a make');
+        await page.click('#rim-btn');
+        assert.equal(await page.evaluate(() => ShootApp.hoop()), null, 'the hoop can be set again');
+        await context.close();
+    });
 });

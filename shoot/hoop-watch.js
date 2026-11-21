@@ -12,11 +12,14 @@
     function createHoopWatch({windowMs=2500}={}){
         let startedAt=null,obs=[],closed=false;
         const hoops=[];
+        let fixed=null;
         function noteHoop(h){
             if(!h||![h.cx,h.cy,h.w].every(Number.isFinite))return;
             hoops.push(h);if(hoops.length>KEEP)hoops.shift();
         }
+        function setHoop(h){fixed=h&&[h.cx,h.cy,h.w].every(Number.isFinite)?{cx:h.cx,cy:h.cy,w:h.w}:null;}
         function hoop(){
+            if(fixed)return fixed;
             if(!hoops.length)return null;
             return {cx:median(hoops.map(h=>h.cx)),cy:median(hoops.map(h=>h.cy)),w:median(hoops.map(h=>h.w))};
         }
@@ -32,7 +35,7 @@
             closed=true;startedAt=null;
             return H.classifyShot(obs,hoop());
         }
-        return {start,push,noteHoop,hoop,finished,finish};
+        return {start,push,noteHoop,setHoop,hoop,finished,finish};
     }
     return {createHoopWatch};
 });

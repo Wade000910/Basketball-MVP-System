@@ -49,3 +49,12 @@ test('with no hoop seen the answer is unknown', () => {
     assert.equal(w.finished(400), true);
     assert.equal(w.finish(400).result, 'unknown');
 });
+
+test('a hoop set by the player wins over anything detected', () => {
+    const w = createHoopWatch({windowMs: 300});
+    w.setHoop({cx: 0.5, cy: 0.3, w: 0.12});
+    w.noteHoop({cx: 0.1, cy: 0.1, w: 0.4});
+    assert.deepEqual(w.hoop(), {cx: 0.5, cy: 0.3, w: 0.12});
+    w.setHoop(null);
+    assert.deepEqual(w.hoop(), {cx: 0.1, cy: 0.1, w: 0.4});
+});

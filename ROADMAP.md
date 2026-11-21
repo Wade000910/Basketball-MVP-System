@@ -55,7 +55,7 @@ Supabase（Postgres + Auth）
 - [x] 節奏尺：把上一球的節奏畫在自己進球範圍上（`shoot/gauge.js`）。
 - [x] 直放與橫放：投籃頁依相機畫面長寬調整畫面框（`shoot/layout.js`）；實際旋轉手機的表現待實測。
 - [x] 瀏覽器端對端測試（`npm run test:e2e`，需要 Playwright 與 Chromium）：每個頁面在手機直放、橫放、電腦三種大小、無障礙（WCAG AA）、投籃練習、隊友幫記、教練示範、教練與球員的帳號管理、相機判斷進球的流程。
-- [x] 相機判斷進球（**實驗，沒有附偵測模型**）：判斷規則 `shoot/hoop.js`、模型輸出解析 `shoot/yolo.js`、觀察視窗 `shoot/hoop-watch.js`、瀏覽器端執行 `shoot/ball-detector.js`。規則與流程用模擬軌跡和假偵測器測過；偵測模型與準確度都還沒有，選項在模型檔 `shoot/models/ball-hoop.onnx` 出現前保持關閉。
+- [x] 相機判斷進球（**程式完成，但沒有可用的偵測模型，選項保持關閉**）：判斷規則 `shoot/hoop.js`、模型輸出解析 `shoot/yolo.js` 與 `shoot/yolox.js`、觀察視窗 `shoot/hoop-watch.js`、瀏覽器端執行 `shoot/ball-detector.js`，籃框由球員在畫面上點左右邊緣設定。規則與流程用模擬軌跡和假偵測器測過；現成的通用模型（YOLOX COCO）在 5 張真實罰球照片裡找不到球，細節見 [試驗紀錄](./docs/camera-detection-trial-2026-11-21.md)。
 
 ## 繳交前待辦
 
@@ -75,6 +75,6 @@ Supabase（Postgres + Auth）
 
 ## 未來方向
 
-- 自動判斷命中：取得授權清楚的球與籃框偵測模型、標註資料並以真實影片驗證準確度（程式端的規則與整合已完成）。
+- 自動判斷命中：用籃球標註資料微調偵測模型並以真實影片驗證準確度（程式端的規則、整合與籃框設定已完成，見試驗紀錄）。
 - 教練指派練習項目與目標。
 - 依研究路線圖完成量測驗證與回饋效果研究。
