@@ -108,3 +108,17 @@ test('reading a team stops after a sane maximum instead of looping forever', asy
     assert.ok(calls <= 10, `${calls} requests`);
     assert.ok(rows.length <= 10000);
 });
+
+test('a team with exactly one full page of sessions is read correctly (the empty second page ends it)', async () => {
+    const all = Array.from({length: 1000}, (_, i) => ({id: 's' + i}));
+    let calls = 0;
+    const query = {};
+    for (const m of ['select', 'in', 'gte', 'order']) query[m] = () => query;
+    query.range = (from, to) => { calls++; return Promise.resolve({data: all.slice(from, to + 1), error: null}); };
+    const api = Cloud.supabaseApi({from: () => query, rpc: () => Promise.resolve({data: null, error: null}), auth: {}});
+    assert.equal((await api.teamSessions(['u1'], '2026-11-01')).length, 1000);
+    assert.equal(calls, 2);
+    calls = 0;
+    assert.equal((await api.teamSessions([], '2026-11-01')).length, 0);
+    assert.equal(calls, 0, 'no request for an empty roster');
+});
