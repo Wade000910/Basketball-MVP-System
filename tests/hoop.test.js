@@ -50,3 +50,9 @@ test('every answer carries a reason the page can show', () => {
         assert.ok(typeof r.reason === 'string' && r.reason.length > 0);
     }
 });
+
+test('detection jitter at the rim edge does not turn a clean drop into a miss', () => {
+    // the ball is seen once slightly back above the line, then drops through for good
+    const r = classifyShot(track([[0.48, 0.15], [0.5, 0.28], [0.5, 0.31], [0.5, 0.29], [0.5, 0.33], [0.5, 0.42]]), HOOP);
+    assert.equal(r.result, 'made', 'the last downward crossing decides, so one noisy sighting near the line does not flip the answer');
+});

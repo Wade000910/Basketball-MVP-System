@@ -79,7 +79,7 @@
     function makeDetector(){return globalThis.BallDetectorOverride||ShootBallDetector.createBallDetector();}
     makeDetector().available().then(ok=>{
         if(!ok)return;
-        $('camera-on').disabled=false;$('camera-note').textContent='球和籃框都拍進畫面時，球出手後約 2.5 秒自動判斷進或沒進；沒看清楚的球請按進或沒進。實驗功能，準確度還沒驗證。';
+        $('camera-on').disabled=false;$('camera-note').textContent='球和籃框都拍進畫面時，球出手後約 2.5 秒自動判斷進或沒進；沒看清楚的球請按進或沒進。每球請間隔約 3 秒。實驗功能，準確度還沒驗證。';
     }).catch(()=>{});
     function startHoopWatch(){
         hoopWatch=null;ballDetector=null;
