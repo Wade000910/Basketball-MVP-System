@@ -1,7 +1,7 @@
 // Browser tests for everything that does not need a real person: every page loads clean at phone and
 // desktop sizes, the practice flow works with a fake camera, the coach page and the account flows work
 // against an in-memory cloud. Needs Playwright with Chromium, so it is not part of `npm test`:
-//   NODE_PATH=<dir with playwright> node --test tests/e2e/
+//   NODE_PATH=<dir with playwright> npm run test:e2e
 // It skips itself when Playwright is not installed.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -333,7 +333,7 @@ test('browser tests', {skip}, async t => {
         await page.fill('#code', 'P101');
         await page.click('#finish-btn');
         assert.match(await page.textContent('#survey-message'), /沒回答/);
-        const fill = async (name, values) => { for (let i = 0; i < values.length; i++) await page.check(`input[name="${name}${i}"][value="${values[i]}"]`, {force: true}); };
+        const fill = async (name, values) => { for (let i = 0; i < values.length; i++) await page.click(`label:has(input[name="${name}${i}"][value="${values[i]}"])`); };
         await fill('sus', [5, 1, 5, 1, 5, 1, 5, 1, 5, 1]);
         await fill('product', [5, 4, 3, 4, 5]);
         await page.fill('#open0', '記錄很快');
