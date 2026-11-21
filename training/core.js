@@ -84,6 +84,7 @@
     }
     function parseStore(text) {
         const data=JSON.parse(text);
+        if(!data || typeof data!=='object') throw new Error('本機紀錄格式不符。');
         if(data.schemaVersion!==SCHEMA || !Array.isArray(data.history) || data.history.length>30) throw new Error('本機紀錄格式不符。');
         const ids=new Set();
         data.history.forEach(s=>{validateSession(s);if(s.isDemo || !s.finishedAt || ids.has(s.id))throw new Error('本機歷史紀錄不符。');ids.add(s.id);});

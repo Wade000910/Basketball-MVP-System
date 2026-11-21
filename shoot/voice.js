@@ -1,18 +1,22 @@
 // Spoken make/miss. The shooter says 「進」 or 「沒進」 after each shot.
-// Miss phrases are checked first because most of them contain a make word (沒「進」).
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.ShotVoice=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
     'use strict';
-    const MISS=['沒進','沒有進','沒中','沒有中','不進','沒','不中','打鐵','麵包','miss','missed','no'];
-    const MADE=['進球','進了','進','有中','中了','中','好球','空心','漂亮','made','make','in','yes','good'];
+    // Teammates talk during a drill, so only a short utterance that is clearly a result counts: the whole
+    // phrase must be a call (a result word with an optional lead-in such as 這球 and an optional ending such as 了),
+    // never a longer sentence that merely contains one. 進來, 進去吧 and 你有沒有看到 are not calls; 進不去 is a miss.
     // Speech engines often hear 進 as homophones; these are accepted as 進.
-    const MADE_HOMOPHONES=['近','緊','盡','金','今','晉','勁','錦','禁'];
+    const HOMOPHONES='近|緊|盡|金|今|晉|勁|錦|禁';
+    const PREFIX='(?:(?:哇|耶|唉|欸|喔|啊|可惜|太可惜了|差一點)?(?:我投|我|投|這球|那球|這顆|那顆|這個|那個|這|那)?)',SUFFIX='(?:了|啦|囉|喔|耶|喲){0,2}';
+    const MADE_RE=new RegExp('^'+PREFIX+'(?:進球|進去(?:了|啦)|進|有進|有中|中|空心球|空心|好球|漂亮|讚|'+HOMOPHONES+')'+SUFFIX+'$');
+    const MISS_RE=new RegExp('^'+PREFIX+'(?:沒進去|沒有進去|沒進|沒有進|沒有中|沒中|進不去|不進|不中|打鐵|麵包|歪|沒)'+SUFFIX+'$');
+    const MADE_WORDS=['made','make','in','yes','good','nice','nice shot','good shot','made it','make it'],MISS_WORDS=['miss','missed','no','missed it'];
     function parse(text){
         const s=String(text||'').toLowerCase().replace(/[\s，。！？、,.!?]/g,'');
         if(!s || s.length>12 || /[嗎呢]$/.test(s))return null; // long phrases or questions are conversation, not a call
-        const words=String(text||'').toLowerCase().split(/[\s,.!?]+/).filter(Boolean);
-        const has=w=>/^[a-z]+$/.test(w)?words.includes(w):s.includes(w);
-        if(MISS.some(has))return false;
-        if(MADE.some(has)||MADE_HOMOPHONES.some(w=>s===w||s===w+'了'))return true;
+        if(MISS_WORDS.map(w=>w.replace(/\s/g,'')).includes(s))return false;
+        if(MADE_WORDS.map(w=>w.replace(/\s/g,'')).includes(s))return true;
+        if(MISS_RE.test(s))return false;
+        if(MADE_RE.test(s))return true;
         return null;
     }
     // Picks the first alternative that parses, so a confident wrong transcript does not hide
@@ -38,5 +42,5 @@
         function stop(){wanted=false;if(rec)try{rec.stop();}catch{/* not started */}}
         return {start,stop,get listening(){return wanted;}};
     }
-    return {MISS,MADE,parse,fromAlternatives,supported,createListener};
+    return {parse,fromAlternatives,supported,createListener};
 });

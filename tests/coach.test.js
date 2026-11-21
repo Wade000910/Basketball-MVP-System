@@ -62,3 +62,17 @@ test('per-shot export lists every shot with its source and linked peak timing',(
     const report=CC.teamReport([{user_id:'u1',display_name:'阿峻',role:'player'}],[s],new Date('2026-11-06T00:00:00Z'));
     assert.equal(report.players[0].motion.peak.made.meanDt,118);
 });
+
+test('the CSV date is the date where the coach is, not the UTC date', () => {
+    const saved = process.env.TZ;
+    process.env.TZ = 'Asia/Taipei';
+    try {
+        const roster = [{user_id: 'u', role: 'player', display_name: 'A'}];
+        // 07:30 in Taipei on Nov 21 is 23:30 UTC on Nov 20
+        const session = {id: 's', userId: 'u', drill: 'free_throw', position: 'center', startedAt: '2026-11-20T23:30:00.000Z', finishedAt: '2026-11-20T23:50:00.000Z', shots: [{id: 'a', made: true, recordedAt: '2026-11-20T23:31:00.000Z'}]};
+        assert.equal(Coach.shotRows(roster, [session])[0].date, '2026-11-21');
+        assert.equal(Coach.localDate(new Date('2026-11-20T16:30:00Z')), '2026-11-21');
+    } finally {
+        if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
+    }
+});
