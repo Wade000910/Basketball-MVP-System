@@ -8,5 +8,7 @@ button.secondary{background:#e4edf3;color:#163044}button.marked{background:#1f7a
 tr.dim td{color:#98a6b1}
 .summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.summary>div{border:1px solid #d2dde5;border-radius:10px;padding:14px;background:#f8fbfd}.summary h3{margin:0 0 6px;font-size:1rem}.summary dl{display:grid;grid-template-columns:auto auto;gap:2px 14px;margin:0}.summary dt{color:#5a6b78}.summary dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
 .plot{width:100%;height:auto;background:#fff;border:1px solid #d2dde5;border-radius:10px}.plot text{font:12px system-ui,sans-serif;fill:#4a5b68}.plot .axis{stroke:#9fb0bc}.plot .zero{stroke:#c9d3da;stroke-dasharray:3 3}.plot .bias{stroke:#16597c;stroke-width:1.5}.plot .loa{stroke:#ea9f24;stroke-dasharray:6 4}.plot circle{fill:#16597c;fill-opacity:.75}
-@media(max-width:700px){.grid2,.summary{grid-template-columns:1fr}}
+@media(max-width:700px){.grid2,.summary{grid-template-columns:minmax(0,1fr)}}
+.grid2>*,.summary>*{min-width:0}
+input[type=file]{max-width:100%;min-width:0;box-sizing:border-box}
 .plot text.line-label{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}

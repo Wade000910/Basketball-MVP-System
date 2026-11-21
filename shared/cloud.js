@@ -103,7 +103,15 @@
             async shotMarks(sessionId,afterId=0){return must(await client.from('shot_marks').select('id,made,created_at').eq('session_id',sessionId).gt('id',afterId).order('id').limit(50));},
             async teamSessions(userIds,sinceIso){
                 if(!userIds.length)return [];
-                return must(await client.from('training_sessions').select(SESSION_COLUMNS).in('user_id',userIds).gte('started_at',sinceIso).order('started_at',{ascending:false}).limit(2000));
+                // The server returns at most 1000 rows per request, so a large team is read page by page; stopping at
+                // 10 pages (10 000 sessions) keeps a runaway read from looping forever.
+                const PAGE=1000,rows=[];
+                for(let page=0;page<10;page++){
+                    const chunk=must(await client.from('training_sessions').select(SESSION_COLUMNS).in('user_id',userIds).gte('started_at',sinceIso).order('started_at',{ascending:false}).range(page*PAGE,page*PAGE+PAGE-1));
+                    rows.push(...chunk);
+                    if(chunk.length<PAGE)break;
+                }
+                return rows;
             }
         };
     }

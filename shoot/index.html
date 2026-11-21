@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>罰球投籃｜Basketball MVP</title>
     <link rel="stylesheet" href="./styles.css">
@@ -12,7 +13,7 @@
     <script src="../專題程式/motion-core.js" defer></script>
     <script src="../專題程式/shooting-guide.js" defer></script>
     <script src="../shared/cloud-config.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous" defer></script>
     <script src="../shared/cloud.js" defer></script>
     <script src="./engine.js" defer></script>
     <script src="./perf.js" defer></script>

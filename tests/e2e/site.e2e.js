@@ -10,7 +10,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 let chromium, devices;
-try { ({chromium, devices} = require('playwright')); } catch { /* skipped below */ }
+const ENGINE = process.env.E2E_BROWSER || 'chromium';   // chromium (default) or firefox
+try {
+    const pw = require('playwright');
+    chromium = pw[ENGINE];
+    // Firefox has no mobile emulation: keep the phone-sized screen, drop the touch flags
+    devices = ENGINE === 'firefox' ? new Proxy(pw.devices, {get: (t, k) => (t[k] ? {...t[k], isMobile: undefined, hasTouch: undefined} : t[k])}) : pw.devices;
+} catch { /* skipped below */ }
 let axeSource = null;
 try { axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch { /* the accessibility test skips itself */ }
 const skip = chromium ? false : 'playwright is not installed';
@@ -62,7 +68,10 @@ const FAKE_CLOUD = () => {
 
 test('browser tests', {skip}, async t => {
     const {server, base} = await serve();
-    const browser = await chromium.launch({args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']});
+    const browser = await chromium.launch(ENGINE === 'firefox'
+        ? {firefoxUserPrefs: {'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true}}
+        : {args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']});
+    if (ENGINE === 'firefox') { const real = browser.newContext.bind(browser); browser.newContext = o => { const {permissions, ...rest} = o || {}; return real(rest); }; }
     t.after(async () => { await browser.close(); server.close(); });
 
     const PAGES = ['', 'coach/', 'coach/?demo=1', 'offline-review/', 'shoot/', 'shoot/mark.html', 'training/', 'validation/', 'trial/', 'trial/#summary', '專題程式/'];
@@ -75,7 +84,7 @@ test('browser tests', {skip}, async t => {
             for (const url of PAGES) {
                 const page = await context.newPage();
                 page.on('pageerror', e => problems.push(`${url} JS: ${e.message}`));
-                page.on('console', m => { if (m.type() === 'error' && !/supabase|jsdelivr|Failed to load resource/.test(m.text())) problems.push(`${url} console: ${m.text()}`); });
+                page.on('console', m => { if (/Content.Security.Policy|Refused to/i.test(m.text())) problems.push(`${url} policy violation: ${m.text()}`); else if (m.type() === 'error' && !/supabase|jsdelivr|Failed to load resource/.test(m.text())) problems.push(`${url} console: ${m.text()}`); });
                 page.on('response', r => { if (r.status() >= 400 && !/supabase|jsdelivr/.test(r.url())) problems.push(`${url} ${r.status()} ${r.url()}`); });
                 await page.goto(base + url, {waitUntil: 'networkidle'});
                 const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -89,7 +98,8 @@ test('browser tests', {skip}, async t => {
         });
     }
 
-    await t.test('practice: make and miss buttons, undo, finish, and the set reaches the training history', async () => {
+    const noPose = ENGINE === 'firefox' ? 'headless Firefox has no WebGL, which the pose model needs' : false;
+    await t.test('practice: make and miss buttons, undo, finish, and the set reaches the training history', {skip: noPose}, async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         const page = await context.newPage();
         const errors = [];
@@ -233,7 +243,7 @@ test('browser tests', {skip}, async t => {
         await context.close();
         assert.deepEqual(found, []);
     });
-    await t.test('camera make/miss (experimental): a scripted detector makes the page record a make, a miss, and ask when unsure', async () => {
+    await t.test('camera make/miss (experimental): a scripted detector makes the page record a make, a miss, and ask when unsure', {skip: noPose}, async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         await context.addInitScript(() => {
             // a scripted detector: the next shot's ball path is chosen by the test
@@ -285,7 +295,7 @@ test('browser tests', {skip}, async t => {
         assert.deepEqual(errors, []);
         await context.close();
     });
-    await t.test('camera make/miss: the player taps the rim edges, and the page uses that hoop', async () => {
+    await t.test('camera make/miss: the player taps the rim edges, and the page uses that hoop', {skip: noPose}, async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         await context.addInitScript(() => {
             const make = [[0.45, 0.12], [0.49, 0.2], [0.5, 0.27], [0.5, 0.33], [0.5, 0.42]];
@@ -638,5 +648,57 @@ test('browser tests', {skip}, async t => {
         await check(survey, 'survey summary');
         await context.close();
         assert.deepEqual(found, []);
+    });
+    await t.test('the pinned cloud library loads on every page that uses it (integrity hash accepted) and no page contacts an unexpected site', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const hosts = new Map(), failures = [];
+        for (const url of ['training/', 'shoot/', 'shoot/mark.html', 'coach/', 'trial/', 'validation/', 'offline-review/']) {
+            const page = await context.newPage();
+            page.on('request', r => { const u = new URL(r.url()); if (!u.hostname.startsWith('127.0.0.1')) hosts.set(u.hostname, (hosts.get(u.hostname) || new Set()).add(url)); });
+            page.on('console', m => { if (/integrity|Failed to find a valid digest|blocked/i.test(m.text())) failures.push(`${url}: ${m.text()}`); });
+            await page.goto(base + url, {waitUntil: 'networkidle'});
+            if (['training/', 'shoot/', 'shoot/mark.html', 'coach/'].includes(url)) await page.waitForFunction(() => typeof globalThis.supabase?.createClient === 'function', null, {timeout: 15000}).catch(() => assert.fail(`${url}: the cloud library did not load`));
+            await page.close();
+        }
+        await context.close();
+        assert.deepEqual(failures, []);
+        // the only outside host a normal visit may touch is the CDN that serves the pinned cloud library
+        assert.deepEqual([...hosts.keys()].sort(), ['cdn.jsdelivr.net']);
+    });
+    await t.test('the camera starts even when the browser leaves audio and screen-lock requests pending forever', {skip: noPose}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const page = await context.newPage();
+        await page.addInitScript(() => {
+            // some browsers never answer these without a user gesture; the camera must not wait for them
+            const never = () => new Promise(() => {});
+            if (globalThis.AudioContext) AudioContext.prototype.resume = never;
+            if (navigator.wakeLock) navigator.wakeLock.request = never;
+        });
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P601');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => document.getElementById('video').videoWidth > 0, null, {timeout: 8000});
+        await context.close();
+    });
+    await t.test('without WebGL the analysis explains itself in plain words and manual recording still works', async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera']});
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.addInitScript(() => {
+            const real = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /webgl/.test(type) ? null : real.call(this, type, ...rest); };
+        });
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P602');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => /缺少 WebGL/.test(document.getElementById('practice-message').textContent), null, {timeout: 10000});
+        assert.match(await page.textContent('#state-badge'), /無法分析動作/);
+        await page.click('#made-btn');
+        assert.equal(await page.textContent('#score-total'), '1');
+        assert.deepEqual(errors, []);
+        await context.close();
     });
 });
