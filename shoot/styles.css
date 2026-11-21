@@ -33,3 +33,11 @@ body.practicing .page-footer{display:none}
 @media(orientation:landscape) and (min-width:700px){.practice{grid-template-rows:none;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);align-items:start}.stage{max-height:calc(100vh - 54px);aspect-ratio:auto;height:calc(100vh - 54px)}.panel{overflow:auto;max-height:calc(100vh - 54px)}}
 @media(max-width:520px){.form-grid{grid-template-columns:1fr}.made,.missed{min-height:88px}}
 .text-like{border:0;background:none;color:#816142;text-decoration:underline;padding:4px;font-size:13px}
+
+.rhythm{position:relative;height:14px;margin:12px 2px 2px;border-radius:7px;background:#e3e9df}
+.rhythm .band{position:absolute;top:0;bottom:0;border-radius:7px;background:#b9d98f}
+.rhythm .mark{position:absolute;top:-5px;width:6px;height:24px;margin-left:-3px;border-radius:3px;background:#174f39;transition:left .25s ease}
+.rhythm.off .mark{background:#b8571f}
+.rhythm.clipped .mark{border-radius:3px 3px 3px 3px;outline:2px solid #b8571f}
+.rhythm-text{margin:4px 2px 0;font-size:13px}
+@media (prefers-reduced-motion:reduce){.rhythm .mark{transition:none}}

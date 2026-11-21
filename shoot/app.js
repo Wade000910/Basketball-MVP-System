@@ -185,10 +185,20 @@
         // The detector already waits about 1 s after release, as on the research page.
         feedback(trial);
     }
+    function drawRhythm(dt,ref){
+        const g=ShootGauge.gauge(dt,ref),box=$('rhythm'),text=$('rhythm-text');
+        box.hidden=text.hidden=!g;
+        if(!g)return;
+        const band=box.querySelector('.band'),mark=box.querySelector('.mark');
+        band.style.left=g.bandStartPct+'%';band.style.width=(g.bandEndPct-g.bandStartPct)+'%';mark.style.left=g.markerPct+'%';
+        box.classList.toggle('off',g.tone==='off');box.classList.toggle('clipped',g.clipped);
+        text.textContent='綠色是你進球時的節奏範圍'+(g.side==='inside'?'；這球在範圍內':'；這球'+(g.side==='late'?'偏晚':'偏早'));
+    }
     function feedback(trial){
         const dt=$('last-dt');dt.className='';dt.dataset.count=String(Number(dt.dataset.count||0)+1);
         if(trial.status!=='accepted'){dt.textContent='-- ms';$('last-note').textContent='這球沒量到：'+reason(trial.reasonCode);return;}
         const ref=E.personalReference(madePeaks),j=E.judge(trial.dtPeak,ref);
+        drawRhythm(trial.dtPeak,ref);
         dt.textContent=Math.round(trial.dtPeak)+' ms';
         const sound=practice.run.condition==='auditory';
         if(j==='steady'){dt.className='steady';$('last-note').textContent='和你進球時的節奏接近（'+ref.low+'–'+ref.high+' ms）';if(sound)beep(800,0.5);}
