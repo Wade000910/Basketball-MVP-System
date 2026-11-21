@@ -11,6 +11,8 @@ const path = require('node:path');
 
 let chromium, devices;
 try { ({chromium, devices} = require('playwright')); } catch { /* skipped below */ }
+let axeSource = null;
+try { axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch { /* the accessibility test skips itself */ }
 const skip = chromium ? false : 'playwright is not installed';
 const ROOT = path.join(__dirname, '..', '..');
 const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.png': 'image/png', '.data': 'application/octet-stream', '.binarypb': 'application/octet-stream', '.tflite': 'application/octet-stream'};
@@ -204,5 +206,20 @@ test('browser tests', {skip}, async t => {
         const stored = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.entries(localStorage))));
         assert.match(stored, /P888/);
         await context.close();
+    });
+    await t.test('accessibility: no WCAG AA violations on the main pages (needs axe-core)', {skip: axeSource ? false : 'axe-core is not installed'}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13']});
+        const found = [];
+        for (const url of ['', 'coach/?demo=1', 'shoot/', 'shoot/mark.html', 'training/', 'offline-review/', 'validation/', '專題程式/']) {
+            const page = await context.newPage();
+            await page.goto(base + url);
+            await page.waitForTimeout(400);
+            await page.evaluate(axeSource);
+            const result = await page.evaluate(() => axe.run({runOnly: ['wcag2a', 'wcag2aa']}));
+            for (const v of result.violations) found.push(`${url} ${v.id} (${v.nodes.length})`);
+            await page.close();
+        }
+        await context.close();
+        assert.deepEqual(found, []);
     });
 });
