@@ -84,7 +84,7 @@ test('browser tests', {skip}, async t => {
             for (const url of PAGES) {
                 const page = await context.newPage();
                 page.on('pageerror', e => problems.push(`${url} JS: ${e.message}`));
-                page.on('console', m => { if (m.type() === 'error' && !/supabase|jsdelivr|Failed to load resource/.test(m.text())) problems.push(`${url} console: ${m.text()}`); });
+                page.on('console', m => { if (/Content.Security.Policy|Refused to/i.test(m.text())) problems.push(`${url} policy violation: ${m.text()}`); else if (m.type() === 'error' && !/supabase|jsdelivr|Failed to load resource/.test(m.text())) problems.push(`${url} console: ${m.text()}`); });
                 page.on('response', r => { if (r.status() >= 400 && !/supabase|jsdelivr/.test(r.url())) problems.push(`${url} ${r.status()} ${r.url()}`); });
                 await page.goto(base + url, {waitUntil: 'networkidle'});
                 const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
