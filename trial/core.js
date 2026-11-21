@@ -6,7 +6,7 @@
     if(typeof module==='object'&&module.exports)module.exports=api;
     else root.TrialCore=api;
 })(typeof self!=='undefined'?self:this,function(){
-    const SCHEMA='basketball-mvp-trial-v1',TARGET=70;
+    const SCHEMA='basketball-mvp-trial-v1',TARGET=70,MAX_RESPONSES=500;
     const SUS_ITEMS=['我想我會經常使用這個系統。','我覺得這個系統不必要地複雜。','我覺得這個系統容易使用。','我想我需要有人協助才能使用這個系統。','我覺得這個系統的各項功能整合得很好。','我覺得這個系統有太多不一致的地方。','我想大部分的人能很快學會使用這個系統。','我覺得這個系統用起來很麻煩。','使用這個系統時，我很有信心。','我需要先學很多東西，才能開始使用這個系統。'];
     const PRODUCT_ITEMS=['記錄一組投籃的過程很順手。','趨勢圖讓我更清楚自己的進步。','動作分析的回饋讓我更注意自己的出手。','在球場上用手機記錄不會打斷練習。','知道教練看得到我的紀錄，讓我更願意練習。'];
     const OPEN_ITEMS=['最常用的功能是什麼？','最不方便的地方是什麼？','如果只能加一個功能，你希望是什麼？'];
@@ -52,6 +52,7 @@
             let data;
             try{data=JSON.parse(t);}catch{skipped.push({index:i,reason:'不是有效的 JSON'});return;}
             for(const item of Array.isArray(data)?data:[data]){
+                if(responses.length>=MAX_RESPONSES){skipped.push({index:i,reason:'超過 '+MAX_RESPONSES+' 份的上限'});break;}
                 const r=validResponse(item);
                 if(r)responses.push(r);else skipped.push({index:i,reason:'格式不符或答案不完整'});
             }
@@ -64,5 +65,5 @@
         const rows=latestPerCode(responses).map(r=>[r.code,r.susScore,...r.sus,...r.product,...r.open.map(q),q(r.device),r.submittedAt]);
         return [head.join(','),...rows.map(r=>r.join(','))].join('\n')+'\n';
     }
-    return {SCHEMA,TARGET,SUS_ITEMS,PRODUCT_ITEMS,OPEN_ITEMS,susScore,buildResponse,summarize,parseFiles,toCsv};
+    return {SCHEMA,TARGET,MAX_RESPONSES,SUS_ITEMS,PRODUCT_ITEMS,OPEN_ITEMS,susScore,buildResponse,summarize,parseFiles,toCsv};
 });

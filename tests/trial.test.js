@@ -78,3 +78,11 @@ test('the CSV has one row per participant and quotes free text', () => {
     assert.match(lines[1], /^P1,100,5,1,5,1,5,1,5,1,5,1,5,4,3,2,1/);
     assert.ok(lines[1].includes('"好用, 但""慢"""'));
 });
+
+test('a file with far too many answers is capped instead of freezing the page', () => {
+    const good = T.buildResponse({code: 'P1', sus: [5, 1, 5, 1, 5, 1, 5, 1, 5, 1], product: [5, 5, 5, 5, 5]});
+    const many = JSON.stringify(Array.from({length: T.MAX_RESPONSES + 50}, () => good));
+    const r = T.parseFiles([many]);
+    assert.equal(r.responses.length, T.MAX_RESPONSES);
+    assert.ok(r.skipped.some(s => /上限/.test(s.reason)));
+});

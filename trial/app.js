@@ -61,7 +61,8 @@
     }
     $('files').addEventListener('change',async()=>{
         const files=[...$('files').files];
-        const texts=await Promise.all(files.map(f=>f.text()));
+        // an answer file is a few KB; anything much larger is not one
+        const texts=await Promise.all(files.map(f=>f.size>200000?Promise.resolve('{"tooLarge":true}'):f.text()));
         const r=T.parseFiles(texts);loaded=r.responses;
         $('summary-message').textContent='讀入 '+files.length+' 個檔案，有效答案 '+r.responses.length+' 份'+(r.skipped.length?'；略過 '+r.skipped.length+' 份（'+r.skipped.map(x=>'第 '+(x.index+1)+' 個檔案：'+x.reason).join('、')+'）':'')+'。';
         render();
