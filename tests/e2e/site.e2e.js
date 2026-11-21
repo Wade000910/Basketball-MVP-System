@@ -657,7 +657,7 @@ test('browser tests', {skip}, async t => {
             page.on('request', r => { const u = new URL(r.url()); if (!u.hostname.startsWith('127.0.0.1')) hosts.set(u.hostname, (hosts.get(u.hostname) || new Set()).add(url)); });
             page.on('console', m => { if (/integrity|Failed to find a valid digest|blocked/i.test(m.text())) failures.push(`${url}: ${m.text()}`); });
             await page.goto(base + url, {waitUntil: 'networkidle'});
-            if (['training/', 'shoot/', 'shoot/mark.html', 'coach/'].includes(url)) assert.equal(await page.evaluate(() => typeof globalThis.supabase?.createClient), 'function', `${url}: the cloud library did not load`);
+            if (['training/', 'shoot/', 'shoot/mark.html', 'coach/'].includes(url)) await page.waitForFunction(() => typeof globalThis.supabase?.createClient === 'function', null, {timeout: 15000}).catch(() => assert.fail(`${url}: the cloud library did not load`));
             await page.close();
         }
         await context.close();
