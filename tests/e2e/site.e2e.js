@@ -77,8 +77,7 @@ test('browser tests', {skip}, async t => {
                 page.on('pageerror', e => problems.push(`${url} JS: ${e.message}`));
                 page.on('console', m => { if (m.type() === 'error' && !/supabase|jsdelivr|Failed to load resource/.test(m.text())) problems.push(`${url} console: ${m.text()}`); });
                 page.on('response', r => { if (r.status() >= 400 && !/supabase|jsdelivr/.test(r.url())) problems.push(`${url} ${r.status()} ${r.url()}`); });
-                await page.goto(base + url, {waitUntil: 'load'});
-                await page.waitForTimeout(400);
+                await page.goto(base + url, {waitUntil: 'networkidle'});
                 const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
                 if (over > 1) problems.push(`${url} scrolls sideways by ${over}px`);
                 const unnamed = await page.evaluate(() => [...document.querySelectorAll('button,a,input,select')].filter(e => !e.hidden && e.offsetParent && !(e.textContent.trim() || e.getAttribute('aria-label') || (e.labels && e.labels.length) || e.title || e.placeholder)).map(e => e.id || e.tagName));
@@ -93,6 +92,8 @@ test('browser tests', {skip}, async t => {
     await t.test('practice: make and miss buttons, undo, finish, and the set reaches the training history', async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
         page.on('dialog', d => d.accept());
         await page.goto(base + 'shoot/');
         await page.fill('#player-code', 'P777');
@@ -101,7 +102,14 @@ test('browser tests', {skip}, async t => {
         await page.waitForFunction(() => document.getElementById('video').videoWidth > 0, null, {timeout: 20000});
         const ratio = await page.evaluate(() => document.getElementById('practice-view').style.getPropertyValue('--stage-ratio'));
         assert.match(ratio, /^\d+ \/ \d+$/, 'the picture frame follows the real video shape');
-        for (const id of ['made-btn', 'made-btn', 'made-btn', 'missed-btn', 'missed-btn']) { await page.click('#' + id); await page.waitForTimeout(3200); }
+        // the lighter-model switch: the button is hidden until the phone struggles, so show it and press it
+        await page.evaluate(() => { document.getElementById('lite-btn').hidden = false; });
+        await page.click('#lite-btn');
+        assert.equal(await page.isHidden('#lite-btn'), true);
+        assert.match(await page.textContent('#last-note'), /較輕/);
+        await page.waitForTimeout(1500);
+        assert.match(await page.textContent('#fps'), /fps/, 'analysis keeps running after the switch');
+        for (const id of ['made-btn', 'made-btn', 'made-btn', 'missed-btn', 'missed-btn']) { await page.click('#' + id); await page.waitForTimeout(3200); /* two results within 3 s with no motion trial count as the same shot, on purpose */ }
         assert.equal(await page.textContent('#score-made'), '3');
         assert.equal(await page.textContent('#score-total'), '5');
         await page.click('#undo-btn');
@@ -110,6 +118,7 @@ test('browser tests', {skip}, async t => {
         await page.waitForTimeout(800);
         const stored = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.entries(localStorage))));
         assert.match(stored, /P777/, 'the finished set is saved on this device');
+        assert.deepEqual(errors, [], 'no script errors during the whole practice');
         await context.close();
     });
 
