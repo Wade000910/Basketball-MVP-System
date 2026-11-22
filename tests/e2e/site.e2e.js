@@ -196,7 +196,7 @@ test('browser tests', {skip}, async t => {
         await context.close();
     });
 
-    await t.test('records filter: by period and by drill, nothing is deleted', async () => {
+    await t.test('records filter: by period; only free throws are listed and older sets of other types are kept untouched', async () => {
         const context = await browser.newContext({...devices['iPhone 13']});
         const page = await context.newPage();
         await page.goto(base + 'training/#records');
@@ -213,20 +213,16 @@ test('browser tests', {skip}, async t => {
         });
         await page.reload();
         const count = () => page.locator('#history-list .history-item').count();
-        assert.equal(await count(), 4, 'all by default');
+        assert.equal(await count(), 3, 'free throws only; the three-point set is not listed');
         await page.click('#history-filter [data-days="7"]');
-        assert.equal(await count(), 2);
-        await page.click('#history-filter [data-days="30"]');
-        assert.equal(await count(), 3);
-        await page.selectOption('#history-drill', 'three_point');
         assert.equal(await count(), 1);
-        await page.selectOption('#history-drill', 'mid_range');
-        assert.equal(await count(), 0);
-        assert.match(await page.textContent('#history-list'), /沒有紀錄/);
+        await page.click('#history-filter [data-days="30"]');
+        assert.equal(await count(), 2);
         await page.click('#history-filter [data-days="all"]');
-        await page.selectOption('#history-drill', 'all');
-        assert.equal(await count(), 4, 'the filter hides, it never deletes');
-        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('basketball-training-v1')).history.length), 4);
+        assert.equal(await count(), 3);
+        assert.equal(await page.isHidden('#drill-type'), true, 'no drill choice any more');
+        assert.equal(await page.locator('#drill-progress > div').count(), 1, 'only the free-throw card');
+        assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('basketball-training-v1')).history.length), 4, 'nothing deleted');
         await context.close();
     });
 

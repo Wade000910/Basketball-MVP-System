@@ -22,7 +22,10 @@
 body.app { background: var(--bg); color: var(--text); padding: 0 0 calc(4.6rem + env(safe-area-inset-bottom)); min-height: 100dvh; }
 body.app.practicing { padding-bottom: 0; }
 body.app .topbar, body.app .hero, body.app .steps, body.app .page-footer, body.app footer { display: none; }
-body.app main { padding-top: max(.6rem, env(safe-area-inset-top)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+body.app main:not(.practice) { padding-top: calc(env(safe-area-inset-top, 0px) + .9rem); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+/* iOS blurs whatever sits under the status bar; a solid band keeps content from showing through it */
+body.app::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 60; pointer-events: none; }
+body.app.practicing::before { display: none; }
 body.app h1, body.app h2, body.app h3 { color: var(--text); }
 body.app h2 { font-size: 1.2rem; }
 body.app a { color: var(--acc-hi); }
@@ -127,3 +130,6 @@ body.app .demo-note, body.app #coach-message { background: var(--warn-bg); borde
 body.app .link-list a { color: var(--text); }
 .link-list a span { min-width: 0; }
 body.app #backup-panel button { margin-bottom: .8rem; }
+body.app .practice-message:empty { background: transparent; border: 0; min-height: 0; }
+body.app .stage-top { top: calc(10px + env(safe-area-inset-top, 0px)); }
+body.app .lite-btn { top: calc(52px + env(safe-area-inset-top, 0px)); }
