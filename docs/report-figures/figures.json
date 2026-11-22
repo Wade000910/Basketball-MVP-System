@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T06:49:55.989Z",
+  "generatedAt": "2026-11-22T06:25:52.755Z",
   "figures": [
     {
       "file": "ui-home.png",
@@ -67,21 +67,21 @@
     {
       "file": "test-unit.png",
       "chapter": "4",
-      "caption": "自動化單元測試結果（依測試檔彙整，共 120 項全部通過）",
+      "caption": "自動化單元測試結果（依測試檔彙整，共 244 項全部通過）",
       "source": "npm test",
       "number": "4.10"
     },
     {
       "file": "test-rls.png",
       "chapter": "4",
-      "caption": "資料庫權限（RLS）測試：41 個情境全部通過",
+      "caption": "資料庫權限（RLS）測試：49 個情境全部通過",
       "source": "supabase/tests/run.sh",
       "number": "4.11"
     },
     {
       "file": "test-equivalence.png",
       "chapter": "4",
-      "caption": "球員版偵測器與研究頁判斷邏輯比對：300 種模擬情境結果完全相同",
+      "caption": "球員版偵測器與研究頁判斷邏輯比對：200 種模擬情境結果完全相同",
       "source": "tools/research-equivalence-check.cjs",
       "number": "4.12"
     },
@@ -93,10 +93,10 @@
       "number": "4.13"
     },
     {
-      "file": "test-training-flow.png",
+      "file": "test-e2e.png",
       "chapter": "4",
-      "caption": "球員首頁、場邊記錄與雲端流程的瀏覽器測試（36 項）",
-      "source": "tools/training-browser-smoke.cjs",
+      "caption": "瀏覽器端對端流程測試（手機尺寸、橫放、深淺色、新手導覽、影片、紀錄篩選等 40 項）",
+      "source": "npm run test:e2e",
       "number": "4.14"
     },
     {
@@ -121,11 +121,60 @@
       "number": "5.3"
     },
     {
+      "file": "sim-filters-peak-c1.png",
+      "chapter": "5",
+      "caption": "濾波器比較：峰值定義誤差標準差（手機實況 28 fps、時間抖動 8 ms）",
+      "source": "tools/simulate-filters.cjs",
+      "number": "5.4"
+    },
+    {
+      "file": "sim-filters-peak-c2.png",
+      "chapter": "5",
+      "caption": "濾波器比較：峰值定義誤差標準差（改用相機影格時間）",
+      "source": "tools/simulate-filters.cjs",
+      "number": "5.5"
+    },
+    {
+      "file": "sim-filters-onset-c1.png",
+      "chapter": "5",
+      "caption": "濾波器比較：起始定義誤差標準差（手機實況）",
+      "source": "tools/simulate-filters.cjs",
+      "number": "5.6"
+    },
+    {
+      "file": "sim-filters-sweep-peak.png",
+      "chapter": "5",
+      "caption": "Butterworth 截止頻率對峰值定義誤差的影響（五種條件）",
+      "source": "tools/simulate-filters.cjs",
+      "number": "5.7"
+    },
+    {
+      "file": "sim-filters-sweep-onset.png",
+      "chapter": "5",
+      "caption": "Butterworth 截止頻率對起始定義誤差的影響（五種條件）",
+      "source": "tools/simulate-filters.cjs",
+      "number": "5.8"
+    },
+    {
+      "file": "sim-robust-peak.png",
+      "chapter": "5",
+      "caption": "壓力情境：峰值定義誤差標準差（掉影格、快慢投籃者、相機視角、相關雜訊、追蹤中斷）",
+      "source": "tools/simulate-robustness.cjs",
+      "number": "5.9"
+    },
+    {
+      "file": "sim-robust-onset.png",
+      "chapter": "5",
+      "caption": "壓力情境：起始定義誤差標準差",
+      "source": "tools/simulate-robustness.cjs",
+      "number": "5.10"
+    },
+    {
       "file": "ui-validation.png",
       "chapter": "5",
       "caption": "慢動作對照頁：逐格標記事件，與系統試次比較",
       "source": "/validation/",
-      "number": "5.4"
+      "number": "5.11"
     }
   ]
 }
