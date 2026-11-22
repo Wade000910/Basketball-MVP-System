@@ -21,7 +21,7 @@ assert.doesNotMatch(config, /service_role|sb_secret_/, 'Never ship a secret Supa
 for (const page of ['training/index.html', 'coach/index.html', 'validation/index.html', 'shoot/index.html', 'shoot/mark.html']) {
     const html = fs.readFileSync(page, 'utf8');
     for (const [, src] of html.matchAll(/<script src="([^"]+)"/g)) {
-        if (/^https:\/\//.test(src)) assert.match(src, /^https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\//, page + ' loads an unexpected remote script');
+        if (/^https:\/\//.test(src)) assert.match(src, /^https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.\d+\.\d+\/dist\/umd\/supabase\.js$/, page + ' loads an unexpected remote script');
         else assert.equal(fs.existsSync(require('node:path').join(require('node:path').dirname(page), src)), true, page + ' references a missing script ' + src);
     }
     const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]));

@@ -19,9 +19,9 @@
 
 | # | 數據 | 現況 | 來源 |
 |---|---|---|---|
-| B1 | 單元／整合測試：227 項全過（舊圖寫 120 項） | 🟡 圖要重產 | `npm test` |
-| B2 | 瀏覽器端對端流程：40 項全過（含手機尺寸、橫放、深淺色、新手導覽、影片、紀錄篩選） | 🟡 | `npm run test:e2e` |
-| B3 | 資料庫權限（RLS）情境：41 項全過（含濫用與管理員情境） | 🟡 數量要重數 | `supabase/tests/run.sh` |
+| B1 | 單元／整合測試：244 項全過（圖已於 2026-11-22 重產） | ✅ | `npm test` |
+| B2 | 瀏覽器端對端流程：40 項全過（含手機尺寸、橫放、深淺色、新手導覽、影片、紀錄篩選） | ✅ 圖已重產 | `npm run test:e2e` |
+| B3 | 資料庫權限檢查：49 項全過（rls、admin、abuse 三組；PGlite 版） | ✅ | `supabase/tests/run.sh` |
 | B4 | 球員版偵測器與研究頁邏輯比對：300 種模擬情境結果相同 | ✅ | `tools/research-equivalence-check.cjs` |
 | B5 | 隨機／壓力／效能測試（fuzz、properties、engine-stress、perf） | ✅ 要整理成表 | `tests/*.test.js` |
 | B6 | 無障礙對比檢查（axe）通過 | ✅ 一次性腳本，要重跑存檔 | 暫存腳本 |

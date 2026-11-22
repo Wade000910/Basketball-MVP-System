@@ -23,6 +23,13 @@ const signedIn=`(()=>{if(!localStorage.getItem('fake-cloud-db'))localStorage.set
 const fed=async(page,t)=>{const n=Number(await page.getAttribute('#last-dt','data-count')||0);await page.evaluate(t=>window.ShootApp.onTrial(t),t);await page.waitForFunction(n=>Number(document.getElementById('last-dt').dataset.count||0)>n,n);};
 const trial=(dtPeak,status='accepted')=>({status,reasonCode:status==='accepted'?'':'LOW_VISIBILITY',dt:dtPeak-40,dtPeak,measuredFps:29.6,meanVisibility:0.9,sourceFrameCount:30,timestampSource:'camera-frame',algorithmVersion:'player-peak-v1',events:{}});
 
+// A full-page capture would draw the fixed bottom tab bar over the middle of the page, so hide it for that shot only.
+const fullShot=async(page,file)=>{
+    await page.evaluate(()=>document.querySelectorAll('.tabbar').forEach(e=>{e.dataset.d=e.style.display;e.style.display='none';}));
+    await page.screenshot({path:file,fullPage:true});
+    await page.evaluate(()=>document.querySelectorAll('.tabbar').forEach(e=>{e.style.display=e.dataset.d||'';}));
+};
+
 (async()=>{
     await new Promise(r=>server.listen(0,r));
     const base=`http://localhost:${server.address().port}`;
@@ -33,16 +40,18 @@ const trial=(dtPeak,status='accepted')=>({status,reasonCode:status==='accepted'?
         await ctx.route(/cdn\.jsdelivr\.net/,r=>r.abort());
         await ctx.addInitScript({content:fakeVoice});
         await ctx.addInitScript({content:signedIn});
+        await ctx.addInitScript(()=>{try{localStorage.setItem('bmvp-onboarded','1');}catch{}});   // skip the first-run guide
         await ctx.addInitScript({path:path.join(__dirname,'cloud-fake.js')});
         const page=await ctx.newPage();
         page.on('pageerror',e=>errors.push(e.message));
         await page.goto(base+'/shoot/');
         await page.waitForFunction(()=>document.getElementById('cloud-pill').textContent==='已登入');
         assert.match(await page.textContent('#cloud-line'),/即時上傳/);
-        await page.screenshot({path:path.join(out,'01-setup-mobile.png'),fullPage:true});
+        await fullShot(page,path.join(out,'01-setup-mobile.png'));
         checks.push('setup screen, signed-in state');
 
         await page.fill('#player-code','JUN23');
+        await page.evaluate(()=>{document.getElementById('settings').open=true;});   // settings sit in a collapsed panel
         await page.selectOption('#target-shots','10');
         await page.click('#start-btn');
         await page.waitForFunction(()=>!document.getElementById('practice-view').hidden);
@@ -140,7 +149,7 @@ const trial=(dtPeak,status='accepted')=>({status,reasonCode:status==='accepted'?
         await firstToggle.click();
         assert.equal(await page.textContent('#summary-title'),'5 / 9 進');
         assert.match(await page.locator('#sum-rows li').first().textContent(),/已修正/);
-        await page.screenshot({path:path.join(out,'04-summary-mobile.png'),fullPage:true});
+        await fullShot(page,path.join(out,'04-summary-mobile.png'));
         await page.click('#again-btn');
         await page.waitForFunction(()=>/已存到/.test(document.getElementById('sum-save').textContent));
         assert.match(await page.textContent('#sum-save'),/也已上傳雲端/);

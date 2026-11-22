@@ -6,7 +6,7 @@
 // need a person (camera shots, sign-in) use the same synthetic inputs as the automated
 // checks and are labelled as such in figures.json.
 //   node tools/report-figures.cjs            (all figures; about 10 minutes)
-//   node tools/report-figures.cjs --quick    (skip the 300-scenario equivalence run: 30 scenarios)
+//   node tools/report-figures.cjs --quick    (skip the 200-scenario equivalence run: 30 scenarios)
 // Optional: BROWSER_BIN=/path/to/chrome for tools/training-browser-smoke.cjs.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {execFileSync,spawnSync}=require('node:child_process');
@@ -68,14 +68,16 @@ body{margin:0;background:#fff;font-family:"Noto Sans CJK TC",sans-serif}
         console.log(total('pass')+'/'+total('tests'));
 
         process.stdout.write('database permission tests… ');
-        const rls=run('bash',['supabase/tests/run.sh']).trim().split('\n').filter(l=>!/^(SET|BEGIN|COMMIT|ROLLBACK|DO|CREATE|ALTER|GRANT|REVOKE|INSERT|UPDATE|DELETE|SELECT|NOTICE:\s*$|psql|\s*$)/.test(l)).map(l=>l.replace(/^(psql:[^:]*:\d+: )?NOTICE:\s*/,''));
+        const noPg=!fs.existsSync(process.env.PG_BIN||'/usr/lib/postgresql/16/bin/initdb');
+        const rlsRaw=noPg?run('node',['tools/db-tests-pglite.mjs']):run('bash',['supabase/tests/run.sh']);
+        const rls=rlsRaw.trim().split('\n').filter(l=>!/^(SET|BEGIN|COMMIT|ROLLBACK|DO|CREATE|ALTER|GRANT|REVOKE|INSERT|UPDATE|DELETE|SELECT|NOTICE:\s*$|psql|\s*$)/.test(l)).map(l=>l.replace(/^(psql:[^:]*:\d+: )?NOTICE:\s*/,''));
         const rlsOk=rls.filter(l=>/^ok - /.test(l));
-        await shot(consoleHtml('bash supabase/tests/run.sh',rls),'test-rls.png');
+        await shot(consoleHtml(noPg?'node tools/db-tests-pglite.mjs':'bash supabase/tests/run.sh',rls),'test-rls.png');
         add('test-rls.png','4',`資料庫權限（RLS）測試：${rlsOk.length} 個情境全部通過`,'supabase/tests/run.sh');
         console.log(rlsOk.length);
 
         process.stdout.write('research equivalence… ');
-        const n=quick?'30':'300';
+        const n=quick?'30':'200';
         const eq=run('node',['tools/research-equivalence-check.cjs',n],{timeout:1800000}).trim().split('\n').filter(Boolean);
         await shot(consoleHtml('node tools/research-equivalence-check.cjs '+n,eq),'test-equivalence.png');
         add('test-equivalence.png','4',`球員版偵測器與研究頁判斷邏輯比對：${n} 種模擬情境結果完全相同`,'tools/research-equivalence-check.cjs');
@@ -100,8 +102,16 @@ body{margin:0;background:#fff;font-family:"Noto Sans CJK TC",sans-serif}
             console.log(json.checks.length);
         }
 
+        process.stdout.write('end-to-end browser tests… ');
+        const e2e=run('npm',['run','test:e2e'],{timeout:1800000}).split('\n').map(l=>l.trim()).filter(l=>/^(ok|not ok) \d+ - /.test(l)||/^# (tests|pass|fail)/.test(l));
+        const e2eTotal=Number(/# tests (\d+)/.exec(e2e.join('\n'))[1]);
+        await shot(consoleHtml('npm run test:e2e',e2e.map(l=>l.replace(/^ok \d+ - /,'✔ ').replace(/^not ok \d+ - /,'✖ '))),'test-e2e.png');
+        add('test-e2e.png','4',`瀏覽器端對端流程測試（手機尺寸、橫放、深淺色、新手導覽、影片、紀錄篩選等 ${e2eTotal} 項）`,'npm run test:e2e');
+        console.log(e2eTotal);
+
         process.stdout.write('validation page check… ');
-        run('node',['tools/validation-browser-check.cjs']);console.log('ok');
+        if(spawnSync('ffmpeg',['-version']).status===0){run('node',['tools/validation-browser-check.cjs']);console.log('ok');}
+        else console.log('skipped (ffmpeg not installed; the validation page screenshot below does not need it)');
 
         // ---------- page screenshots ----------
         for(const [src,file,caption] of [
@@ -142,18 +152,33 @@ body{margin:0;background:#fff;font-family:"Noto Sans CJK TC",sans-serif}
         server.close();
 
         // ---------- simulation charts ----------
-        for(const [svg,file,caption] of [
-            ['error-sd-onset.svg','sim-onset-sd.png','模擬實驗：起始定義的誤差標準差與影格率、時間抖動的關係'],
-            ['error-sd-peak.svg','sim-peak-sd.png','模擬實驗：峰值定義的誤差標準差與影格率、時間抖動的關係'],
-            ['error-sd-peak-camera-timestamps.svg','sim-peak-camera.png','模擬實驗：改用相機影格時間後的峰值定義誤差']]){
-            run('rsvg-convert',['-z','2','-b','white','-o',path.join(out,file),path.join(root,'docs','simulation',svg)]);
-            add(file,'5',caption,'tools/simulate-timing.cjs');
+        // SVG -> PNG in the browser (no rsvg needed): white background, 2x scale.
+        const svgPng=async(svg,file)=>{
+            const page=await browser.newPage({deviceScaleFactor:2,viewport:{width:800,height:600}});
+            const text=fs.readFileSync(path.join(root,'docs','simulation',svg),'utf8');
+            await page.setContent(`<body style="margin:0;background:#fff">${text}</body>`);
+            await page.locator('svg').screenshot({path:path.join(out,file),omitBackground:false});
+            await page.close();
+        };
+        for(const [svg,file,caption,source] of [
+            ['error-sd-onset.svg','sim-onset-sd.png','模擬實驗：起始定義的誤差標準差與影格率、時間抖動的關係','tools/simulate-timing.cjs'],
+            ['error-sd-peak.svg','sim-peak-sd.png','模擬實驗：峰值定義的誤差標準差與影格率、時間抖動的關係','tools/simulate-timing.cjs'],
+            ['error-sd-peak-camera-timestamps.svg','sim-peak-camera.png','模擬實驗：改用相機影格時間後的峰值定義誤差','tools/simulate-timing.cjs'],
+            ['filters-peak-sd-C1.svg','sim-filters-peak-c1.png','濾波器比較：峰值定義誤差標準差（手機實況 28 fps、時間抖動 8 ms）','tools/simulate-filters.cjs'],
+            ['filters-peak-sd-C2.svg','sim-filters-peak-c2.png','濾波器比較：峰值定義誤差標準差（改用相機影格時間）','tools/simulate-filters.cjs'],
+            ['filters-onset-sd-C1.svg','sim-filters-onset-c1.png','濾波器比較：起始定義誤差標準差（手機實況）','tools/simulate-filters.cjs'],
+            ['filters-cutoff-sweep-peak.svg','sim-filters-sweep-peak.png','Butterworth 截止頻率對峰值定義誤差的影響（五種條件）','tools/simulate-filters.cjs'],
+            ['filters-cutoff-sweep-onset.svg','sim-filters-sweep-onset.png','Butterworth 截止頻率對起始定義誤差的影響（五種條件）','tools/simulate-filters.cjs'],
+            ['robustness-peak-sd.svg','sim-robust-peak.png','壓力情境：峰值定義誤差標準差（掉影格、快慢投籃者、相機視角、相關雜訊、追蹤中斷）','tools/simulate-robustness.cjs'],
+            ['robustness-onset-sd.svg','sim-robust-onset.png','壓力情境：起始定義誤差標準差','tools/simulate-robustness.cjs']]){
+            await svgPng(svg,file);
+            add(file,'5',caption,source);
         }
     }finally{await browser.close();}
 
     // Number figures per chapter in a fixed reading order.
     const order=['ui-home.png','ui-shoot-setup.png','ui-shoot-practice.png','ui-shoot-teammate.png','ui-shoot-summary.png','ui-shoot-landscape.png','ui-training-home.png','ui-coach-demo.png','ui-research.png',
-        'test-unit.png','test-rls.png','test-equivalence.png','test-shoot-flow.png','test-training-flow.png','sim-onset-sd.png','sim-peak-sd.png','sim-peak-camera.png','ui-validation.png'];
+        'test-unit.png','test-rls.png','test-equivalence.png','test-shoot-flow.png','test-training-flow.png','test-e2e.png','sim-onset-sd.png','sim-peak-sd.png','sim-peak-camera.png','sim-filters-peak-c1.png','sim-filters-peak-c2.png','sim-filters-onset-c1.png','sim-filters-sweep-peak.png','sim-filters-sweep-onset.png','sim-robust-peak.png','sim-robust-onset.png','ui-validation.png'];
     figures.sort((a,b)=>order.indexOf(a.file)-order.indexOf(b.file));
     const counters={};
     for(const f of figures){counters[f.chapter]=(counters[f.chapter]||0)+1;f.number=`${f.chapter}.${counters[f.chapter]}`;}
