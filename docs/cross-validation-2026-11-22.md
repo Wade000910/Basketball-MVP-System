@@ -23,7 +23,6 @@
 ## 仍然不能交叉驗證的
 
 - 真實資料：上述全部是模擬；要和真實的慢動作人工標記對照，才算驗證到真正的準確度。
-- 資料庫權限測試：這台電腦沒有資料庫，這次沒重跑；上一次結果為 41 項通過。
 - 手機端行為（iPhone 相機、錄影）無法在這裡驗證。
 
 ## 重跑
@@ -33,3 +32,6 @@ node tools/crosscheck/dump.cjs > dump.json
 python3 -I tools/crosscheck/crosscheck.py dump.json --mc
 npm test
 ```
+
+## 補：資料庫權限測試（同日補跑）
+這台電腦沒有 PostgreSQL，改用 PGlite（PostgreSQL 的 WebAssembly 版，`tools/db-tests-pglite.mjs`）跑同一組遷移與測試：`rls.test.sql`、`admin.test.sql`、`abuse.test.sql` 全部通過。為了確認測試不是空的，故意把 `teams`、`team_members` 的列級權限關掉再跑，`rls`（「局外人看不到球隊」）與 `abuse`（「球員不能透過資料表改隊名」）立刻失敗。這是同一組 SQL、不同的資料庫引擎，不能完全等同 Supabase 正式環境。

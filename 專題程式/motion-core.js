@@ -1,6 +1,7 @@
 // Free-throw timing algorithm, moved out of index.html so it can be tested and
 // simulated directly. The arithmetic is unchanged from timing-validity-v3:
-// angles -> causal 4th-order Butterworth (two cascaded biquads) -> natural cubic
+// angles -> causal low-pass (two identical 2nd-order Butterworth sections in series: -6 dB at the set cutoff,
+// -3 dB near 0.92x of it; not a standard 4th-order Butterworth, see docs/cross-validation-2026-11-22.md) -> natural cubic
 // spline evaluated on a 1 ms computational grid -> knee peak extension velocity,
 // elbow peak extension velocity, and elbow onset (last crossing <= 10 deg/s before
 // the elbow peak). The 1 ms grid does not raise the physical sampling rate.
@@ -59,7 +60,7 @@
         return Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) * 180 / Math.PI;
     }
 
-    // Zero-phase variant for offline use: the same 4th-order filter run forward and then
+    // Zero-phase variant for offline use: the same two-section filter run forward and then
     // backward over a recorded window, so the two passes' phase delays cancel. Edges are
     // padded by odd reflection to limit start-up transients. Not used by the live page yet.
     function zeroPhaseFilter(values, fc, fs){

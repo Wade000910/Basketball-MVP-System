@@ -337,7 +337,7 @@ Estimate how accurately and reliably the offline pipeline detects knee and elbow
 ### Algorithm comparison
 
 - [ ] source-rate data;
-- [ ] current causal fourth-order Butterworth implementation;
+- [ ] current causal filter (two identical second-order Butterworth sections in series; see docs/cross-validation-2026-11-22.md);
 - [ ] candidate cutoff frequencies;
 - [ ] with and without spline reconstruction;
 - [ ] offline zero-phase filtering as reference analysis only;

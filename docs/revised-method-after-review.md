@@ -146,7 +146,7 @@ Select the final SOP using reference-event error, missing-landmark rate, valid-t
 Compare at least:
 
 - source-rate angle data;
-- the current causal fourth-order Butterworth implementation;
+- the current causal filter (two identical second-order Butterworth sections in series, not a standard fourth-order Butterworth; see docs/cross-validation-2026-11-22.md);
 - candidate cutoff frequencies selected without inspecting efficacy outcomes;
 - reconstruction with and without cubic spline;
 - an offline zero-phase filtering analysis used only as a reference.
