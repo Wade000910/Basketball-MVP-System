@@ -10,11 +10,13 @@
     else root.ShootBallDetector=api;
 })(typeof self!=='undefined'?self:this,function({X,Y}){
     const ORT_BASE='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+    // Pins the exact file (checked 2026-11-22); the browser refuses a different one. The .wasm files it fetches later cannot be pinned this way.
+    const ORT_SRI='sha384-RPL/K8tc0JVaNWsunkEmCzLeieefvFX2UCRLKLmLVChCI6P+CTKhzqF7VIeCc3Zp';
     function loadOrt(scope){
         if(scope.ort)return Promise.resolve(scope.ort);
         return new Promise((resolve,reject)=>{
             const s=scope.document.createElement('script');
-            s.src=ORT_BASE+'ort.min.js';s.onload=()=>{scope.ort.env.wasm.wasmPaths=ORT_BASE;resolve(scope.ort);};s.onerror=()=>reject(new Error('onnxruntime-web 載入失敗'));
+            s.src=ORT_BASE+'ort.min.js';s.integrity=ORT_SRI;s.crossOrigin='anonymous';s.onload=()=>{scope.ort.env.wasm.wasmPaths=ORT_BASE;resolve(scope.ort);};s.onerror=()=>reject(new Error('onnxruntime-web 載入失敗'));
             scope.document.head.appendChild(s);
         });
     }

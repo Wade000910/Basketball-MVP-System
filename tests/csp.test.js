@@ -25,6 +25,15 @@ test('the policy blocks everything it does not list and never allows eval or arb
     }
 });
 
+test('scripts may come from exact library paths on the CDN, never from the whole CDN, and forms may only submit to the page itself', () => {
+    for (const file of PAGES) {
+        const p = policy(file);
+        assert.ok(!/script-src[^;]*https:\/\/cdn\.jsdelivr\.net(?=[ ;]|$)/.test(p), `${file} allows every package on the CDN`);
+        for (const src of /script-src ([^;]+)/.exec(p)[1].split(' ').filter(s => s.startsWith('https://'))) assert.match(src, /^https:\/\/cdn\.jsdelivr\.net\/npm\/[^/]+(?:\/[^/]+)?@[\d.]+\//, `${file}: ${src} is not a pinned package path`);
+        assert.match(p, /form-action '(?:none|self)'/, file);
+    }
+});
+
 test('inline scripts are allowed only by hash, and the hash matches the script', () => {
     const crypto = require('node:crypto');
     for (const file of PAGES) {
