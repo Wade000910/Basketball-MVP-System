@@ -80,8 +80,10 @@
         }
     }
     // Records filter: a period and a drill. The list below only shows what matches; nothing is deleted.
-    const historyFilter={days:null,drill:'all'};
-    const inFilter=session=>(historyFilter.days===null||Date.now()-Date.parse(session.startedAt)<=historyFilter.days*864e5)&&(historyFilter.drill==='all'||session.drill===historyFilter.drill);
+    // Only free throws are measured with the camera, so only free throws are listed. Sets of other types saved by
+    // older versions stay in storage and in the cloud untouched; they are just not shown.
+    const historyFilter={days:null};
+    const inFilter=session=>session.drill==='free_throw'&&(historyFilter.days===null||Date.now()-Date.parse(session.startedAt)<=historyFilter.days*864e5);
     function renderHistory() {
         const parent=$('history-list');parent.replaceChildren();
         const shown=history.filter(inFilter);
@@ -104,7 +106,7 @@
         const code=$('dashboard-player').value.trim(),data=C.progress(history,code);
         $('dashboard-summary').textContent=code?code+' · 近 7 天完成 '+data.recentSessions+' 組、投了 '+data.recentShots+' 球 · 累積 '+data.sessions+' 組':'輸入學員代碼，查看自己的訓練累積。完成第一組後，這裡會開始記錄你的進度。';
         $('drill-progress').replaceChildren();
-        data.drills.forEach(d=>{
+        data.drills.filter(d=>d.id==='free_throw').forEach(d=>{
             const card=document.createElement('div'),title=document.createElement('strong'),score=document.createElement('span'),detail=document.createElement('small');
             title.textContent=d.label;score.textContent=rate(d);detail.textContent=d.made+' / '+d.total+' 命中';card.append(title,score,detail);$('drill-progress').appendChild(card);
         });
@@ -278,7 +280,6 @@
         document.querySelectorAll('#history-filter [data-days]').forEach(c=>c.setAttribute('aria-pressed',String(c===chip)));
         renderHistory();
     });
-    $('history-drill').addEventListener('change',()=>{historyFilter.drill=$('history-drill').value;renderHistory();});
     // Interface for the optional cloud layer (shared/cloud.js + training/cloud-ui.js).
     window.TrainingApp={
         snapshot(){
