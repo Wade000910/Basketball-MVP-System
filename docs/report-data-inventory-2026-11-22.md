@@ -49,6 +49,7 @@
 | D2 | E2 角度雜訊（0–4°） | ✅ | 同上 |
 | D3 | E3 時間戳抖動（0–20 ms…）；抖動是最大誤差來源 | ✅ | 同上 |
 | D4 | 改用相機影格時間後的誤差（圖 5.3） | ✅ | `docs/report-figures/sim-peak-camera.png` |
+| D6 | 濾波器比較：19 種設定 × 5 個條件（N=1000，配對）：誤差 SD、偏差、有效率；5 張圖；截止頻率掃描 | ✅ 2026-11-22 | `docs/simulation/filters-*`、`docs/simulation-study.md` 末節 |
 | D5 | 結論：峰值定義比起始定義可靠；單球誤差大，應看多球平均（僅限模型） | ✅ | `docs/simulation-study.md` |
 
 ## E. 相機判斷進球（做過，結論不能用）
