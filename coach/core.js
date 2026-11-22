@@ -95,9 +95,9 @@
             const daysAgo=[];for(let w=0;w<4;w++)for(let k=0;k<perWeek;k++)daysAgo.push(w*7+Math.floor(rand()*7));
             if(!perWeek)daysAgo.push(16,20);
             daysAgo.sort((a,b)=>b-a).forEach((ago,n)=>{
-                const drill=n%3===2?'three_point':n%3===1?'mid_range':'free_throw';
+                const drill='free_throw';
                 const start=new Date(now.getTime()-ago*DAY-(18-n%3)*3600000);
-                const improve=(28-ago)/28*.08,p=Math.min(.95,(drill==='free_throw'?skill:drill==='mid_range'?skill-.15:skill-.3)+improve);
+                const improve=(28-ago)/28*.08,p=Math.min(.95,skill+improve);
                 const shots=[],trials=[];
                 for(let i=0;i<20;i++){
                     const t=start.getTime()+(i+1)*15000;

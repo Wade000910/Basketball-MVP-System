@@ -52,13 +52,13 @@
         report.inactive.forEach(p=>{const li=document.createElement('li'),n=document.createElement('strong'),d=document.createElement('span');n.textContent=p.name;d.textContent=p.daysSince===null?'還沒有練習紀錄':p.daysSince+' 天沒有練習';li.append(n,d);alerts.appendChild(li);});
         $('roster-count').textContent=report.players.length+' 位球員';
         const rows=$('roster-rows');rows.replaceChildren();
-        if(!report.players.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='muted';td.textContent='還沒有球員加入。把邀請碼給球員，他們在訓練室登入後輸入即可。';tr.appendChild(td);rows.appendChild(tr);}
+        if(!report.players.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='muted';td.textContent='還沒有球員加入。把邀請碼給球員，他們在訓練室登入後輸入即可。';tr.appendChild(td);rows.appendChild(tr);}
         report.players.forEach(p=>{
             const tr=document.createElement('tr'),name=document.createElement('td'),button=document.createElement('button');
             button.type='button';button.textContent=p.name;button.addEventListener('click',()=>select(p.userId));name.appendChild(button);tr.appendChild(name);
             tr.setAttribute('aria-selected',String(p.userId===selected));
             tr.addEventListener('click',event=>{if(event.target!==button)select(p.userId);});
-            for(const v of [p.sessions7,p.shots7,rate(p.byDrill.free_throw),rate(p.byDrill.mid_range),rate(p.byDrill.three_point)]){const td=document.createElement('td');td.className='num';td.textContent=String(v);tr.appendChild(td);}
+            for(const v of [p.sessions7,p.shots7,rate(p.byDrill.free_throw)]){const td=document.createElement('td');td.className='num';td.textContent=String(v);tr.appendChild(td);}
             const spark=document.createElement('td');spark.appendChild(sparkline(p.trend));tr.appendChild(spark);
             const last=document.createElement('td');last.textContent=p.lastPracticeAt?day(p.lastPracticeAt)+(p.daysSince>=7?' · '+p.daysSince+' 天前':''):'尚未練習';tr.appendChild(last);
             rows.appendChild(tr);
