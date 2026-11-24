@@ -17,6 +17,7 @@
     <script src="../shared/cloud-config.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous" defer></script>
     <script src="../shared/cloud.js" defer></script>
+    <script src="./model-cache.js" defer></script>
     <script src="./engine.js" defer></script>
     <script src="./perf.js" defer></script>
     <script src="./gauge.js" defer></script>
@@ -60,6 +61,11 @@
         <section class="card code-card">
             <label>球員代碼<input id="player-code" maxlength="32" placeholder="例如 P001" autocomplete="off" required><small>不要填真實姓名。和「紀錄」使用同一個代碼。</small></label>
         </section>
+        <section id="model-card" class="card" hidden>
+            <p id="model-text" class="muted" role="status"></p>
+            <progress id="model-bar" max="100" value="0" hidden></progress>
+            <button id="model-retry" type="button" class="secondary" hidden>重試下載</button>
+        </section>
         <button id="start-btn" type="submit" class="start-circle"><span>開始<br>練習</span></button>
         <details id="settings" class="card">
             <summary>設定 <span id="settings-line" class="muted"></span></summary>
@@ -96,7 +102,7 @@
     <div class="stage">
         <video id="video" playsinline muted></video>
         <canvas id="overlay"></canvas>
-        <div class="stage-top"><span id="state-badge" class="badge">準備中</span><span id="fps" class="fps"></span></div>
+        <div class="stage-top"><span id="state-badge" class="badge">準備中</span><span id="fps" class="fps"></span><span id="model-progress" class="fps" hidden></span></div>
         <button id="lite-btn" class="lite-btn" type="button" hidden>手機有點吃力，改用較輕的分析</button>
         <p id="guide" class="guide"></p>
         <p id="hoop-hint" class="guide hoop-hint" hidden></p>
