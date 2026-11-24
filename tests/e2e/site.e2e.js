@@ -236,7 +236,7 @@ test('browser tests', {skip}, async t => {
         assert.match(await page.evaluate(() => document.getElementById('video').style.transform), /scale\(2\)/);
         assert.match(await page.evaluate(() => document.getElementById('overlay').style.transform), /scale\(2\)/, 'the skeleton layer is scaled with the picture');
         assert.match(await page.textContent('#zoom-label'), /2(\.0)?×/);
-        await page.waitForTimeout(1500);
+        await page.waitForFunction(() => /fps/.test(document.getElementById('fps').textContent), null, {timeout: 15000});
         assert.match(await page.textContent('#fps'), /fps/, 'analysis keeps running on the cropped picture');
         await page.click('#zoom-in');
         assert.match(await page.textContent('#zoom-label'), /2\.5×/);
@@ -288,6 +288,7 @@ test('browser tests', {skip}, async t => {
         page.on('pageerror', e => errors.push(e.message));
         await page.goto(base + 'shoot/');
         await page.fill('#player-code', 'P783');
+        await page.evaluate(() => { document.getElementById('settings').open = true; });   // the checkbox sits in the settings fold
         await page.check('#video-on');
         await page.click('#start-btn');
         await page.waitForSelector('#practice-view:not([hidden])');
@@ -297,10 +298,11 @@ test('browser tests', {skip}, async t => {
         await page.click('#lens-row button:has-text("超廣角")');
         await page.waitForFunction(id => document.getElementById('video').srcObject && document.getElementById('video').srcObject.id !== id, before);
         assert.deepEqual(await page.evaluate(() => window.__gum.at(-1).video.deviceId), {exact: 'wide1'});
+        await page.waitForFunction(() => { const b = document.querySelector('#lens-row button[aria-pressed="true"]'); return b && b.dataset.lens === 'wide1'; }, null, {timeout: 10000});   // the buttons update once the new stream is attached
         assert.equal(await page.getAttribute('#lens-row button[aria-pressed="true"]', 'data-lens'), 'wide1');
         assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('basketball-shoot-zoom'))).lens, 'wide1');
         assert.equal(await page.inputValue('#zoom-range'), '1', 'a new lens starts at 1x');
-        await page.waitForTimeout(2000);
+        await page.waitForFunction(() => /fps/.test(document.getElementById('fps').textContent), null, {timeout: 15000});
         assert.match(await page.textContent('#fps'), /fps/, 'analysis keeps running after the lens change');
         await page.click('#end-btn');
         await page.waitForSelector('#keep-video-row:not([hidden])', {timeout: 8000});
