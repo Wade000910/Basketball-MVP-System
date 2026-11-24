@@ -169,6 +169,18 @@ test('browser tests', {skip}, async t => {
         await page.click('#history-list .history-item');
         await page.waitForSelector('#session-video:not([hidden])');
         assert.ok(await page.evaluate(() => document.getElementById('video-player').src.startsWith('blob:')), 'the video plays from this phone');
+        assert.equal(await page.isHidden('#video-album'), true, 'no share sheet in this browser: only the download button shows');
+        await page.evaluate(() => { window.__shared = null; navigator.canShare = () => true; navigator.share = d => { window.__shared = d.files.map(f => [f.name, f.type, f.size]); return Promise.resolve(); }; });
+        await page.click('#history-list .history-item');   // opening the set again re-checks whether the phone can share files
+        await page.waitForSelector('#video-album:not([hidden])');
+        await page.click('#video-album');
+        const shared = await page.evaluate(() => window.__shared);
+        assert.equal(shared.length, 1);
+        assert.match(shared[0][0], /^training-video-.+\.(mp4|webm|mov)$/);
+        assert.ok(shared[0][2] > 0, 'the shared video has content');
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('#video-download')]);
+        assert.match(download.suggestedFilename(), /^training-video-.+\.(mp4|webm|mov)$/, 'the saved video downloads with a readable name');
+        assert.ok((await fs.promises.stat(await download.path())).size > 0, 'the downloaded video is not empty');
         await page.click('#video-delete');
         assert.match(await page.textContent('#video-delete'), /確定刪除/);
         await page.click('#history-list .history-item');   // opening a set again cancels a half-pressed delete
