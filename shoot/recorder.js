@@ -24,14 +24,14 @@
             var type = pickMime(MR.isTypeSupported && MR.isTypeSupported.bind(MR));
             var opts = { videoBitsPerSecond: BITS_PER_SECOND };
             if (type) opts.mimeType = type;
-            chunks = []; startedAt = now();
+            var mine = chunks = []; startedAt = now();   // each recorder keeps its own pieces, so a stopped one cannot add to the next
             var rec = new MR(stream, opts);
             recorder = rec;
             finished = new Promise(function (resolve) {
-                rec.addEventListener('dataavailable', function (e) { if (e.data && e.data.size) chunks.push(e.data); });
+                rec.addEventListener('dataavailable', function (e) { if (e.data && e.data.size) mine.push(e.data); });
                 rec.addEventListener('error', function () { resolve(null); });
                 rec.addEventListener('stop', function () {
-                    var blob = chunks.length ? new Blob(chunks, { type: rec.mimeType || type || 'video/webm' }) : null;
+                    var blob = mine.length ? new Blob(mine, { type: rec.mimeType || type || 'video/webm' }) : null;
                     resolve(blob && blob.size ? { blob: blob, durationMs: now() - startedAt } : null);
                 });
             });
@@ -47,7 +47,13 @@
             try { if (r.state !== 'inactive') r.stop(); } catch (e) { return Promise.resolve(null); }
             return finished;
         }
-        return { supported: supported, start: start, stop: stop, active: function () { return !!recorder; } };
+        // The camera changed (another lens): what was recorded so far is dropped and a new video starts on the new stream.
+        function restart(stream) {
+            clearTimeout(timer);
+            if (recorder) { var old = recorder; recorder = null; try { if (old.state !== 'inactive') old.stop(); } catch (e) { /* already stopped */ } }
+            start(stream);
+        }
+        return { supported: supported, start: start, restart: restart, stop: stop, active: function () { return !!recorder; } };
     }
     return { TYPES: TYPES, MAX_MS: MAX_MS, pickMime: pickMime, createRecorder: createRecorder };
 });
