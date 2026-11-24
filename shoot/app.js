@@ -187,6 +187,10 @@
         clearTimeout(modelWatch);
         modelWatch=setTimeout(()=>{
             if(!running||$('state-badge').textContent!=='載入分析模型…')return;
+            if(!modelState.cached&&modelState.total&&Date.now()-modelMoved<15000){
+                message('分析模型還在下載（'+ModelCache.percent(modelState.loaded,modelState.total)+'%），網路較慢；下載完成後會存在手機，下次不用再等。請先不要關閉或重新整理這頁。','practice-message');
+                watchModel();return;
+            }
             message('分析模型 30 秒內沒有回應。請確認是用 Safari（不是 LINE 或其他 App 內的瀏覽器）、改連 Wi-Fi，再重新整理；這組仍可用按鈕或語音記錄進球。'+(lastProblem?'（最後一個錯誤：'+lastProblem+'）':''),'practice-message');
             startVoiceOnce();
         },MODEL_WAIT_MS);
@@ -222,7 +226,6 @@
                 pose=new Pose({locateFile:f=>'../專題程式/vendor/mediapipe-pose/'+f});
                 pose.setOptions({modelComplexity:modelComplexity,smoothLandmarks:true,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
                 pose.onResults(onResults);
-                try{Promise.resolve(pose.initialize()).catch(error=>{lastProblem='模型初始化失敗：'+String((error&&error.message)||error).slice(0,100);});}catch(error){lastProblem='模型初始化失敗：'+String((error&&error.message)||error).slice(0,100);}
                 watchModel();
             }
             nextFrame();
@@ -477,6 +480,20 @@
     });
     window.addEventListener('pagehide',()=>{if(practice&&!$('practice-view').hidden)try{store.set(P.KEY,JSON.stringify(practice));}catch{/* ignore */}});
 
+    // The pose model is kept on the phone (see sw.js); the setup card and the practice badge show how far the download is.
+    let modelState={cached:false,loaded:0,total:0,error:''},modelMoved=0;
+    function showModel(state){
+        if(state.loaded>modelState.loaded)modelMoved=Date.now();
+        modelState=state;
+        const text=ModelCache.describe(state),card=$('model-card');
+        card.hidden=!text;$('model-text').textContent=text;
+        $('model-bar').hidden=state.cached||!state.total||!!state.error;$('model-bar').value=ModelCache.percent(state.loaded,state.total);
+        $('model-retry').hidden=!state.error;
+        const live=$('model-progress');
+        live.hidden=state.cached||!state.total;live.textContent=state.total?'模型 '+ModelCache.percent(state.loaded,state.total)+'%':'';
+    }
+    const modelCache=typeof ModelCache!=='undefined'?ModelCache.start(showModel):null;
+    $('model-retry').addEventListener('click',()=>modelCache&&modelCache.retry());
     loadResume();
     initCloud();
     // For browser checks only.

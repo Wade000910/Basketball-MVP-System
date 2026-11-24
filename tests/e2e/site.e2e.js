@@ -160,7 +160,7 @@ test('browser tests', {skip}, async t => {
         await context.close();
     });
     await t.test('practice: a model that never answers is reported in plain words and the microphone still opens', {skip: noPose}, async () => {
-        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone'], serviceWorkers: 'block'})   // these two fail the page's own request, which the model worker would otherwise make instead;
         await context.addInitScript(fakeSpeech);
         await context.addInitScript(() => { window.__MODEL_WAIT_MS = 2000; });
         await context.route('**/vendor/mediapipe-pose/pose_solution_packed_assets.data', () => { /* never answers */ });
@@ -178,7 +178,7 @@ test('browser tests', {skip}, async t => {
     });
 
     await t.test('practice: when a model file cannot be fetched, the last error is shown with the wait message', {skip: noPose}, async () => {
-        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone'], serviceWorkers: 'block'})   // these two fail the page's own request, which the model worker would otherwise make instead;
         await context.addInitScript(() => { window.__MODEL_WAIT_MS = 2000; });
         await context.route('**/vendor/mediapipe-pose/pose_solution_packed_assets.data', route => route.abort());
         const page = await context.newPage();
@@ -187,6 +187,25 @@ test('browser tests', {skip}, async t => {
         await page.click('#start-btn');
         await page.waitForFunction(() => /30 秒內沒有回應/.test(document.getElementById('practice-message').textContent), null, {timeout: 10000});
         assert.match(await page.textContent('#practice-message'), /最後一個錯誤：.+/);
+        await context.close();
+    });
+    await t.test('model cache: the pose model is stored on the first visit and practice then runs with no network at all', {skip: noPose || (ENGINE !== 'chromium' && 'service workers are only checked in Chromium here')}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'shoot/');
+        await page.waitForFunction(() => /沒有網路也能用/.test(document.getElementById('model-text').textContent), null, {timeout: 90000});
+        await page.reload();   // the worker now controls the page, so this load also stores the pages for offline use
+        await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, {timeout: 20000});
+        await page.reload();
+        await page.waitForSelector('#start-btn');
+        await context.setOffline(true);
+        await page.reload();
+        await page.waitForSelector('#start-btn', {timeout: 20000});
+        await page.fill('#player-code', 'P781');
+        await page.click('#start-btn');
+        await page.waitForFunction(() => /準備投籃|偵測中|錄製中/.test(document.getElementById('state-badge').textContent), null, {timeout: 40000});
         await context.close();
     });
     await t.test('practice video: recorded when asked for, kept on the phone, tagged in the records and played back; deleting removes it', {skip: noPose || (ENGINE !== 'chromium' && 'only Chromium records the fake camera here')}, async () => {
