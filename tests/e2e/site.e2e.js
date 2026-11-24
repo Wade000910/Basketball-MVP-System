@@ -143,6 +143,52 @@ test('browser tests', {skip}, async t => {
         await context.close();
     });
 
+    const fakeSpeech = () => { window.__voiceStarts = 0; window.SpeechRecognition = window.webkitSpeechRecognition = function () { this.start = () => { window.__voiceStarts++; }; this.stop = () => {}; }; };
+    await t.test('practice: the microphone opens after the analysis model answers, not while it is loading', {skip: noPose}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(fakeSpeech);
+        const page = await context.newPage();
+        const errors = [];
+        page.on('pageerror', e => errors.push(e.message));
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P778');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForFunction(() => window.__voiceStarts === 1, null, {timeout: 30000});
+        assert.notEqual(await page.textContent('#state-badge'), '載入分析模型…', 'listening started only after the model answered');
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
+    await t.test('practice: a model that never answers is reported in plain words and the microphone still opens', {skip: noPose}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(fakeSpeech);
+        await context.addInitScript(() => { window.__MODEL_WAIT_MS = 2000; });
+        await context.route('**/vendor/mediapipe-pose/pose_solution_packed_assets.data', () => { /* never answers */ });
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P779');
+        await page.click('#start-btn');
+        await page.waitForSelector('#practice-view:not([hidden])');
+        await page.waitForTimeout(1000);
+        assert.equal(await page.evaluate(() => window.__voiceStarts), 0, 'no listening while the model is still loading');
+        await page.waitForFunction(() => /30 秒內沒有回應/.test(document.getElementById('practice-message').textContent), null, {timeout: 8000});
+        assert.match(await page.textContent('#practice-message'), /Safari/);
+        assert.equal(await page.evaluate(() => window.__voiceStarts), 1, 'listening opens once the wait is over');
+        await context.close();
+    });
+
+    await t.test('practice: when a model file cannot be fetched, the last error is shown with the wait message', {skip: noPose}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(() => { window.__MODEL_WAIT_MS = 2000; });
+        await context.route('**/vendor/mediapipe-pose/pose_solution_packed_assets.data', route => route.abort());
+        const page = await context.newPage();
+        await page.goto(base + 'shoot/');
+        await page.fill('#player-code', 'P780');
+        await page.click('#start-btn');
+        await page.waitForFunction(() => /30 秒內沒有回應/.test(document.getElementById('practice-message').textContent), null, {timeout: 10000});
+        assert.match(await page.textContent('#practice-message'), /最後一個錯誤：.+/);
+        await context.close();
+    });
     await t.test('practice video: recorded when asked for, kept on the phone, tagged in the records and played back; deleting removes it', {skip: noPose || (ENGINE !== 'chromium' && 'only Chromium records the fake camera here')}, async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         const page = await context.newPage();

@@ -169,10 +169,27 @@
         // None of these may hold up the camera: some browsers leave audio resume() and the screen-lock request
         // pending forever without a gesture. Audio is asked for synchronously here, inside the tap that started the set.
         ensureAudio();
-        startVoice();
+        voiceStarted=false;   // the microphone is opened after the analysis model answers (see startVoiceOnce)
         try{Promise.resolve(navigator.wakeLock?.request('screen')).then(l=>{wakeLock=l||null;},()=>{wakeLock=null;});}catch{wakeLock=null;}
         if(practice.markCode)openTeammatePanel(practice.markCode);
         await startCamera();
+    }
+    let voiceStarted=false,modelWatch=null;
+    // Speech recognition and the camera analysis compete for the phone while the model is loading, so the microphone
+    // is opened after the first analysis result, or at once when no analysis will run, or when the model does not answer.
+    function startVoiceOnce(){if(voiceStarted)return;voiceStarted=true;startVoice();}
+    // The last script, file or promise failure, shown if the model never answers so a screenshot tells what went wrong.
+    let lastProblem='';
+    window.addEventListener('error',e=>{lastProblem=e.target&&e.target.src?'檔案載入失敗：'+String(e.target.src).slice(-60):String(e.message||'').slice(0,100);},true);
+    window.addEventListener('unhandledrejection',e=>{lastProblem=String((e.reason&&e.reason.message)||e.reason||'').slice(0,100);});
+    const MODEL_WAIT_MS=Number(globalThis.__MODEL_WAIT_MS)||30000;   // the override is only for the browser test
+    function watchModel(){
+        clearTimeout(modelWatch);
+        modelWatch=setTimeout(()=>{
+            if(!running||$('state-badge').textContent!=='載入分析模型…')return;
+            message('分析模型 30 秒內沒有回應。請確認是用 Safari（不是 LINE 或其他 App 內的瀏覽器）、改連 Wi-Fi，再重新整理；這組仍可用按鈕或語音記錄進球。'+(lastProblem?'（最後一個錯誤：'+lastProblem+'）':''),'practice-message');
+            startVoiceOnce();
+        },MODEL_WAIT_MS);
     }
     let modelComplexity=1,hoopWatch=null,ballDetector=null,hoopBusy=false,lastHoopLook=0,hoopWatchActive=false,answeredByPlayer=false;
     $('lite-btn').addEventListener('click',()=>{modelComplexity=0;pose.setOptions({modelComplexity:0});$('lite-btn').hidden=true;perf=ShootPerf.createPerfMonitor();$('last-note').textContent='已改用較輕的分析模型';});
@@ -196,7 +213,7 @@
             // Optional: keep this set's video on this phone. A recorder problem never stops the practice.
             if($('video-on').checked&&recorder.supported()&&!recorder.active()){try{recorder.start(stream);}catch{/* practice goes on without a video */}}
             if(!pose&&!webglAvailable()){
-                running=false;$('state-badge').textContent='無法分析動作';
+                running=false;$('state-badge').textContent='無法分析動作';startVoiceOnce();
                 message('這個瀏覽器無法執行動作分析（缺少 WebGL）。請改用手機的 Safari 或 Chrome；這組仍可用按鈕或語音記錄進球。','practice-message');
                 return;
             }
@@ -205,11 +222,13 @@
                 pose=new Pose({locateFile:f=>'../專題程式/vendor/mediapipe-pose/'+f});
                 pose.setOptions({modelComplexity:modelComplexity,smoothLandmarks:true,minDetectionConfidence:0.7,minTrackingConfidence:0.7});
                 pose.onResults(onResults);
+                try{Promise.resolve(pose.initialize()).catch(error=>{lastProblem='模型初始化失敗：'+String((error&&error.message)||error).slice(0,100);});}catch(error){lastProblem='模型初始化失敗：'+String((error&&error.message)||error).slice(0,100);}
+                watchModel();
             }
             nextFrame();
         }catch(error){
             running=false;
-            $('state-badge').textContent='相機未啟動';
+            $('state-badge').textContent='相機未啟動';startVoiceOnce();
             message('無法開啟相機：'+(error?.message||error)+'。仍可用按鈕或語音記錄進球，但這組不會量節奏。','practice-message');
         }
     }
@@ -253,6 +272,7 @@
     function onResults(res){
         if(!running||!detector)return;
         perf.finished(performance.now());
+        clearTimeout(modelWatch);startVoiceOnce();
         draw(res.poseLandmarks);
         const ev=detector.push({t:frameT,landmarks:res.poseLandmarks||null});
         const badge=$('state-badge');
@@ -374,7 +394,7 @@
         running=false;
         pendingVideo=recorder.active()?recorder.stop():null;
         stream?.getTracks().forEach(t=>t.stop());stream=null;
-        voice?.stop();voice=null;
+        clearTimeout(modelWatch);voice?.stop();voice=null;
         clearInterval(markTimer);
         try{wakeLock?.release();}catch{/* ignore */}wakeLock=null;
     }
