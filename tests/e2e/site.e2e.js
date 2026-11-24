@@ -309,6 +309,33 @@ test('browser tests', {skip}, async t => {
         assert.deepEqual(errors, []);
         await context.close();
     });
+    await t.test('lens: if the new lens cannot play, the old picture stays and the new camera is released', {skip: noPose || (ENGINE !== 'chromium' && 'only Chromium has the fake camera here')}, async () => {
+        const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
+        await context.addInitScript(() => {
+            const lenses = [{kind: 'videoinput', deviceId: 'main1', label: 'Back Camera'}, {kind: 'videoinput', deviceId: 'wide1', label: 'Back Ultra Wide Camera'}];
+            navigator.mediaDevices.enumerateDevices = () => Promise.resolve(lenses);
+            window.__stopped = 0;
+            const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+            navigator.mediaDevices.getUserMedia = async c => {
+                const v = {...(c.video || {})}; const wide = v.deviceId && v.deviceId.exact === 'wide1'; delete v.deviceId;
+                const s = await real({...c, video: v});
+                if (wide) { window.__wideTrack = s.getVideoTracks()[0]; window.__wideTrack.addEventListener('ended', () => { window.__stopped++; }); window.__failPlay = true; }
+                return s;
+            };
+            const play = HTMLMediaElement.prototype.play;
+            HTMLMediaElement.prototype.play = function () { if (window.__failPlay) { window.__failPlay = false; return Promise.reject(new Error('lens cannot play')); } return play.call(this); };
+        });
+        const {page, errors} = await startPractice(context, 'P784');
+        await page.waitForSelector('#lens-row:not([hidden])', {timeout: 20000});
+        const before = await page.evaluate(() => document.getElementById('video').srcObject.id);
+        await page.click('#lens-row button:has-text("超廣角")');
+        await page.waitForFunction(() => /這個鏡頭無法使用/.test(document.getElementById('practice-message').textContent), null, {timeout: 10000});
+        assert.equal(await page.evaluate(() => document.getElementById('video').srcObject.id), before, 'the old picture is back');
+        assert.equal(await page.evaluate(() => window.__wideTrack.readyState), 'ended', 'the new camera is released');
+        await page.waitForFunction(() => /fps/.test(document.getElementById('fps').textContent), null, {timeout: 15000});
+        assert.deepEqual(errors, []);
+        await context.close();
+    });
     await t.test('practice video: recorded when asked for, kept on the phone, tagged in the records and played back; deleting removes it', {skip: noPose || (ENGINE !== 'chromium' && 'only Chromium records the fake camera here')}, async () => {
         const context = await browser.newContext({...devices['iPhone 13'], permissions: ['camera', 'microphone']});
         const page = await context.newPage();

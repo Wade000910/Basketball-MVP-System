@@ -239,9 +239,9 @@
     // Two fingers on the picture zoom it too.
     {
         const stage=document.querySelector('.stage'),gap=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
-        let pinch=null;
-        stage.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch={gap:gap(e.touches),zoom:zoomLevel};},{passive:true});
-        stage.addEventListener('touchmove',e=>{if(pinch&&e.touches.length===2){e.preventDefault();setZoom(pinch.zoom*gap(e.touches)/pinch.gap,{remember:false});}},{passive:false});
+        let pinch=null;   // a pinch with both fingers on one spot (gap under 10 px) is ignored: it would divide by zero
+        stage.addEventListener('touchstart',e=>{if(e.touches.length===2&&gap(e.touches)>10)pinch={gap:gap(e.touches),zoom:zoomLevel};},{passive:true});
+        stage.addEventListener('touchmove',e=>{if(pinch&&e.touches.length===2&&gap(e.touches)>10){e.preventDefault();setZoom(pinch.zoom*gap(e.touches)/pinch.gap,{remember:false});}},{passive:false});
         stage.addEventListener('touchend',e=>{if(pinch&&e.touches.length<2){pinch=null;Z.savePrefs(prefsStore(),{zoom:zoomLevel,lens:lensId});}});
     }
     function poseInput(video){
@@ -280,7 +280,9 @@
             const next=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id},width:{ideal:640},height:{ideal:480}},audio:false});
             if(!running){next.getTracks().forEach(t=>t.stop());return;}
             const old=stream,video=$('video');
-            stream=next;video.srcObject=next;await video.play();
+            stream=next;video.srcObject=next;
+            // If the new lens cannot play, put the old picture back and release the new camera; the old one is never left half closed.
+            try{await video.play();}catch(error){stream=old;video.srcObject=old;next.getTracks().forEach(t=>t.stop());await video.play().catch(()=>{});throw error;}
             old?.getTracks().forEach(t=>t.stop());
             lensId=id;
             // New camera, new frame clock: the detector starts again, and a video being recorded starts again from the new picture.
