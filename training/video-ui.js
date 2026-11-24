@@ -8,6 +8,7 @@
     var info = document.getElementById('video-info');
     var del = document.getElementById('video-delete');
     var save = document.getElementById('video-download');
+    var album = document.getElementById('video-album');
     var DELETE_LABEL = '刪除這段影片';
     var url = null, shownId = null, shownBlob = null;
 
@@ -45,6 +46,7 @@
             url = URL.createObjectURL(row.blob);
             player.src = url;
             info.textContent = VideoStore.durationText(row.durationMs) + ' · ' + VideoStore.sizeText(row.size) + '。只存在這支手機。';
+            album.hidden = !canShareVideo();
             box.hidden = false;
         }).catch(function () { hide(); });
     }
@@ -65,6 +67,17 @@
         link.click();
         link.remove();
         setTimeout(function () { URL.revokeObjectURL(href); }, 10000);
+    });
+    // iPhone Safari cannot write to Photos by itself. The share sheet can: it lists "儲存影片", which puts the video in Photos.
+    function shareFile() {
+        return new File([shownBlob], 'training-video-' + shownId + extension(shownBlob.type), { type: shownBlob.type || 'video/mp4' });
+    }
+    function canShareVideo() {
+        try { return !!(navigator.canShare && shownBlob && navigator.canShare({ files: [shareFile()] })); } catch (e) { return false; }
+    }
+    album.addEventListener('click', function () {
+        if (!canShareVideo()) { save.click(); return; }
+        navigator.share({ files: [shareFile()], title: '練習影片' }).catch(function () { /* the person closed the sheet */ });
     });
     document.addEventListener('history-rendered', tag);
     document.addEventListener('session-shown', function (e) { show(e.detail.id); });
