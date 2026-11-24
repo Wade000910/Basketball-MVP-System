@@ -126,7 +126,8 @@ test('browser tests', {skip}, async t => {
         await page.click('#lite-btn');
         assert.equal(await page.isHidden('#lite-btn'), true);
         assert.match(await page.textContent('#last-note'), /較輕/);
-        await page.waitForTimeout(1500);
+        // the lighter model is fetched and started on the switch, which takes a variable moment; the check is that analysis resumes
+        await page.waitForFunction(() => /fps/.test(document.getElementById('fps').textContent), null, {timeout: 15000});
         assert.match(await page.textContent('#fps'), /fps/, 'analysis keeps running after the switch');
         for (const id of ['made-btn', 'made-btn', 'made-btn', 'missed-btn', 'missed-btn']) { await page.click('#' + id); await page.waitForTimeout(3200); /* two results within 3 s with no motion trial count as the same shot, on purpose */ }
         assert.equal(await page.textContent('#score-made'), '3');

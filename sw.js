@@ -7,7 +7,9 @@ const MODEL_DIR = '專題程式/vendor/mediapipe-pose/';
 // The files practice actually downloads (measured on the live site, about 15.5 MB), with their sizes for the progress bar.
 const MODEL_FILES = {
     'pose.js': 47089, 'pose_web.binarypb': 1007, 'pose_solution_packed_assets.data': 2962288, 'pose_solution_simd_wasm_bin.js': 276478,
-    'pose_solution_simd_wasm_bin.wasm': 6104372, 'pose_landmark_full.tflite': 6440512
+    'pose_solution_simd_wasm_bin.wasm': 6104372, 'pose_landmark_full.tflite': 6440512,
+    // Small files the engine also asks for; missing them offline stops the analysis (the .data file is empty by design).
+    'pose_solution_packed_assets_loader.js': 8002, 'pose_solution_simd_wasm_bin.data': 0
 };
 
 function kindOf(url, scope) {
