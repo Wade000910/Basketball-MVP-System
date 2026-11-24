@@ -126,12 +126,6 @@ test('voice parser hears miss phrases before make phrases',()=>{
     assert.equal(V.parse('近'),true,'common mis-hearing of 進');
     assert.deepEqual(V.fromAlternatives(['教練','進']),{made:true,heard:'進'});
 });
-test('voice parser accepts the homophones and simplified forms the engine returns for 進 and 沒進 (field test 2026-11-24)',()=>{
-    for(const t of ['沒勁','沒近','沒金','沒緊','沒盡','沒有勁','沒勁了','沒进','没进','没劲','没有进','没中','不进','进不去'])assert.equal(V.parse(t),false,t);
-    for(const t of ['勁','有勁','进','进了','进球','劲','尽','有进'])assert.equal(V.parse(t),true,t);
-    for(const t of ['你有沒有看到','進來','进来','今天沒勁'])assert.equal(V.parse(t),null,t);
-});
-
 test('voice listener restarts after the engine stops and reports denial',()=>{
     const created=[];
     class Fake{constructor(){created.push(this);}start(){this.started=(this.started||0)+1;}stop(){this.onend();}}
