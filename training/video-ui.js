@@ -37,7 +37,7 @@
     function show(id) {
         del.textContent = DELETE_LABEL;   // a half-pressed delete never carries over to another set
         if (!id) return hide();
-        if (id === shownId) return;
+        if (id === shownId) { album.hidden = !canShareVideo(); return; }   // same set again: only re-check whether the phone can share
         hide();
         VideoStore.get(id).then(function (row) {
             if (!row || !row.blob) return;
