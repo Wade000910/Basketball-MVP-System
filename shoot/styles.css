@@ -45,6 +45,13 @@ body.practicing .page-footer{display:none}
 
 .practice.portrait .stage{max-height:50vh}
 
+/* zoom and lens: under the picture, above the score, so the picture and the result buttons stay clear */
+.stage{touch-action:none}.stage video,.stage canvas{transform-origin:center}
+.zoom-row{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.zoom-row .secondary{flex:0 0 44px;min-height:44px;padding:0;font-size:22px;line-height:1}
+.zoom-slider{flex:1;min-width:0;display:grid;grid-template-columns:1fr auto;column-gap:8px;font-size:13px;color:var(--muted)}.zoom-slider strong{color:var(--green)}.zoom-row .zoom-slider input[type=range]{grid-column:1/-1;width:100%;margin:2px 0 0;padding:0;border:0;background:none;accent-color:var(--green)}
+.lens-row{display:flex;gap:8px;margin:0 0 10px}.lens-row button{flex:1;min-height:40px;border:1px solid #c6d2c4;border-radius:10px;background:#fafcf8;color:#2b4a3a;font-weight:700;font-size:14px}.lens-row button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+
 .hoop-hint{top:auto;bottom:14px;background:#b8571fe6;color:#fff;font-weight:700}
 
 /* app look of the setup view: one big start button, settings folded away */

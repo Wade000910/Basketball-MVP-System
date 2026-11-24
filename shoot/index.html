@@ -22,6 +22,7 @@
     <script src="./perf.js" defer></script>
     <script src="./gauge.js" defer></script>
     <script src="./layout.js" defer></script>
+    <script src="./zoom.js" defer></script>
     <script src="./hoop.js" defer></script>
     <script src="./hoop-watch.js" defer></script>
     <script src="./yolo.js" defer></script>
@@ -108,6 +109,12 @@
         <div id="result-flash" class="flash" hidden></div>
     </div>
     <section class="panel">
+        <div id="zoom-row" class="zoom-row" hidden>
+            <button id="zoom-out" type="button" class="secondary" aria-label="縮小">－</button>
+            <label class="zoom-slider"><span>放大 · 縮小</span><strong id="zoom-label">1.0×</strong><input id="zoom-range" type="range" min="1" max="3" step="0.1" value="1" aria-label="鏡頭放大倍率"></label>
+            <button id="zoom-in" type="button" class="secondary" aria-label="放大">＋</button>
+        </div>
+        <div id="lens-row" class="lens-row" role="group" aria-label="鏡頭" hidden></div>
         <div class="score"><div><strong id="score-made">0</strong><span>進</span></div><div><strong id="score-total">0</strong><span id="score-target">/ 20 球</span></div><div><strong id="score-pct">--</strong><span>命中率</span></div></div>
         <div class="last"><span class="muted">上一球節奏</span><strong id="last-dt">-- ms</strong><span id="last-note" class="muted">等待第一球</span></div>
         <div id="rhythm" class="rhythm" hidden aria-hidden="true"><span class="band"></span><span class="mark"></span></div>

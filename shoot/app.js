@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     const $=id=>document.getElementById(id);
-    const E=ShootEngine,P=ShootPractice,V=ShotVoice,A=TrainingAnalysis;
+    const E=ShootEngine,P=ShootPractice,V=ShotVoice,A=TrainingAnalysis,Z=ShootZoom;
     const PLAYER_KEY='basketball-shoot-player';
     const REASONS={LOW_FPS:'畫面太慢',LOW_VISIBILITY:'身體看不清楚',RATE_UNAVAILABLE:'畫面速度不明',VISIBILITY_UNAVAILABLE:'身體看不清楚',
         INSUFFICIENT_SAMPLES:'動作太快、畫面不夠',PEAK_AT_WINDOW_END:'出手還沒拍完',ELBOW_ONSET_NOT_FOUND:'看不到手肘開始伸直',
@@ -108,7 +108,8 @@
     // The hoop is not detected: the player taps the left and right edge of the rim on the picture.
     document.querySelector('.stage').addEventListener('click',event=>{
         if(!hoopWatch||hoopWatch.hoop()&&rimTaps.length===0)return;
-        const v=$('video'),p=ShootLayout.tapToPicture(document.querySelector('.stage').getBoundingClientRect(),v.videoWidth,v.videoHeight,event.clientX,event.clientY);
+        const v=$('video'),tap=ShootLayout.tapToPicture(document.querySelector('.stage').getBoundingClientRect(),v.videoWidth,v.videoHeight,event.clientX,event.clientY);
+        const p=zoomMode==='digital'&&zoomLevel>1?Z.tapToPictureUnzoomed(tap,zoomLevel):tap;   // the picture is scaled on the stage
         if(!p)return;
         rimTaps.push(p);
         if(rimTaps.length<2){hoopHint('再點籃框的右邊緣');return;}
@@ -209,11 +210,95 @@
     function webglAvailable(){
         try{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'));}catch{return false;}
     }
+    // ---------- zoom and lens ----------
+    // The phone often stands on a tripod, so the picture is zoomed here. A camera with its own zoom is asked to zoom;
+    // otherwise the centre of the picture is cropped for the analysis and the picture is scaled the same way on the stage.
+    let zoomLevel=1,zoomMode='digital',frameCrop=null,sentCrop=null,cropCanvas=null,lenses=[],lensId=null;
+    const prefsStore=()=>{try{return localStorage;}catch{return null;}};
+    function videoTrack(){return stream&&stream.getVideoTracks()[0];}
+    function zoomCaps(){
+        try{const c=videoTrack()?.getCapabilities?.();return c&&c.zoom&&Number.isFinite(c.zoom.max)?c.zoom:null;}catch{return null;}
+    }
+    function setZoom(value,{remember=true}={}){
+        const caps=zoomCaps(),stage=document.querySelector('.stage');
+        zoomMode=caps?'hardware':'digital';
+        zoomLevel=Z.clampZoom(value,caps);
+        frameCrop=zoomMode==='digital'&&zoomLevel>1?Z.cropRect(zoomLevel):null;
+        const scale=frameCrop?'scale('+zoomLevel+')':'';
+        $('video').style.transform=scale;$('overlay').style.transform=scale;
+        stage.dataset.zoomMode=zoomMode;stage.dataset.crop=(frameCrop?frameCrop.w:1).toFixed(2);
+        if(zoomMode==='hardware'){try{Promise.resolve(videoTrack().applyConstraints({advanced:[{zoom:zoomLevel}]})).catch(()=>{});}catch{/* the picture stays as it is */}}
+        $('zoom-range').max=String(caps?Math.min(Z.MAX,caps.max):Z.MAX);$('zoom-range').value=String(zoomLevel);
+        $('zoom-label').textContent=zoomLevel.toFixed(1)+'×';
+        $('zoom-row').hidden=false;
+        if(remember)Z.savePrefs(prefsStore(),{zoom:zoomLevel,lens:lensId});
+    }
+    $('zoom-range').addEventListener('input',e=>setZoom(Number(e.target.value)));
+    $('zoom-in').addEventListener('click',()=>setZoom(zoomLevel+0.5));
+    $('zoom-out').addEventListener('click',()=>setZoom(zoomLevel-0.5));
+    // Two fingers on the picture zoom it too.
+    {
+        const stage=document.querySelector('.stage'),gap=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+        let pinch=null;   // a pinch with both fingers on one spot (gap under 10 px) is ignored: it would divide by zero
+        stage.addEventListener('touchstart',e=>{if(e.touches.length===2&&gap(e.touches)>10)pinch={gap:gap(e.touches),zoom:zoomLevel};},{passive:true});
+        stage.addEventListener('touchmove',e=>{if(pinch&&e.touches.length===2&&gap(e.touches)>10){e.preventDefault();setZoom(pinch.zoom*gap(e.touches)/pinch.gap,{remember:false});}},{passive:false});
+        stage.addEventListener('touchend',e=>{if(pinch&&e.touches.length<2){pinch=null;Z.savePrefs(prefsStore(),{zoom:zoomLevel,lens:lensId});}});
+    }
+    function poseInput(video){
+        sentCrop=frameCrop;
+        if(!frameCrop)return video;
+        const vw=video.videoWidth,vh=video.videoHeight,w=Math.max(64,Math.round(vw*frameCrop.w)),h=Math.max(64,Math.round(vh*frameCrop.h));
+        cropCanvas=cropCanvas||document.createElement('canvas');
+        if(cropCanvas.width!==w||cropCanvas.height!==h){cropCanvas.width=w;cropCanvas.height=h;}
+        cropCanvas.getContext('2d').drawImage(video,frameCrop.x*vw,frameCrop.y*vh,frameCrop.w*vw,frameCrop.h*vh,0,0,w,h);
+        return cropCanvas;
+    }
+    function renderLenses(){
+        const row=$('lens-row');
+        row.textContent='';
+        row.hidden=!Z.hasLensChoice(lenses);
+        if(row.hidden)return;
+        for(const l of lenses){
+            const b=document.createElement('button');
+            b.type='button';b.textContent=l.name;b.dataset.lens=l.deviceId;b.setAttribute('aria-pressed',String(l.deviceId===lensId));
+            b.addEventListener('click',()=>switchLens(l.deviceId));
+            row.appendChild(b);
+        }
+    }
+    // Lens names are only given once the camera is allowed, so the list is read after the camera has started.
+    async function loadLenses(){
+        try{lenses=Z.pickLenses(await navigator.mediaDevices.enumerateDevices());}catch{lenses=[];}
+        const active=videoTrack()?.getSettings?.().deviceId;
+        lensId=lenses.some(l=>l.deviceId===active)?active:(lenses[0]&&lenses[0].deviceId)||null;
+        renderLenses();
+        const wanted=Z.usableLens(lenses,Z.loadPrefs(prefsStore()).lens);
+        if(wanted&&wanted!==lensId&&running)await switchLens(wanted,{keepZoom:true});
+    }
+    async function switchLens(id,{keepZoom=false}={}){
+        if(!running||id===lensId)return;
+        try{
+            const next=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id},width:{ideal:640},height:{ideal:480}},audio:false});
+            if(!running){next.getTracks().forEach(t=>t.stop());return;}
+            const old=stream,video=$('video');
+            stream=next;video.srcObject=next;
+            // If the new lens cannot play, put the old picture back and release the new camera; the old one is never left half closed.
+            try{await video.play();}catch(error){stream=old;video.srcObject=old;next.getTracks().forEach(t=>t.stop());await video.play().catch(()=>{});throw error;}
+            old?.getTracks().forEach(t=>t.stop());
+            lensId=id;
+            // New camera, new frame clock: the detector starts again, and a video being recorded starts again from the new picture.
+            detector=null;tsSource=null;try{pose?.reset?.();}catch{/* nothing to reset */}
+            if(recorder.active()){try{recorder.restart(next);message('換了鏡頭，這組的影片從現在重新錄。','practice-message');}catch{/* practice goes on without a video */}}
+            setZoom(keepZoom?zoomLevel:1);
+            renderLenses();
+        }catch(error){message('這個鏡頭無法使用：'+(error?.message||error),'practice-message');}
+    }
     async function startCamera(){
         running=true;perf=ShootPerf.createPerfMonitor();$('lite-btn').hidden=true;
         try{
             stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
             const video=$('video');video.srcObject=stream;await video.play();
+            setZoom(Z.loadPrefs(prefsStore()).zoom,{remember:false});
+            loadLenses().catch(()=>{});
             // Optional: keep this set's video on this phone. A recorder problem never stops the practice.
             if($('video-on').checked&&recorder.supported()&&!recorder.active()){try{recorder.start(stream);}catch{/* practice goes on without a video */}}
             if(!pose&&!webglAvailable()){
@@ -254,7 +339,7 @@
             if(tsSource===null){tsSource=src;detector=E.createDetector({side:practice.run.shootingSide,timestampSource:src});}
             if(src===tsSource){
                 busy=true;frameT=t;perf.started(performance.now());
-                pose.send({image:video}).catch(error=>{message('動作分析停止，這組仍可用按鈕或語音記錄進球。（原因：'+(error?.message||error)+'）','practice-message');running=false;}).finally(()=>{busy=false;});
+                pose.send({image:poseInput(video)}).catch(error=>{message('動作分析停止，這組仍可用按鈕或語音記錄進球。（原因：'+(error?.message||error)+'）','practice-message');running=false;}).finally(()=>{busy=false;});
             }
         }
         nextFrame();
@@ -276,13 +361,14 @@
         if(!running||!detector)return;
         perf.finished(performance.now());
         clearTimeout(modelWatch);startVoiceOnce();
-        draw(res.poseLandmarks);
-        const ev=detector.push({t:frameT,landmarks:res.poseLandmarks||null});
+        const landmarks=Z.mapLandmarks(res.poseLandmarks,sentCrop);   // positions in the whole picture, as without zoom
+        draw(landmarks);
+        const ev=detector.push({t:frameT,landmarks:landmarks||null});
         const badge=$('state-badge');
         badge.textContent=STATES[detector.state]||detector.state;badge.classList.toggle('rec',detector.state==='RECORDING');
         if(detector.fps){const ps=perf.stats();$('fps').textContent=Math.round(detector.fps)+' fps'+(ps.medianMs===null?'':' · 分析 '+ps.medianMs+' ms · 略過 '+ps.dropPct+'%');}
         if(modelComplexity===1&&perf.suggest()==='lite')$('lite-btn').hidden=false;
-        const guide=ShootingGuide.check(res.poseLandmarks,practice.run.shootingSide);
+        const guide=ShootingGuide.check(landmarks,practice.run.shootingSide);
         $('guide').textContent=detector.state==='IDLE'?guide.text:detector.hint;
         if(ev)onTrial(ev.trial);
     }
@@ -397,6 +483,7 @@
         running=false;
         pendingVideo=recorder.active()?recorder.stop():null;
         stream?.getTracks().forEach(t=>t.stop());stream=null;
+        frameCrop=null;sentCrop=null;$('video').style.transform='';$('overlay').style.transform='';$('zoom-row').hidden=true;$('lens-row').hidden=true;lenses=[];lensId=null;   // the next set starts from the saved zoom, not a leftover one
         clearTimeout(modelWatch);voice?.stop();voice=null;
         clearInterval(markTimer);
         try{wakeLock?.release();}catch{/* ignore */}wakeLock=null;

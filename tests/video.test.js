@@ -70,3 +70,27 @@ test('the recorder asks for a modest bit rate so a set stays small', () => {
     assert.equal(MR.last.opts.videoBitsPerSecond, 1500000);
     assert.equal(MR.last.opts.mimeType, 'video/webm');
 });
+
+test('restarting on a new stream (lens change) gives a clean video; the old recorder\'s last data does not leak into it', async () => {
+    const made = [];
+    class MR2 {
+        static isTypeSupported() { return true; }
+        constructor(stream) { this.state = 'inactive'; this.mimeType = 'video/webm'; this.l = {}; this.tag = stream.tag; made.push(this); }
+        addEventListener(n, f) { this.l[n] = f; }
+        start() { this.state = 'recording'; this.l.dataavailable({data: new Blob(['x'.repeat(100)])}); }
+        stop() { this.state = 'inactive'; const l = this.l; setTimeout(() => { l.dataavailable({data: new Blob(['y'.repeat(50)])}); l.stop(); }, 0); }
+    }
+    let t = 0; const r = Recorder.createRecorder({MediaRecorderClass: MR2, now: () => t});
+    r.start({tag: 'a'});
+    t = 1000; r.restart({tag: 'b'});
+    assert.equal(r.active(), true);
+    t = 4000;
+    const out = await r.stop();
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.deepEqual(made.map(m => m.tag), ['a', 'b']);
+    assert.equal(out.blob.size, 150, 'only the new recorder\'s own data: 100 + its last 50');
+    assert.equal(out.durationMs, 3000, 'the length counts from the restart');
+    const idle = Recorder.createRecorder({MediaRecorderClass: MR2, now: () => t});
+    idle.restart({tag: 'c'});
+    assert.equal(idle.active(), true, 'restart with nothing running just starts');
+});
