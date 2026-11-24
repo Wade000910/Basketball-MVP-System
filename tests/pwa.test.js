@@ -1,5 +1,5 @@
-// "Add to home screen" app mode: every page carries the install metadata, the manifest and icons exist, and nothing
-// caches the site offline, so a site update always reaches the next launch.
+// "Add to home screen" app mode: every page carries the install metadata, the manifest and icons exist, and the only worker keeps the pose model
+// (and, as a fallback, the pages) on the phone; pages are always revalidated first, so a site update still reaches the next launch.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -67,7 +67,7 @@ test('the security policy lets the manifest load and still blocks everything els
     }
 });
 
-test('nothing registers a service worker or caches the site, so updates always arrive', () => {
+test('only the model worker registers, and it never serves a stale page while the network answers', () => {
     const files = [];
     const walk = dir => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -78,10 +78,28 @@ test('nothing registers a service worker or caches the site, so updates always a
         }
     };
     walk(ROOT);
+    const allowed = new Set(['sw.js', path.join('shoot', 'model-cache.js')]);
     for (const file of files) {
+        const rel = path.relative(ROOT, file);
+        if (allowed.has(rel)) continue;
         const text = fs.readFileSync(file, 'utf8');
-        assert.ok(!/serviceWorker\.register|caches\.open/.test(text), `${path.relative(ROOT, file)} caches or registers a worker`);
+        assert.ok(!/serviceWorker\.register|caches\.open/.test(text), `${rel} caches or registers a worker`);
     }
+    const worker = read('sw.js');
+    assert.match(worker, /no-cache/, 'pages are revalidated on every load so a site update reaches the next launch');
+    assert.match(read('shoot/model-cache.js'), /serviceWorker\.register\('\.\.\/sw\.js'\)/);
+});
+
+test('the worker caches the pose model first and pages network-first, and skips every other origin', () => {
+    const { kindOf } = require('../sw.js');
+    const scope = 'https://example.github.io/Basketball-MVP-System/';
+    assert.equal(kindOf(scope + '%E5%B0%88%E9%A1%8C%E7%A8%8B%E5%BC%8F/vendor/mediapipe-pose/pose_landmark_full.tflite', scope), 'model');
+    assert.equal(kindOf(scope + 'shoot/', scope), 'shell');
+    assert.equal(kindOf(scope + 'shoot/app.js', scope), 'shell');
+    assert.equal(kindOf('https://cdn.jsdelivr.net/npm/x.js', scope), 'skip');
+    assert.equal(kindOf('https://mhwzadmfihtcnujaadng.supabase.co/rest/v1/x', scope), 'skip');
+    assert.equal(kindOf('https://example.github.io/Other/app.js', scope), 'skip');
+    assert.equal(kindOf(scope + 'shoot/%E0%A4%A', scope), 'skip', 'a malformed escape is left to the network instead of throwing');
 });
 
 test('the root page hands over to practice, and the me pane links every tool and shows the install hint', () => {

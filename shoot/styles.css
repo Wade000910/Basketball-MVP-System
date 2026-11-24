@@ -54,3 +54,6 @@ body.practicing .page-footer{display:none}
 #settings summary{cursor:pointer;font-weight:700}#settings summary .muted{font-weight:400}
 .discard{width:100%;margin:12px 0 0}
 @media(orientation:landscape) and (max-height:32rem){.app-title{padding:0 2px 4px}.code-card{padding:8px 12px;margin:8px 0}.code-card small{display:none}.start-circle{width:6.5rem;margin:8px auto;font-size:1.1rem;box-shadow:0 0 0 .4rem color-mix(in srgb,var(--acc,#da743c) 20%,transparent)}}
+
+#model-card{display:grid;gap:8px}
+#model-card progress{width:100%;height:8px}
