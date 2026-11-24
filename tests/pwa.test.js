@@ -99,6 +99,7 @@ test('the worker caches the pose model first and pages network-first, and skips 
     assert.equal(kindOf('https://cdn.jsdelivr.net/npm/x.js', scope), 'skip');
     assert.equal(kindOf('https://mhwzadmfihtcnujaadng.supabase.co/rest/v1/x', scope), 'skip');
     assert.equal(kindOf('https://example.github.io/Other/app.js', scope), 'skip');
+    assert.equal(kindOf(scope + 'shoot/%E0%A4%A', scope), 'skip', 'a malformed escape is left to the network instead of throwing');
 });
 
 test('the root page hands over to practice, and the me pane links every tool and shows the install hint', () => {

@@ -2,6 +2,7 @@
 // as a fallback for a court with no signal. Pages are always revalidated first (cache: 'no-cache'), so while the phone
 // is online a site update reaches the next launch exactly as before. Other origins (CDN scripts, the cloud) are untouched.
 'use strict';
+// When the vendored model files change, bump MODEL_CACHE (and the sizes below) so phones fetch the new ones.
 const MODEL_CACHE = 'bball-pose-model-v1', SHELL_CACHE = 'bball-shell-v1', SHELL_WAIT_MS = 6000;
 const MODEL_DIR = '專題程式/vendor/mediapipe-pose/';
 // The files practice actually downloads (measured on the live site, about 15.5 MB), with their sizes for the progress bar.
@@ -15,7 +16,7 @@ const MODEL_FILES = {
 function kindOf(url, scope) {
     const u = new URL(url);
     if (u.origin !== new URL(scope).origin || !u.href.startsWith(scope)) return 'skip';
-    return decodeURIComponent(u.pathname).includes('/vendor/mediapipe-pose/') ? 'model' : 'shell';
+    try { return decodeURIComponent(u.pathname).includes('/vendor/mediapipe-pose/') ? 'model' : 'shell'; } catch (error) { return 'skip'; }   // a malformed %-escape is left to the network
 }
 if (typeof module === 'object' && module.exports) module.exports = { kindOf, MODEL_FILES };
 
