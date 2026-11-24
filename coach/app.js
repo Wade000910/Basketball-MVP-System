@@ -89,12 +89,15 @@
         $('remove-player').hidden=demo;
     }
 
+    const teamLoads=CoachCore.latestOnly();
     async function loadTeam(){
         message();showAdmin();
         if(demo)return render();
-        const since=new Date(Date.now()-SINCE_DAYS*86400000).toISOString();
-        roster=await api.roster(team.id);
-        const rows=await api.teamSessions(roster.filter(m=>m.role==='player').map(m=>m.user_id),since);
+        const mine=teamLoads.begin(),since=new Date(Date.now()-SINCE_DAYS*86400000).toISOString();
+        const nextRoster=await api.roster(team.id);
+        const rows=await api.teamSessions(nextRoster.filter(m=>m.role==='player').map(m=>m.user_id),since);
+        if(!teamLoads.current(mine))return;   // a newer team was picked meanwhile
+        roster=nextRoster;
         sessions=rows.map(r=>({row:Cloud.fromRow(r),userId:r.user_id})).filter(x=>x.row).map(x=>({...x.row,userId:x.userId}));
         if(selected && !roster.some(m=>m.user_id===selected))selected=null;
         render();

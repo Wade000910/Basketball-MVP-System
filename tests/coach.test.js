@@ -76,3 +76,13 @@ test('the CSV date is the date where the coach is, not the UTC date', () => {
         if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
     }
 });
+
+test('latestOnly: of several overlapping loads only the newest may be shown (switching teams quickly)', () => {
+    const guard = Coach.latestOnly();
+    const first = guard.begin(), second = guard.begin();
+    assert.equal(guard.current(first), false, 'the older load must be dropped when it finishes late');
+    assert.equal(guard.current(second), true);
+    const third = guard.begin();
+    assert.equal(guard.current(second), false);
+    assert.equal(guard.current(third), true);
+});
