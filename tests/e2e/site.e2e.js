@@ -169,6 +169,9 @@ test('browser tests', {skip}, async t => {
         await page.click('#history-list .history-item');
         await page.waitForSelector('#session-video:not([hidden])');
         assert.ok(await page.evaluate(() => document.getElementById('video-player').src.startsWith('blob:')), 'the video plays from this phone');
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('#video-download')]);
+        assert.match(download.suggestedFilename(), /^training-video-.+\.(mp4|webm|mov)$/, 'the saved video downloads with a readable name');
+        assert.ok((await fs.promises.stat(await download.path())).size > 0, 'the downloaded video is not empty');
         await page.click('#video-delete');
         assert.match(await page.textContent('#video-delete'), /確定刪除/);
         await page.click('#history-list .history-item');   // opening a set again cancels a half-pressed delete

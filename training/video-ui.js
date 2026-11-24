@@ -7,15 +7,16 @@
     var player = document.getElementById('video-player');
     var info = document.getElementById('video-info');
     var del = document.getElementById('video-delete');
+    var save = document.getElementById('video-download');
     var DELETE_LABEL = '刪除這段影片';
-    var url = null, shownId = null;
+    var url = null, shownId = null, shownBlob = null;
 
     function release() {
         if (url) { URL.revokeObjectURL(url); url = null; }
         player.removeAttribute('src');
         try { player.load(); } catch (e) { /* ignore */ }
     }
-    function hide() { release(); shownId = null; box.hidden = true; }
+    function hide() { release(); shownId = null; shownBlob = null; box.hidden = true; }
 
     function tag() {
         VideoStore.list().then(function (rows) {
@@ -40,12 +41,31 @@
         VideoStore.get(id).then(function (row) {
             if (!row || !row.blob) return;
             shownId = id;
+            shownBlob = row.blob;
             url = URL.createObjectURL(row.blob);
             player.src = url;
             info.textContent = VideoStore.durationText(row.durationMs) + ' · ' + VideoStore.sizeText(row.size) + '。只存在這支手機。';
             box.hidden = false;
         }).catch(function () { hide(); });
     }
+    // Saves the video to the phone's Files (Downloads). The file stays on the phone unless the person shares it themselves.
+    function extension(type) {
+        if (/mp4/.test(type || '')) return '.mp4';
+        if (/webm/.test(type || '')) return '.webm';
+        if (/quicktime/.test(type || '')) return '.mov';
+        return '.mp4';
+    }
+    save.addEventListener('click', function () {
+        if (!shownBlob || !shownId) return;
+        var link = document.createElement('a');
+        var href = URL.createObjectURL(shownBlob);
+        link.href = href;
+        link.download = 'training-video-' + shownId + extension(shownBlob.type);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(href); }, 10000);
+    });
     document.addEventListener('history-rendered', tag);
     document.addEventListener('session-shown', function (e) { show(e.detail.id); });
 
