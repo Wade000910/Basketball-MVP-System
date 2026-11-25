@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.js 'wasm-unsafe-eval' 'sha256-EWJoV7mmXwIjYjdP8VkUa7vlwpPx7IsbIQqmN+Io0xo='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.js 'wasm-unsafe-eval' 'sha256-weevpqobZ/MZbggKTXHlPHpKWi2YeEIQn8vHu2H7VAQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><meta name="theme-color" content="#11241d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="MVP 投籃"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="../manifest.webmanifest"><link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
     <title>Basketball MVP｜罰球動作分析</title>
     <link rel="stylesheet" href="./analysis.css">
@@ -405,7 +405,7 @@
         }
         function recordAbortedTrial(reasonCode) {
             if(!currentShotContext || localCapture.status!=='recording') return;
-            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null});
+            localCapture.recordTrial({id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1,...currentShotContext,trialStatus:'aborted',reasonCode,dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:reasonCode,algorithmVersion:'timing-validity-v4',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v2',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null});
         }
         function resetProvisionalShot(title, detail) {
             state='IDLE'; shotData=[]; shotVisibility=[]; shotFrameIntervals=[]; lastShotFrameT=null; armRaisedConfirmed=false;
@@ -561,7 +561,7 @@
                         sdDisp.innerText = maskForBaseline(mode,sd===null?'--':sd.toFixed(2));
                         cvDisp.innerText = maskForBaseline(mode,'不適用（帶正負號Δt）');
 
-                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:calcDt,result:qualityOk?(ok?'in_range':'out_of_range'):'not_evaluated_low_quality',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,...timingEvents,qualityFlags:flags,algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now'};
+                        const row={id:shotHistory.length+1,trialOrder:blockRows.length+1,...context,trialStatus:qualityOk?'accepted':'low_quality',reasonCode:qualityOk?'':flags,dt:calcDt,result:qualityOk?(ok?'in_range':'out_of_range'):'not_evaluated_low_quality',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps,meanVisibility,...timingEvents,qualityFlags:flags,algorithmVersion:'timing-validity-v4',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v2',timingClock:'pose-result-performance-now'};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         const tr = document.createElement('tr'); tr.className = !qualityOk?'bg-gray-50':(ok?'bg-green-50':'bg-red-50');
@@ -570,7 +570,7 @@
                     }
                     else {
                         const context=currentShotContext;
-                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v3',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v1',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null};
+                        const row={id:shotHistory.length+1,trialOrder:shotHistory.filter(r=>sameExperimentalBlock(r,context)).length+1,...context,trialStatus:'invalid',reasonCode:timingReason || 'INVALID_TIMING',dt:null,result:'not_calculated',timestamp:new Date().toISOString(),shootingSide:currentShotSide,sourceFrameCount:shotData.length,measuredFps:null,meanVisibility:null,qualityFlags:timingReason || 'INVALID_TIMING',algorithmVersion:'timing-validity-v4',targetRangeMs:'50-150_UNVALIDATED',eventDefinitionId:'knee-peak-elbow-onset-v2',timingClock:'pose-result-performance-now',kneePeakPerfMs:null,elbowOnsetPerfMs:null,elbowPeakPerfMs:null};
                         shotHistory.push(row);
                         localCapture.recordTrial({...row,id:localCapture.trials.length+1,trialOrder:localCapture.trials.length+1});
                         dtDisp.innerText='-- ms';
@@ -647,7 +647,7 @@
             }, width:640, height:480, facingMode:'environment' });
             try {
                 resetZoomControl('正在偵測相機縮放能力…'); isAnalyzing=true; await camera.start();
-                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v3',timingDefinition:TIMING_DEFINITION,requestedCameraSettings});
+                localCapture.start({stream:vEl.srcObject,context,buildId:DeviceDiagnostics.BUILD_ID,algorithmVersion:'timing-validity-v4',timingDefinition:TIMING_DEFINITION,requestedCameraSettings});
                 captureMime.innerText=`Video: ${localCapture.recorder.mimeType || 'browser default'}`; captureStatus.innerText='Session 錄影與分析進行中；停止前請勿離開頁面。';
             } catch(error) {
                 if(poseWatchdogId!==null){clearTimeout(poseWatchdogId);poseWatchdogId=null;} if(camera) camera.stop(); isAnalyzing=false; poseRequestInFlight=false; activeInference=null; captureStatus.innerText=`無法開始分析：${error.message}`; document.getElementById('camera-guide').textContent='無法開啟相機，請檢查瀏覽器權限後重試。'; startBtn.disabled=false;setContextControlsDisabled(false); return;

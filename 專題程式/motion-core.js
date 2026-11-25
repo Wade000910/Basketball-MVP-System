@@ -1,9 +1,9 @@
 // Free-throw timing algorithm, moved out of index.html so it can be tested and
-// simulated directly. The arithmetic is unchanged from timing-validity-v3:
+// simulated directly. The filter and spline are those of timing-validity-v3; v4 only restricts the knee event window:
 // angles -> causal low-pass (two identical 2nd-order Butterworth sections in series: -6 dB at the set cutoff,
 // -3 dB near 0.92x of it; not a standard 4th-order Butterworth, see docs/cross-validation-2026-11-22.md) -> natural cubic
-// spline evaluated on a 1 ms computational grid -> knee peak extension velocity,
-// elbow peak extension velocity, and elbow onset (last crossing <= 10 deg/s before
+// spline evaluated on a 1 ms computational grid -> elbow peak extension velocity, knee peak extension velocity
+// within KNEE_WINDOW_MS before it, and elbow onset (last crossing <= 10 deg/s before
 // the elbow peak). The 1 ms grid does not raise the physical sampling rate.
 (function(root,factory){
     const api=factory();
@@ -12,6 +12,10 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
     'use strict';
     const ONSET_THRESHOLD_DEG_PER_S=10;
+    // The knee event is the fastest knee extension in the KNEE_WINDOW_MS before the elbow's fastest extension, not in the
+    // whole captured window: in the 2026-11-25 field test (240 fps footage) the fastest knee extension of the whole window was
+    // the rebound of the gather dip about a second before release, not the knee drive of the shot (docs/field-test-2026-11-25.md).
+    const KNEE_WINDOW_MS=400;
 
     class ButterworthFilter {
         constructor(fc, fs) { this.update(fc, fs); this.initVal = 0; this.initialized = false; }
@@ -78,22 +82,28 @@
 
     // samples: [{t (ms), kn (deg), eb (deg)}] already filtered. Returns either
     // {reason} or {dt, events:{kneePeakPerfMs, elbowOnsetPerfMs, elbowPeakPerfMs}, chart}.
-    // `spline` is injectable so tests can supply exact velocity profiles.
-    function detectTiming(shotData, spline=createSpline){
+    // `spline` is injectable so tests can supply exact velocity profiles. `kneeWindowMs: Infinity` gives the earlier
+    // whole-window knee search (timing-validity-v3), which the simulation studies in docs/ were run with.
+    function detectTiming(shotData, spline=createSpline, {kneeWindowMs=KNEE_WINDOW_MS}={}){
         if(shotData.length < 10) return {reason:'INSUFFICIENT_SAMPLES'};
         if(shotData.some(d=>![d.t,d.kn,d.eb].every(Number.isFinite))) return {reason:'NONFINITE_SAMPLE'};
         if(shotData.some((d,i)=>i>0 && d.t<=shotData[i-1].t)) return {reason:'INVALID_TIMESTAMPS'};
         const ts = shotData.map(d=>d.t), kns = shotData.map(d=>d.kn), ebs = shotData.map(d=>d.eb);
         const sKn = spline(ts, kns), sEb = spline(ts, ebs);
         let start = Math.ceil(ts[0]), end = Math.floor(ts[ts.length-1]);
-        let maxKv = -1e9, tK = -1, maxEv = -1e9, pE = -1;
+        let maxEv = -1e9, pE = -1;
         let chartK = [], chartE = [], chartLabels = [];
         for(let t=start; t<=end; t++) {
-            let kv = (sKn(t)-sKn(t-1))/0.001; if(kv>maxKv){ maxKv=kv; tK=t; }
+            let kv = (sKn(t)-sKn(t-1))/0.001;
             let ev = (sEb(t)-sEb(t-1))/0.001; if(ev>maxEv){ maxEv=ev; pE=t; }
             chartK.push(kv); chartE.push(ev); chartLabels.push(t);
         }
         if(!chartK.every(Number.isFinite) || !chartE.every(Number.isFinite)) return {reason:'NONFINITE_VELOCITY'};
+        // Knee: fastest extension from KNEE_WINDOW_MS before the elbow peak up to the elbow peak itself.
+        const kneeFrom=Math.max(start,pE-kneeWindowMs);
+        let maxKv = -1e9, tK = -1;
+        const kneeTo=Number.isFinite(kneeWindowMs)?pE:end;   // the earlier whole-window search also looked after the elbow peak
+        for(let t=kneeFrom; t<=kneeTo; t++) { const kv=chartK[t-start]; if(kv>maxKv){ maxKv=kv; tK=t; } }
         if(maxKv<=0) return {reason:'KNEE_EXTENSION_NOT_FOUND'};
         if(maxEv<=ONSET_THRESHOLD_DEG_PER_S) return {reason:'ELBOW_EXTENSION_NOT_FOUND'};
         // Tied maxima can start earlier yet remain truncated at the end.
@@ -107,5 +117,5 @@
         // Estimates on the pose-result performance.now() clock, not video PTS.
         return {dt:tE - tK,events:{kneePeakPerfMs:tK,elbowOnsetPerfMs:tE,elbowPeakPerfMs:pE},chart:{labels:chartLabels,knee:chartK,elbow:chartE}};
     }
-    return {ONSET_THRESHOLD_DEG_PER_S,ButterworthFilter,createSpline,calculateAngle,detectTiming,zeroPhaseFilter};
+    return {ONSET_THRESHOLD_DEG_PER_S,KNEE_WINDOW_MS,ButterworthFilter,createSpline,calculateAngle,detectTiming,zeroPhaseFilter};
 });

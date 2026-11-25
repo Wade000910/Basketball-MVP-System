@@ -45,3 +45,24 @@ test('the analysis page uses the shared module instead of an inline copy',()=>{
     assert.match(html,/MotionCore\.detectTiming\(shotData,createSpline\)/);
     for(const stale of ['class ButterworthFilter','function createSpline','function calculateAngle'])assert.ok(!html.includes(stale),'inline '+stale+' remains');
 });
+
+// Field test 2026-11-25 (240 fps footage): a free throw has a deep gather dip long before the shot, and its
+// rebound can be the fastest knee extension in the whole window while the knee drive that belongs to the shot
+// is shallow. The knee event is searched only in the KNEE_WINDOW_MS before the elbow peak.
+test('a fast early gather rebound does not become the knee event of the shot',()=>{
+    const knee=t=>110+55*logistic((t-300)/25)-30*logistic((t-700)/60)+30*logistic((t-1000)/90);   // big rebound at 300, small drive at ~1000
+    const elbow=t=>70+105*logistic((t-1100)/30);
+    const data=[];for(let t=0;t<=1500;t+=1000/60)data.push({t,kn:knee(t),eb:elbow(t)});
+    const r=M.detectTiming(data);
+    assert.ok(!r.reason,r.reason);
+    assert.ok(Math.abs(r.events.kneePeakPerfMs-1000)<=30,'knee '+r.events.kneePeakPerfMs);
+    assert.ok(r.dt<=M.KNEE_WINDOW_MS+1,'dt '+r.dt);
+});
+test('the knee window is exported and a knee peak at the elbow peak is still allowed',()=>{
+    assert.equal(M.KNEE_WINDOW_MS,400);
+    const knee=t=>110+60*logistic((t-620)/30),elbow=t=>70+105*logistic((t-620)/30);
+    const data=[];for(let t=250;t<=900;t+=1000/60)data.push({t,kn:knee(t),eb:elbow(t)});
+    const r=M.detectTiming(data);
+    assert.ok(!r.reason,r.reason);
+    assert.ok(Math.abs(r.events.kneePeakPerfMs-620)<=30,'knee '+r.events.kneePeakPerfMs);
+});

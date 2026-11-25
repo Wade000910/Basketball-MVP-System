@@ -4,8 +4,9 @@
     root.ExperimentCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     const TIMING_DEFINITION = Object.freeze({
-        id:'knee-peak-elbow-onset-v1',
-        kneeEvent:'peak_extension_angular_velocity',
+        id:'knee-peak-elbow-onset-v2',
+        kneeEvent:'peak_extension_angular_velocity_within_400ms_before_elbow_peak',
+        kneeWindowMs:400,
         elbowEvent:'last_at_or_below_threshold_before_peak_extension_velocity',
         elbowOnsetThresholdDegPerSec:10,
         deltaT:'elbowOnsetPerfMs - kneePeakPerfMs',

@@ -18,10 +18,10 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(deps){
     'use strict';
     const {MotionCore,ExperimentCore}=deps;
-    const ALGORITHM_VERSION='player-peak-v1';
+    const ALGORITHM_VERSION='player-peak-v2';
     const R={shoulder:12,elbow:14,wrist:16,hip:24,knee:26,ankle:28},L={shoulder:11,elbow:13,wrist:15,hip:23,knee:25,ankle:27};
 
-    // A line-by-line port of onResults() in 專題程式/index.html (timing-validity-v3):
+    // A line-by-line port of onResults() in 專題程式/index.html (timing-validity-v4):
     // same thresholds, same filter start values and per-second rate update, same states
     // (IDLE -> RECORDING -> PROCESSING -> DELAY -> FEEDBACK -> 2 s cooldown -> IDLE), and
     // the filters keep running in every state, as on the research page. tests/

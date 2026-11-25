@@ -82,8 +82,10 @@ def detect(samples, threshold=10.0):
     kv = []; ev = []
     for t in range(start, end + 1):
         kv.append((t, (sk(t) - sk(t - 1)) / 0.001)); ev.append((t, (se(t) - se(t - 1)) / 0.001))
-    mk = max(v for _, v in kv); me = max(v for _, v in ev)
-    tk = next(t for t, v in kv if v == mk); pe = next(t for t, v in ev if v == me)
+    me = max(v for _, v in ev); pe = next(t for t, v in ev if v == me)
+    # knee event: fastest knee extension from KNEE_WINDOW_MS before the elbow peak up to the elbow peak
+    kf = max(start, pe - 400); kwin = [(t, v) for t, v in kv if kf <= t <= pe]
+    mk = max(v for _, v in kwin); tk = next(t for t, v in kwin if v == mk)
     if mk <= 0: return {'reason': 'KNEE_EXTENSION_NOT_FOUND'}
     if me <= threshold: return {'reason': 'ELBOW_EXTENSION_NOT_FOUND'}
     tol = 4096 * 2.220446049250313e-16 * max(1, abs(mk)); tol2 = 4096 * 2.220446049250313e-16 * max(1, abs(me))

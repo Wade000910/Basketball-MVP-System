@@ -65,7 +65,7 @@ function capture(shot,{fps,noiseDeg,jitterMs,variant},r){
         const kn=M.zeroPhaseFilter(raw.map(s=>s.kn),10,fps),eb=M.zeroPhaseFilter(raw.map(s=>s.eb),10,fps);
         samples=raw.map((s,i)=>({t:s.t,kn:kn[i],eb:eb[i]}));
     }else if(variant==='unfiltered')samples=raw;
-    const res=M.detectTiming(samples);
+    const res=M.detectTiming(samples,undefined,{kneeWindowMs:Infinity});
     if(res.reason)return {reason:res.reason};
     return {onset:res.dt,peak:res.events.elbowPeakPerfMs-res.events.kneePeakPerfMs};
 }
