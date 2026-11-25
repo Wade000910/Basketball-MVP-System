@@ -28,6 +28,7 @@
         let crc = 0;
         for (let offset = 0; offset < blob.size; offset += CHUNK) {
             crc = crc32(new Uint8Array(await blob.slice(offset, offset + CHUNK).arrayBuffer()), crc);
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
         return crc;
     }
