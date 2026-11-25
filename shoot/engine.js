@@ -38,7 +38,7 @@
         const idx=side==='left'?L:R;
         const knFilter=new MotionCore.ButterworthFilter(10,30),ebFilter=new MotionCore.ButterworthFilter(10,30);
         let state='IDLE',hint='請下蹲準備投籃',lastT=0,started=false,lastFpsT=null,frames=0,fps=null;
-        let prevKn=180,prevEb=180,recEndT=0,cooldownUntil=null,pending=null;
+        let prevKn=180,prevEb=180,recEndT=0,cooldownUntil=null,pending=null,missingSince=null;
         let shotData=[],shotVisibility=[],shotFrameIntervals=[],lastShotFrameT=null,armRaisedConfirmed=false;
         const out=trial=>({type:'trial',trial:{...trial,timestampSource,algorithmVersion:ALGORITHM_VERSION}});
         function resetProvisionalShot(text){state='IDLE';shotData=[];shotVisibility=[];shotFrameIntervals=[];lastShotFrameT=null;armRaisedConfirmed=false;hint=text;}
@@ -64,16 +64,19 @@
             if(state==='COOLDOWN'&&t>=cooldownUntil){state='IDLE';hint='請下蹲準備投籃';}
             const l=landmarks;
             if(!Array.isArray(l)||l.length<29){
+                if(missingSince===null)missingSince=t;
                 let ev=null;
                 if(state==='RECORDING'){ev=aborted('POSE_LANDMARKS_MISSING',t);resetProvisionalShot('找不到身體，請重新進入畫面');}
                 lastT=t;return ev;
             }
             const torsoVis=(l[11].visibility+l[12].visibility+l[23].visibility+l[24].visibility)/4;
             if(torsoVis<0.6){
+                if(missingSince===null)missingSince=t;
                 let ev=null;
                 if(state==='RECORDING'){ev=aborted('TORSO_VISIBILITY_LOW',t);resetProvisionalShot('身體辨識度不足');}
                 lastT=t;return ev;
             }
+            missingSince=null;
             const ebIdx=[idx.shoulder,idx.elbow,idx.wrist],knIdx=[idx.hip,idx.knee,idx.ankle];
             const sideVis=[...ebIdx,...knIdx].reduce((sum,i)=>sum+(l[i].visibility||0),0)/6;
             const rawEb=MotionCore.calculateAngle(l[ebIdx[0]],l[ebIdx[1]],l[ebIdx[2]]);
@@ -119,7 +122,7 @@
             prevEb=sEb;prevKn=sKn;lastT=t;
             return ev;
         }
-        return {push,get state(){return state;},get hint(){return hint;},get fps(){return fps;}};
+        return {push,get missingMs(){return missingSince===null?0:lastT-missingSince;},get state(){return state;},get hint(){return hint;},get fps(){return fps;}};
     }
 
     // Personal rhythm reference: the player's own made shots (peak definition, accepted

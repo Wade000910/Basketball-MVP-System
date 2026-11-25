@@ -4,7 +4,7 @@ const Cues=require('../shoot/cues.js');
 
 // Phone speakers cannot reproduce low or very short tones, and a Bluetooth headset can swallow the first ~100 ms,
 // so every cue must be audible on its own: a mid-range pitch, a real duration and a clear gain.
-const NAMES=['steady','off','learning','unmeasured'];
+const NAMES=['steady','off','learning','unmeasured','finish'];
 test('every cue exists and is built from audible notes',()=>{
     for(const name of NAMES){
         const notes=Cues.notes(name);
@@ -30,4 +30,9 @@ test('which cue a trial gets',()=>{
     assert.equal(Cues.forTrial({status:'accepted'},'steady'),'steady');
     assert.equal(Cues.forTrial({status:'accepted'},'off'),'off');
     assert.equal(Cues.forTrial({status:'accepted'},null),'learning');
+});
+test('the end-of-set cue is a rising three-note phrase, longer than a shot cue',()=>{
+    const n=Cues.notes('finish');
+    assert.equal(n.length,3);
+    assert.ok(n[0].freq<n[1].freq&&n[1].freq<n[2].freq);
 });

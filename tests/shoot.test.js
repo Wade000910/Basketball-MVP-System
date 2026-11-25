@@ -218,3 +218,18 @@ test('a rejected stray voice call does not block the next real result',()=>{
     log.result(true,'voice',1000,{motion:false});
     assert.equal(log.result(false,'manual',1200).accepted,true);
 });
+
+// Out of the picture: the detector reports how long the shooter has not been seen, so the page can say so.
+test('the detector reports how long no usable body has been seen, and resets when seen again',()=>{
+    const d=E.createDetector({side:'right'});
+    let t=1000;
+    const step=(l)=>{d.push({t,landmarks:l});t+=33;};
+    for(let i=0;i<5;i++)step(landmarks(170,150));
+    assert.equal(d.missingMs,0);
+    for(let i=0;i<61;i++)step(null);                      // about two seconds without a body
+    assert.ok(d.missingMs>=1900&&d.missingMs<=2100,String(d.missingMs));
+    step(landmarks(170,150,{vis:0.3}));                   // a body seen too poorly still counts as missing
+    assert.ok(d.missingMs>=2000);
+    step(landmarks(170,150));
+    assert.equal(d.missingMs,0);
+});
