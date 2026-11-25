@@ -421,7 +421,7 @@
         const r=log.result(made,source,Date.now(),{motion:!!detector&&detector.state!=='IDLE'});
         if(!r.accepted){
             if(r.reason==='no_motion'){message('聽到「'+(made?'進':'沒進')+'」，但沒看到你投籃，沒有計入（可能是旁邊的人）。要記請按按鈕。','practice-message');return;}
-            if(source==='camera'||source==='voice'&&r.reason==='duplicate')return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
+            if(source==='camera'||(source==='voice'&&r.reason==='duplicate'))return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
         const shotId=newId('s');
         try{practice=P.addResult(practice,{made,source,shotId,trialOrder:r.trial?.trialOrder ?? null});}
         catch(error){message(error.message,'practice-message');return;}
