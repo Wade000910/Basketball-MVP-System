@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.js 'wasm-unsafe-eval' 'sha256-weevpqobZ/MZbggKTXHlPHpKWi2YeEIQn8vHu2H7VAQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.js 'wasm-unsafe-eval' 'sha256-EahK+3SqmmhDutY8gMHblvYu2GIVeLmTXRR9Z67ylB8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://mhwzadmfihtcnujaadng.supabase.co wss://mhwzadmfihtcnujaadng.supabase.co https://cdn.jsdelivr.net blob: data:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"><meta name="theme-color" content="#11241d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="MVP 投籃"><meta name="apple-mobile-web-app-status-bar-style" content="default"><link rel="manifest" href="../manifest.webmanifest"><link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
     <title>Basketball MVP｜罰球動作分析</title>
     <link rel="stylesheet" href="./analysis.css">
@@ -198,7 +198,7 @@
                         <p id="capture_status" class="mt-2 text-[10px] text-emerald-800">填完 ID 後按啟動；同一相機串流會同時分析與錄影。</p>
                         <p id="capture_mime" class="mt-1 text-[10px] font-mono text-emerald-700">Video: --</p>
                         <div id="capture_downloads" class="mt-2 grid grid-cols-1 gap-1"></div>
-                        <p class="mt-2 text-[10px] text-red-700">停止後請逐一下載全部檔案。資料只保存在此瀏覽器記憶體，不會自動上傳。</p>
+                        <p class="mt-2 text-[10px] text-red-700">停止後請按「一次下載」取得 zip，或逐一下載全部檔案。資料只保存在此瀏覽器記憶體，不會自動上傳。</p>
                     </details>
 
                     <details class="border-t pt-4"><summary class="text-sm font-bold cursor-pointer">進階：逐次動作紀錄與 CSV</summary>
@@ -229,6 +229,7 @@
     <script src="./diagnostics.js"></script>
     <script src="./camera-controls.js"></script>
     <script src="./session-capture.js"></script>
+    <script src="./zip-store.js"></script>
     <script src="./motion-core.js"></script>
     <script>
         // Timing algorithm lives in motion-core.js (unchanged arithmetic, testable in Node).
@@ -383,6 +384,17 @@
 
         function renderCaptureDownloads(files) {
             captureDownloads.innerHTML='';
+            const bundle=document.createElement('button'); bundle.type='button'; bundle.id='capture_bundle'; bundle.className='text-left text-xs font-bold bg-emerald-900 hover:bg-emerald-950 text-white py-2 px-2 rounded'; bundle.textContent='一次下載：全部打包成一個 .zip';
+            bundle.onclick=async()=>{
+                bundle.disabled=true;captureStatus.innerText='正在打包…（影片較大時需要幾秒）';
+                try{
+                    const zipBlob=await ZipStore.buildZip(files),base=Object.keys(files)[0].split('_source-video')[0]||'session',name=`${base}_全部資料.zip`,url=URL.createObjectURL(zipBlob),link=document.createElement('a');
+                    link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+                    Object.keys(files).forEach(n=>localCapture.markDownloaded(n));
+                    captureStatus.innerText='已下載 zip（內含全部檔案）。到「檔案」App 點兩下即可解開。';
+                }catch(error){captureStatus.innerText=`打包失敗：${error.message}。請改用下方逐一下載。`;bundle.disabled=false;}
+            };
+            captureDownloads.appendChild(bundle);
             Object.entries(files).forEach(([name,blob])=>{
                 const button=document.createElement('button'); button.type='button'; button.className='text-left text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white py-1 px-2 rounded'; button.textContent=`下載 ${name}`;
                 button.onclick=()=>{const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);localCapture.markDownloaded(name);button.disabled=true;button.classList.add('opacity-50');captureStatus.innerText=localCapture.hasUnsavedData()?'尚有檔案未下載。':'全部 Session 檔案已下載。';};
