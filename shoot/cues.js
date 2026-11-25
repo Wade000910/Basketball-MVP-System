@@ -8,6 +8,7 @@
         steady:[{at:LEAD,freq:880,dur:0.4,type:'sine',gain:0.7}],                              // rhythm close to your made shots
         off:[{at:LEAD,freq:440,dur:0.25,type:'triangle',gain:0.7},{at:LEAD+0.3,freq:330,dur:0.3,type:'triangle',gain:0.7}], // falling pair
         learning:[{at:LEAD,freq:660,dur:0.25,type:'sine',gain:0.6}],                           // still building your own range
+        finish:[{at:LEAD,freq:523,dur:0.2,type:'sine',gain:0.7},{at:LEAD+0.25,freq:659,dur:0.2,type:'sine',gain:0.7},{at:LEAD+0.5,freq:784,dur:0.4,type:'sine',gain:0.7}], // the set is complete
         unmeasured:[{at:LEAD,freq:520,dur:0.15,type:'triangle',gain:0.6},{at:LEAD+0.25,freq:520,dur:0.15,type:'triangle',gain:0.6}] // a shot was seen but not measured
     };
     function notes(name){return (CUES[name]||[]).map(n=>({...n}));}

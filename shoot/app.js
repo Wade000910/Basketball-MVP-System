@@ -366,6 +366,7 @@
         for(const [a,b] of BONES(practice.run.shootingSide)){const p=landmarks[a],q=landmarks[b];if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*c.width,p.y*c.height);ctx.lineTo(q.x*c.width,q.y*c.height);ctx.stroke();}
         for(const i of new Set(BONES(practice.run.shootingSide).flat())){const p=landmarks[i];if(!p)continue;ctx.beginPath();ctx.arc(p.x*c.width,p.y*c.height,ctx.lineWidth*1.4,0,7);ctx.fill();}
     }
+    const LOST_MS=2000;   // no usable body for this long: tell the shooter to step back into the picture
     const STATES={IDLE:'準備投籃',RECORDING:'擷取動作',PROCESSING:'計算中',DELAY:'計算中',FEEDBACK:'計算中',COOLDOWN:'下一球準備'};
     function onResults(res){
         if(!running||!detector)return;
@@ -379,7 +380,9 @@
         if(detector.fps){const ps=perf.stats();$('fps').textContent=Math.round(detector.fps)+' fps'+(ps.medianMs===null?'':' · 分析 '+ps.medianMs+' ms · 略過 '+ps.dropPct+'%');}
         if(modelComplexity===1&&perf.suggest()==='lite')$('lite-btn').hidden=false;
         const guide=ShootingGuide.check(landmarks,practice.run.shootingSide);
-        $('guide').textContent=detector.state==='IDLE'?guide.text:detector.hint;
+        const lost=detector.missingMs>=LOST_MS;
+        $('guide').textContent=lost?'找不到你，請站回畫面中央，全身入鏡（球和膝蓋、手肘都要看得到）':detector.state==='IDLE'?guide.text:detector.hint;
+        $('guide').classList.toggle('lost',lost);
         if(ev)onTrial(ev.trial);
     }
     function onTrial(trial){
@@ -429,6 +432,7 @@
         if(lastShot.peak)madePeaks.push(r.trial.dtPeak);
         flash(made?'進':'沒進');save();
         const full=render();
+        if(full){setTimeout(()=>flash('投籃結束'),950);if(practice.run.condition==='auditory')setTimeout(()=>playCue('finish'),700);}   // the set is complete: a rising phrase in the headset and a banner
         message([source==='teammate'?'隊友記錄：'+(made?'進':'沒進')+'。':'',full].join(''),'practice-message');
     }
     function flash(text){const f=$('result-flash');f.textContent=text;f.hidden=false;clearTimeout(flashTimer);flashTimer=setTimeout(()=>{f.hidden=true;},900);}
