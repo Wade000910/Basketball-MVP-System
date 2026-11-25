@@ -140,14 +140,18 @@
     // Make/miss entries. Voice and a teammate may both report the same shot, so an entry
     // that arrives within dedupMs of the previous one, with no new motion trial in
     // between, is treated as the same shot. A trial waits up to linkMs for its result.
-    const RESULTS={dedupMs:3000,linkMs:15000};
+    const RESULTS={dedupMs:3000,linkMs:15000,voiceMotionMs:20000};
     function createResultLog(options={}){
         const o={...RESULTS,...options};
         let lastAt=null,lastMade=null,lastTrialAt=null,pending=null;
         return {
             trial(trial,at){lastTrialAt=at;pending=trial.status==='aborted'?null:{trial,at};},
             // Returns {accepted:false, reason} or {accepted:true, trial|null}.
-            result(made,source,at){
+            // A spoken call is only taken while the camera sees the shooter move (motion:true) or within voiceMotionMs
+            // of a motion trial, so a passer-by saying 進 is not counted as a shot. Buttons and a teammate are not gated.
+            result(made,source,at,{motion}={}){
+                if(source==='voice'&&motion===false&&(lastTrialAt===null||at-lastTrialAt>o.voiceMotionMs))
+                    return {accepted:false,reason:'no_motion'};
                 if(lastAt!==null&&at-lastAt<o.dedupMs&&(lastTrialAt===null||lastTrialAt<=lastAt))
                     return {accepted:false,reason:made===lastMade?'duplicate':'conflict'};
                 lastAt=at;lastMade=made;

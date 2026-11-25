@@ -24,11 +24,21 @@
     async function ensureAudio(){
         try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state!=='running')await audioCtx.resume();}catch{/* no audio */}
     }
-    function beep(freq,dur,type='sine',gain=0.5){
-        if(!audioCtx||audioCtx.state!=='running')return;
-        const osc=audioCtx.createOscillator(),g=audioCtx.createGain(),t=audioCtx.currentTime;
-        osc.type=type;osc.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(gain,t+0.03);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-        osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+dur);
+    // Plays a named cue (shoot/cues.js). iOS suspends the audio context when the page is idle or when the microphone
+    // takes the audio session, so it is resumed here before every cue instead of only once at the start.
+    async function playCue(name){
+        try{
+            if(!audioCtx)await ensureAudio();
+            if(audioCtx&&audioCtx.state!=='running')await audioCtx.resume();
+        }catch{/* handled below */}
+        if(!audioCtx||audioCtx.state!=='running'){$('last-note').textContent+='（聲音無法播放：請確認手機沒有靜音、音量已開）';return;}
+        const t0=audioCtx.currentTime;
+        for(const n of ShootCues.notes(name)){
+            const osc=audioCtx.createOscillator(),g=audioCtx.createGain(),t=t0+n.at;
+            osc.type=n.type;osc.frequency.setValueAtTime(n.freq,t);
+            g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(n.gain,t+0.02);g.gain.setValueAtTime(n.gain,t+n.dur-0.05);g.gain.linearRampToValueAtTime(0.0001,t+n.dur);
+            osc.connect(g);g.connect(audioCtx.destination);osc.start(t);osc.stop(t+n.dur+0.02);
+        }
     }
 
     // ---------- storage and upload ----------
@@ -377,7 +387,7 @@
             const r=P.addTrial(practice,trial);
             practice=r.practice;log.trial({...trial,trialOrder:r.trialOrder},Date.now());save();
         }catch(error){message(error.message,'practice-message');return;}
-        if(trial.status==='aborted'){$('last-note').textContent='這球中斷了：'+reason(trial.reasonCode);return;}
+        if(trial.status==='aborted'){$('last-note').textContent='這球中斷了：'+reason(trial.reasonCode);if(practice.run.condition==='auditory')playCue('unmeasured');return;}
         if(hoopWatch){hoopWatch.start(performance.now());hoopWatchActive=true;answeredByPlayer=false;}
         // The detector already waits about 1 s after release, as on the research page.
         feedback(trial);
@@ -393,22 +403,25 @@
     }
     function feedback(trial){
         const dt=$('last-dt');dt.className='';dt.dataset.count=String(Number(dt.dataset.count||0)+1);
-        if(trial.status!=='accepted'){dt.textContent='-- ms';$('last-note').textContent='這球沒量到：'+reason(trial.reasonCode);return;}
+        const sound=practice.run.condition==='auditory';
+        if(trial.status!=='accepted'){dt.textContent='-- ms';$('last-note').textContent='這球沒量到：'+reason(trial.reasonCode);if(sound)playCue(ShootCues.forTrial(trial,null));return;}
         const ref=E.personalReference(madePeaks),j=E.judge(trial.dtPeak,ref);
         drawRhythm(trial.dtPeak,ref);
         dt.textContent=Math.round(trial.dtPeak)+' ms';
-        const sound=practice.run.condition==='auditory';
-        if(j==='steady'){dt.className='steady';$('last-note').textContent='和你進球時的節奏接近（'+ref.low+'–'+ref.high+' ms）';if(sound)beep(800,0.5);}
+        if(j==='steady'){dt.className='steady';$('last-note').textContent='和你進球時的節奏接近（'+ref.low+'–'+ref.high+' ms）';}
         else if(j==='off'){
             dt.className='off';const diff=Math.round(trial.dtPeak-ref.mean);
-            $('last-note').textContent='手比你進球時'+(diff>0?'晚 ':'早 ')+Math.abs(diff)+' ms';if(sound)beep(150,0.3,'sawtooth');
-        }else{$('last-note').textContent='建立個人節奏中：再 '+ref.needed+' 顆有量到的進球';if(sound)beep(600,0.08,'sine',0.25);}
+            $('last-note').textContent='手比你進球時'+(diff>0?'晚 ':'早 ')+Math.abs(diff)+' ms';
+        }else{$('last-note').textContent='建立個人節奏中：再 '+ref.needed+' 顆有量到的進球';}
+        if(sound)playCue(ShootCues.forTrial(trial,j));
     }
     function handleResult(made,source){
         if(!practice||$('practice-view').hidden)return;
         if(source!=='camera'&&hoopWatchActive)answeredByPlayer=true;
-        const r=log.result(made,source,Date.now());
-        if(!r.accepted){if(source==='camera')return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
+        const r=log.result(made,source,Date.now(),{motion:!!detector&&detector.state!=='IDLE'});
+        if(!r.accepted){
+            if(r.reason==='no_motion'){message('聽到「'+(made?'進':'沒進')+'」，但沒看到你投籃，沒有計入（可能是旁邊的人）。要記請按按鈕。','practice-message');return;}
+            if(source==='camera'||source==='voice'&&r.reason==='duplicate')return;message(r.reason==='duplicate'?'這球已經記過了。':'和剛才的紀錄不同，已保留第一筆；結束後可以修正。','practice-message');return;}
         const shotId=newId('s');
         try{practice=P.addResult(practice,{made,source,shotId,trialOrder:r.trial?.trialOrder ?? null});}
         catch(error){message(error.message,'practice-message');return;}

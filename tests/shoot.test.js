@@ -197,3 +197,24 @@ test('a camera-detected result is accepted as a shot source and kept in the set 
     const C=require('../training/core.js');
     assert.ok(C.SHOT_SOURCES.includes('camera'));
 });
+
+// A passer-by saying 「進」 must not become a shot. The voice is only taken while the camera sees the shooter move
+// (the detector is past IDLE) or shortly after a motion trial; buttons and the teammate are never gated.
+test('a voice call with no shooter motion is ignored, a button press is not',()=>{
+    const log=E.createResultLog();
+    assert.deepEqual(log.result(true,'voice',1000,{motion:false}),{accepted:false,reason:'no_motion'});
+    assert.equal(log.result(true,'manual',1500,{motion:false}).accepted,true);
+});
+test('a voice call is taken while the shooter is moving, or soon after a trial',()=>{
+    const log=E.createResultLog();
+    assert.equal(log.result(true,'voice',1000,{motion:true}).accepted,true);
+    log.trial({status:'accepted',dtPeak:100},10000);
+    assert.equal(log.result(false,'voice',20000,{motion:false}).accepted,true);   // 10 s after the trial
+    log.trial({status:'accepted',dtPeak:100},30000);
+    assert.deepEqual(log.result(false,'voice',60000,{motion:false}),{accepted:false,reason:'no_motion'}); // 30 s after
+});
+test('a rejected stray voice call does not block the next real result',()=>{
+    const log=E.createResultLog();
+    log.result(true,'voice',1000,{motion:false});
+    assert.equal(log.result(false,'manual',1200).accepted,true);
+});
