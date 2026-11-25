@@ -1,5 +1,5 @@
 // Proves that the player page's detector (shoot/engine.js) makes the same decisions as
-// the research page (專題程式/index.html, timing-validity-v3).
+// the research page (專題程式/index.html, timing-validity-v4).
 //
 // The research page runs unmodified in Chromium. Only its inputs are replaced: the pose
 // model returns our synthetic landmarks, performance.now() returns the synthetic frame

@@ -115,7 +115,7 @@ function capture(shot,{fps,noiseDeg,jitterMs},r){
         if(c.raw)samples=out.map(s=>({t:s.t,kn:s.kn,eb:s.eb}));
         else if(c.offline){const kn=c.offline(out.map(s=>s.kn),fps),eb=c.offline(out.map(s=>s.eb),fps);samples=out.map((s,i)=>({t:s.t,kn:kn[i],eb:eb[i]}));}
         else samples=out.map(s=>({t:s.t,kn:s.cand[c.id].kn,eb:s.cand[c.id].eb}));
-        const res=M.detectTiming(samples);
+        const res=M.detectTiming(samples,undefined,{kneeWindowMs:Infinity});
         results[c.id]=res.reason?{reason:res.reason}:{onset:res.dt,peak:res.events.elbowPeakPerfMs-res.events.kneePeakPerfMs};
     }
     return results;
