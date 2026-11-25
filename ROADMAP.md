@@ -85,3 +85,4 @@ Supabase（Postgres + Auth）
 - 分析模型離線快取、下載進度與較清楚的載入逾時說明（2026-11-24，現場網路過慢後新增；首次部署失敗後重新部署）。
 
 <!-- redeploy 2026-11-25 (Pages artifact race) -->
+<!-- redeploy 2 -->
