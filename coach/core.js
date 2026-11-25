@@ -119,5 +119,7 @@
         }
         return {team:{id:'demo-team',name:'示範球隊（合成資料）',invite_code:'DEMO2026',role:'coach'},roster,sessions};
     }
-    return {DRILLS,SHOT_COLUMNS,teamReport,demoData,shotRows,shotCsv,localDate};
+    // Overlapping loads (the coach switches team twice quickly): only the newest may be drawn, a late older answer is dropped.
+    function latestOnly(){let n=0;return {begin:()=>++n,current:id=>id===n};}
+    return {DRILLS,SHOT_COLUMNS,teamReport,demoData,shotRows,shotCsv,localDate,latestOnly};
 });
