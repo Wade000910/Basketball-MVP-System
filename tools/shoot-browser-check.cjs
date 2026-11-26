@@ -57,7 +57,7 @@ const fullShot=async(page,file)=>{
         await page.waitForFunction(()=>!document.getElementById('practice-view').hidden);
         // Camera + pose model: frames are analysed (no person in the fake feed).
         await page.waitForFunction(()=>/fps/.test(document.getElementById('fps').textContent),null,{timeout:60000});
-        assert.match(await page.textContent('#guide'),/找不到身體/);
+        assert.match(await page.textContent('#guide'),/找不到你/);
         const source=await page.evaluate(()=>window.ShootApp.practice&&document.getElementById('fps').textContent);
         checks.push('camera starts, pose model runs on frames ('+source+')');
         // Software pose inference makes headless timing slow; the rest uses injected trials.
